@@ -42,7 +42,7 @@ export interface MessageUpdatePayload {
 export interface LoadMessagePayload {
     type: string;
     channelId: string;
-    messages: Message[];
+    messages: LoggedMessage[];
     isBefore: boolean;
     isAfter: boolean;
     hasMoreBefore: boolean;
