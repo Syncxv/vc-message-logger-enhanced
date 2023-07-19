@@ -211,6 +211,7 @@ function LMessage({ log, forceUpdate, onClose }: LMessageProps) {
                     onClose={() => FluxDispatcher.dispatch({ type: "CONTEXT_MENU_CLOSE" })}
                     aria-label="Gif Collections"
                 >
+
                     <Menu.MenuItem
                         key="jump-to-message"
                         id="jump-to-message"
@@ -219,6 +220,13 @@ function LMessage({ log, forceUpdate, onClose }: LMessageProps) {
                             NavigationRouter.transitionTo(`/channels/${ChannelStore.getChannel(message.channel_id)?.guild_id ?? "@me"}/${message.channel_id}${message.id ? "/" + message.id : ""}`);
                             onClose();
                         }}
+                    />
+
+                    <Menu.MenuItem
+                        key="copy-content"
+                        id="copy-content"
+                        label="Copy Content"
+                        action={() => copyWithToast(message.content)}
                     />
 
                     <Menu.MenuItem
@@ -236,20 +244,12 @@ function LMessage({ log, forceUpdate, onClose }: LMessageProps) {
                     />
 
                     <Menu.MenuItem
-                        key="copy-content"
-                        id="copy-content"
-                        label="Copy Content"
-                        action={() => copyWithToast(message.content)}
-                    />
-
-                    <Menu.MenuItem
                         key="delete-log"
                         id="delete-log"
                         label="Delete Log"
                         color="danger"
                         action={() => removeLog(log.message.id).then(() => forceUpdate())}
                     />
-
 
                 </Menu.Menu>
             );

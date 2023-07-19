@@ -6,23 +6,24 @@
 
 .msg-logger-modal-header {
     flex-direction: column;
-    width: 100%;
+
+    /* width: 100%; */
 }
 
 .msg-logger-modal-content {
     padding-bottom: 20px;
-    max-height: 534.655px;
-    min-height: 534.655px;
-    min-width: 808px;
 }
 
 .msg-logger-modal-content-inner {
     padding-top: 1rem;
     padding-bottom: 1rem;
+    max-height: 534.655px;
+    min-height: 534.655px;
+    min-width: 808px;
 }
 
 .msg-logger-modal-header > div:has(input) {
-    width: 80%;
+    width: 100%;
 }
 
 .msg-logger-modal-tab-bar-item {
@@ -30,7 +31,6 @@
     padding-bottom: 16px;
     margin-bottom: -2px;
 }
-
 
 .msg-logger-modal-tab-bar {
     margin-top: 20px;
