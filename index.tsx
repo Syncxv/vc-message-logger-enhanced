@@ -18,15 +18,16 @@
 
 import "./styles.css";
 
+import { addContextMenuPatch, NavContextMenuPatchCallback, removeContextMenuPatch } from "@api/ContextMenu";
 import { definePluginSettings } from "@api/Settings";
 import { Devs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
-import { Alerts, Button, MessageStore, moment, UserStore } from "@webpack/common";
+import { Alerts, Button, Menu, MessageStore, UserStore } from "@webpack/common";
 
 import { openLogModal } from "./components/LogsModal";
 import { addMessage, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache } from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { cleanupUserObject, reAddDeletedMessages } from "./utils";
+import { cleanupUserObject, mapEditHistory, reAddDeletedMessages } from "./utils";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
 async function messageDeleteHandler(payload: MessageDeletePayload) {
     const message: LoggedMessage = MessageStore.getMessage(payload.channelId, payload.id);
@@ -156,16 +157,38 @@ export default definePlugin({
     getEdited(m1, m2) {
         const editHistory = m2?.editHistory;
         if (editHistory == null && m1?.editHistory != null && m1.editHistory.length > 0)
-            return m1.editHistory.map(m => {
-                m.timestamp = moment(m.timestamp);
-                return m;
-            });
+            return m1.editHistory.map(mapEditHistory);
         return editHistory;
     },
     flux: {
         "MESSAGE_DELETE": messageDeleteHandler,
         "MESSAGE_UPDATE": messageUpdateHandler,
     },
+
+    start() {
+        addContextMenuPatch("message", openLogsPatch);
+        addContextMenuPatch("channel-context", openLogsPatch);
+
+    },
+
+    stop() {
+        removeContextMenuPatch("message", openLogsPatch);
+        removeContextMenuPatch("channel-context", openLogsPatch);
+
+    }
 });
 
 
+const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
+    if (!props) return;
+
+    if (!children.some(child => child?.props?.id === "open-logs")) {
+        children.push(
+            <Menu.MenuItem
+                id="open-logs"
+                label="Open Logs"
+                action={() => openLogModal()}
+            />
+        );
+    }
+};

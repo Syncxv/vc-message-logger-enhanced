@@ -18,7 +18,7 @@
 
 import { classNameFactory } from "@api/Styles";
 import { copyWithToast } from "@utils/misc";
-import { ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
+import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findLazy } from "@webpack";
 import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, TabBar, TextInput, useCallback, useMemo, useState } from "@webpack/common";
@@ -172,7 +172,7 @@ function LogsContent({ logs, tab, query, forceUpdate, onClose, sortNewest }: Log
                     <LMessage
                         key={id}
                         log={logs[id] as { message: LoggedMessage; }}
-                        forceUpdate={forceUpdate} onClose={onClose}
+                        forceUpdate={forceUpdate}
                     />
                 ))}
             {canLoadMore && <Button style={{ marginTop: "1rem", width: "100%" }} size={Button.Sizes.SMALL} onClick={() => handleLoadMore()}>Load More</Button>}
@@ -183,9 +183,8 @@ function LogsContent({ logs, tab, query, forceUpdate, onClose, sortNewest }: Log
 interface LMessageProps {
     log: { message: LoggedMessage; };
     forceUpdate: () => void;
-    onClose: () => void;
 }
-function LMessage({ log, forceUpdate, onClose }: LMessageProps) {
+function LMessage({ log, forceUpdate, }: LMessageProps) {
     const message = useMemo(() => {
         const message: LoggedMessage = new MessageClass.Z(log.message);
         message.timestamp = moment(message.timestamp);
@@ -218,7 +217,7 @@ function LMessage({ log, forceUpdate, onClose }: LMessageProps) {
                         label="Jump To Message"
                         action={() => {
                             NavigationRouter.transitionTo(`/channels/${ChannelStore.getChannel(message.channel_id)?.guild_id ?? "@me"}/${message.channel_id}${message.id ? "/" + message.id : ""}`);
-                            onClose();
+                            closeAllModals();
                         }}
                     />
 
