@@ -20,7 +20,7 @@ import { classNameFactory } from "@api/Styles";
 import { ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findLazy } from "@webpack";
-import { Button, ContextMenu, FluxDispatcher, Forms, Menu, TabBar, TextInput, useMemo, useState } from "@webpack/common";
+import { Button, ContextMenu, FluxDispatcher, Forms, Menu, TabBar, TextInput, useCallback, useMemo, useState } from "@webpack/common";
 import { Message, User } from "discord-types/general";
 import moment from "moment";
 
@@ -102,9 +102,13 @@ interface LogContentProps {
     forceUpdate: () => void;
 }
 function LogsContent({ logs, tab, forceUpdate }: LogContentProps) {
-    // this is shit but ill figure something out later
+    const [numDisplayedMessages, setNumDisplayedMessages] = useState(5);
+    const handleLoadMore = useCallback(() => {
+        setNumDisplayedMessages(prevNum => prevNum + 50);
+    }, []);
+
     const messages = tab === "deletedMessages" ? Object.values(logs?.deletedMessages ?? {}) : Object.values(logs?.editedMessages ?? {});
-    const flattenedMessages = messages.flat().slice(0, 50);
+    const flattenedMessages = messages.flat().slice(0, numDisplayedMessages);
     if (logs == null || messages.length === 0)
         return (
             <div className={cl("empty-logs")}>
@@ -114,12 +118,14 @@ function LogsContent({ logs, tab, forceUpdate }: LogContentProps) {
             </div>
         );
 
+    const canLoadMore = numDisplayedMessages < messages.flat().length;
 
     return (
         <div className={cl("content-inner")}>
             {flattenedMessages.map(id => (
                 <LMessage key={id} log={logs[id] as { message: LoggedMessage; }} forceUpdate={forceUpdate} />
             ))}
+            {canLoadMore && <Button style={{ marginTop: "1rem", width: "100%" }} size={Button.Sizes.SMALL} onClick={() => handleLoadMore()}>Load More</Button>}
         </div>
     );
 }

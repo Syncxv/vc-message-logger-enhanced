@@ -46,7 +46,10 @@ export const addMessage = async (message: LoggedMessage, key: "deletedMessages" 
 
     if (!loggedMessages[key][message.channel_id])
         loggedMessages[key][message.channel_id] = [];
-    loggedMessages[key][message.channel_id].push(message.id);
+
+    if (!loggedMessages[key][message.channel_id].includes(message.id)) {
+        loggedMessages[key][message.channel_id].push(message.id);
+    }
 
     await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
     await refreshCache();
