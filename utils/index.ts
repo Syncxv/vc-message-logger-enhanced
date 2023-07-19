@@ -34,6 +34,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { moment } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { loggedMessagesCache } from "../LoggedMessageManager";
@@ -118,4 +119,9 @@ export function reAddDeletedMessages(messages: LoggedMessage[], deletedMessages:
         const record = loggedMessagesCache[id];
         messages.splice(i, 0, record.message!);
     }
+}
+
+export function mapEditHistory(m: any) {
+    m.timestamp = moment(m.timestamp);
+    return m;
 }

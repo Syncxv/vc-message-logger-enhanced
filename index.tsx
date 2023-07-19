@@ -16,18 +16,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import "./styles.css";
+
 import { definePluginSettings } from "@api/Settings";
 import { Devs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
 import { Alerts, Button, MessageStore, moment, UserStore } from "@webpack/common";
-import { User } from "discord-types/general";
 
+import { openLogModal } from "./components/LogsModal";
 import { addMessage, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache } from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { cleanupUserObject, reAddDeletedMessages } from "./utils";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
-
-
 async function messageDeleteHandler(payload: MessageDeletePayload) {
     const message: LoggedMessage = MessageStore.getMessage(payload.channelId, payload.id);
     if (message == null || message.channel_id == null || !message.deleted) return;
@@ -72,7 +72,7 @@ function messageLoadSuccess(payload: LoadMessagePayload) {
             if (cachedUser) (message.mentions[j] as any) = cleanupUserObject(cachedUser);
         }
 
-        const author = fetchUser((message.author as User).id);
+        const author = fetchUser(message.author.id);
         if (!author) continue;
         (message.author as any) = cleanupUserObject(author);
     }
@@ -104,6 +104,14 @@ export const settings = definePluginSettings({
         component: () =>
             <Button onClick={downloadLoggedMessages}>
                 Export Logs
+            </Button>
+    },
+    openLogs: {
+        type: OptionType.COMPONENT,
+        description: "Open Logs",
+        component: () =>
+            <Button onClick={openLogModal}>
+                Open Logs
             </Button>
     }
 });
@@ -137,6 +145,8 @@ export default definePlugin({
     refreshCache,
     messageLoadSuccess,
     store: MessageLoggerStore,
+    openLogModal,
+
     getDeleted(m1, m2) {
         const deleted = m2?.deleted;
         if (deleted == null && m1?.deleted != null) return m1.deleted;
