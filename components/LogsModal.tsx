@@ -96,7 +96,6 @@ export function LogsModal({ modalProps }: Props) {
                     logs={logs}
                     tab={currentTab}
                     forceUpdate={forceUpdate}
-                    onClose={modalProps.onClose}
                     query={query}
                     sortNewest={sortNewest}
                 />
@@ -137,9 +136,8 @@ interface LogContentProps {
     query: string;
     sortNewest: boolean;
     forceUpdate: () => void;
-    onClose: () => void;
 }
-function LogsContent({ logs, tab, query, forceUpdate, onClose, sortNewest }: LogContentProps) {
+function LogsContent({ logs, tab, query, forceUpdate, sortNewest }: LogContentProps) {
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
     const handleLoadMore = useCallback(() => {
         setNumDisplayedMessages(prevNum => prevNum + 50);

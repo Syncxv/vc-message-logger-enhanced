@@ -29,6 +29,9 @@ import { addMessage, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refres
 import { LoadMessagePayload, LoggedMessage, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { cleanupUserObject, mapEditHistory, reAddDeletedMessages } from "./utils";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
+
+
+
 async function messageDeleteHandler(payload: MessageDeletePayload) {
     const message: LoggedMessage = MessageStore.getMessage(payload.channelId, payload.id);
     if (message == null || message.channel_id == null || !message.deleted) return;
