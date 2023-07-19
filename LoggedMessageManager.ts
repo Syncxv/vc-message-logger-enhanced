@@ -53,6 +53,34 @@ export const addMessage = async (message: LoggedMessage, key: "deletedMessages" 
 };
 
 
+export async function removeLog(id: string) {
+    const loggedMessages = await getLoggedMessages();
+    if (loggedMessages[id]) {
+        const message = loggedMessages[id];
+        const channel_id = message.message?.channel_id || undefined;
+
+        const removeFromKey = (key: "editedMessages" | "deletedMessages") => {
+            if (loggedMessages[key][channel_id!]) {
+                loggedMessages[key][channel_id!] = loggedMessages[key][channel_id!].filter(msgid => msgid !== id);
+
+                if (loggedMessages[key][channel_id!].length === 0) {
+                    delete loggedMessages[key][channel_id!];
+                }
+            }
+        };
+
+        removeFromKey("editedMessages");
+        removeFromKey("deletedMessages");
+
+        delete loggedMessages[id];
+
+        await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
+        await refreshCache();
+    }
+}
+
+
+
 export const isLogEmpty = async () => {
     const logs = await getLoggedMessages();
     const hasDeletedMessages = Object.keys(logs.deletedMessages).length > 0;

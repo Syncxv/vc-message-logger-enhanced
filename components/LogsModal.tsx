@@ -20,11 +20,11 @@ import { classNameFactory } from "@api/Styles";
 import { ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findLazy } from "@webpack";
-import { Button, Forms, TabBar, TextInput, useMemo, useState } from "@webpack/common";
+import { Button, ContextMenu, FluxDispatcher, Forms, Menu, TabBar, TextInput, useMemo, useState } from "@webpack/common";
 import { Message, User } from "discord-types/general";
 import moment from "moment";
 
-import { getLoggedMessages } from "../LoggedMessageManager";
+import { getLoggedMessages, removeLog } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessages } from "../types";
 import { mapEditHistory } from "../utils";
 
@@ -52,7 +52,12 @@ enum LogTabs {
     EDITED = "editedMessages"
 }
 export function LogsModal({ modalProps }: Props) {
-    const [logs, _, pending] = useAwaiter(getLoggedMessages);
+    const [x, setX] = useState(0);
+    const forceUpdate = () => setX(e => e + 1);
+    const [logs, _, pending] = useAwaiter(getLoggedMessages, {
+        fallbackValue: { deletedMessages: {}, editedMessages: {} },
+        deps: [x]
+    });
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
     console.log(logs, _, pending);
 
@@ -82,7 +87,7 @@ export function LogsModal({ modalProps }: Props) {
                 </TabBar>
             </ModalHeader>
             <ModalContent className={cl("content")}>
-                <LogsContent logs={logs} tab={currentTab} />
+                <LogsContent logs={logs} tab={currentTab} forceUpdate={forceUpdate} />
             </ModalContent>
             <ModalFooter>
                 <Button>Cool</Button>
@@ -91,32 +96,36 @@ export function LogsModal({ modalProps }: Props) {
     );
 }
 
-
-function LogsContent({ logs, tab }: { logs: LoggedMessages | null, tab: "deletedMessages" | "editedMessages"; }) {
-    if (logs == null)
+interface LogContentProps {
+    logs: LoggedMessages | null,
+    tab: "deletedMessages" | "editedMessages";
+    forceUpdate: () => void;
+}
+function LogsContent({ logs, tab, forceUpdate }: LogContentProps) {
+    // this is shit but ill figure something out later
+    const messages = tab === "deletedMessages" ? Object.values(logs?.deletedMessages ?? {}) : Object.values(logs?.editedMessages ?? {});
+    const flattenedMessages = messages.flat().slice(0, 50);
+    if (logs == null || messages.length === 0)
         return (
             <div className={cl("empty-logs")}>
                 <Forms.FormText variant="text-lg/normal" style={{ textAlign: "center" }}>
-                    Logs are empty
+                    Empty eh
                 </Forms.FormText>
             </div>
         );
 
-    // this is shit but ill figure something out later
-    const messages = tab === "deletedMessages" ? Object.values(logs.deletedMessages) : Object.values(logs.editedMessages);
-    const flattenedMessages = messages.flat().slice(0, 50);
 
     return (
         <div className={cl("content-inner")}>
             {flattenedMessages.map(id => (
-                <LMessage key={id} log={logs[id] as { message: LoggedMessage; }} />
+                <LMessage key={id} log={logs[id] as { message: LoggedMessage; }} forceUpdate={forceUpdate} />
             ))}
         </div>
     );
 }
 
 
-function LMessage({ log }: { log: { message: LoggedMessage; }; }) {
+function LMessage({ log, forceUpdate }: { log: { message: LoggedMessage; }; forceUpdate: () => void; }) {
     const message = useMemo(() => {
         const message: LoggedMessage = new MessageClass.Z(log.message);
         message.timestamp = moment(message.timestamp);
@@ -127,7 +136,27 @@ function LMessage({ log }: { log: { message: LoggedMessage; }; }) {
         return message;
     }, [log]);
     return (
-        <div onContextMenu={() => console.log("HI")}>
+        <div onContextMenu={e => {
+            ContextMenu.open(e, () =>
+                <Menu.Menu
+                    navId="gif-collection-id"
+                    onClose={() => FluxDispatcher.dispatch({ type: "CONTEXT_MENU_CLOSE" })}
+                    aria-label="Gif Collections"
+                >
+
+                    <Menu.MenuItem
+                        key="delete-log"
+                        id="delete-log"
+                        label="Delete Log"
+                        color="danger"
+                        action={() => removeLog(log.message.id).then(() => forceUpdate())}
+                    />
+
+
+
+                </Menu.Menu>
+            );
+        }}>
             <MessagePreview
                 className={`${cl("msg-preview")} ${message.deleted ? "messagelogger-deleted" : ""}`}
                 author={message.author}
