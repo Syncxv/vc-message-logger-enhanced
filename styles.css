@@ -12,6 +12,8 @@
 .msg-logger-modal-content {
     padding-bottom: 20px;
     max-height: 534.655px;
+    min-height: 534.655px;
+    min-width: 808px;
 }
 
 .msg-logger-modal-content-inner {

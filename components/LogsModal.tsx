@@ -17,10 +17,11 @@
 */
 
 import { classNameFactory } from "@api/Styles";
+import { copyWithToast } from "@utils/misc";
 import { ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findLazy } from "@webpack";
-import { Button, ContextMenu, FluxDispatcher, Forms, Menu, TabBar, TextInput, useCallback, useMemo, useState } from "@webpack/common";
+import { Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, TabBar, TextInput, useCallback, useMemo, useState } from "@webpack/common";
 import { Message, User } from "discord-types/general";
 import moment from "moment";
 
@@ -87,7 +88,7 @@ export function LogsModal({ modalProps }: Props) {
                 </TabBar>
             </ModalHeader>
             <ModalContent className={cl("content")}>
-                <LogsContent logs={logs} tab={currentTab} forceUpdate={forceUpdate} />
+                <LogsContent logs={logs} tab={currentTab} forceUpdate={forceUpdate} onClose={modalProps.onClose} />
             </ModalContent>
             <ModalFooter>
                 <Button>Cool</Button>
@@ -100,9 +101,10 @@ interface LogContentProps {
     logs: LoggedMessages | null,
     tab: "deletedMessages" | "editedMessages";
     forceUpdate: () => void;
+    onClose: () => void;
 }
-function LogsContent({ logs, tab, forceUpdate }: LogContentProps) {
-    const [numDisplayedMessages, setNumDisplayedMessages] = useState(5);
+function LogsContent({ logs, tab, forceUpdate, onClose }: LogContentProps) {
+    const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
     const handleLoadMore = useCallback(() => {
         setNumDisplayedMessages(prevNum => prevNum + 50);
     }, []);
@@ -123,15 +125,15 @@ function LogsContent({ logs, tab, forceUpdate }: LogContentProps) {
     return (
         <div className={cl("content-inner")}>
             {flattenedMessages.map(id => (
-                <LMessage key={id} log={logs[id] as { message: LoggedMessage; }} forceUpdate={forceUpdate} />
+                <LMessage key={id} log={logs[id] as { message: LoggedMessage; }} forceUpdate={forceUpdate} onClose={onClose} />
             ))}
             {canLoadMore && <Button style={{ marginTop: "1rem", width: "100%" }} size={Button.Sizes.SMALL} onClick={() => handleLoadMore()}>Load More</Button>}
         </div>
     );
 }
 
-
-function LMessage({ log, forceUpdate }: { log: { message: LoggedMessage; }; forceUpdate: () => void; }) {
+interface LMessageProps { log: { message: LoggedMessage; }; forceUpdate: () => void; onClose: () => void; }
+function LMessage({ log, forceUpdate, onClose }: LMessageProps) {
     const message = useMemo(() => {
         const message: LoggedMessage = new MessageClass.Z(log.message);
         message.timestamp = moment(message.timestamp);
@@ -149,6 +151,36 @@ function LMessage({ log, forceUpdate }: { log: { message: LoggedMessage; }; forc
                     onClose={() => FluxDispatcher.dispatch({ type: "CONTEXT_MENU_CLOSE" })}
                     aria-label="Gif Collections"
                 >
+                    <Menu.MenuItem
+                        key="jump-to-message"
+                        id="jump-to-message"
+                        label="Jump To Message"
+                        action={() => {
+                            NavigationRouter.transitionTo(`/channels/${ChannelStore.getChannel(message.channel_id)?.guild_id ?? "@me"}/${message.channel_id}${message.id ? "/" + message.id : ""}`);
+                            onClose();
+                        }}
+                    />
+
+                    <Menu.MenuItem
+                        key="copy-user-id"
+                        id="copy-user-id"
+                        label="Copy User ID"
+                        action={() => copyWithToast(message.author.id)}
+                    />
+
+                    <Menu.MenuItem
+                        key="copy-message-id"
+                        id="copy-message-id"
+                        label="Copy Message ID"
+                        action={() => copyWithToast(message.id)}
+                    />
+
+                    <Menu.MenuItem
+                        key="copy-content"
+                        id="copy-content"
+                        label="Copy Content"
+                        action={() => copyWithToast(message.content)}
+                    />
 
                     <Menu.MenuItem
                         key="delete-log"
@@ -157,7 +189,6 @@ function LMessage({ log, forceUpdate }: { log: { message: LoggedMessage; }; forc
                         color="danger"
                         action={() => removeLog(log.message.id).then(() => forceUpdate())}
                     />
-
 
 
                 </Menu.Menu>
