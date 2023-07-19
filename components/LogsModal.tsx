@@ -55,17 +55,20 @@ enum LogTabs {
 export function LogsModal({ modalProps }: Props) {
     const [x, setX] = useState(0);
     const forceUpdate = () => setX(e => e + 1);
+
     const [logs, _, pending] = useAwaiter(getLoggedMessages, {
         fallbackValue: defaultLoggedMessages,
         deps: [x]
     });
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
+    const [query, setQuery] = useState("");
+
     console.log(logs, _, pending);
 
     return (
         <ModalRoot {...modalProps} size={ModalSize.LARGE}>
             <ModalHeader className={cl("header")}>
-                <TextInput style={{ width: "100%" }} placeholder="Filter Messages" />
+                <TextInput onChange={e => setQuery(e)} style={{ width: "100%" }} placeholder="Filter Messages" />
                 <TabBar
                     type="top"
                     look="brand"
@@ -88,7 +91,13 @@ export function LogsModal({ modalProps }: Props) {
                 </TabBar>
             </ModalHeader>
             <ModalContent className={cl("content")}>
-                <LogsContent logs={logs} tab={currentTab} forceUpdate={forceUpdate} onClose={modalProps.onClose} />
+                <LogsContent
+                    logs={logs}
+                    tab={currentTab}
+                    forceUpdate={forceUpdate}
+                    onClose={modalProps.onClose}
+                    query={query}
+                />
             </ModalContent>
             <ModalFooter>
                 <Button
@@ -118,8 +127,9 @@ interface LogContentProps {
     tab: "deletedMessages" | "editedMessages";
     forceUpdate: () => void;
     onClose: () => void;
+    query: string;
 }
-function LogsContent({ logs, tab, forceUpdate, onClose }: LogContentProps) {
+function LogsContent({ logs, tab, query, forceUpdate, onClose }: LogContentProps) {
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
     const handleLoadMore = useCallback(() => {
         setNumDisplayedMessages(prevNum => prevNum + 50);
@@ -140,25 +150,40 @@ function LogsContent({ logs, tab, forceUpdate, onClose }: LogContentProps) {
 
     return (
         <div className={cl("content-inner")}>
-            {flattenedMessages.map(id => (
-                <LMessage key={id} log={logs[id] as { message: LoggedMessage; }} forceUpdate={forceUpdate} onClose={onClose} />
-            ))}
+            {flattenedMessages
+                .filter(m => logs[m].message?.content?.includes(query))
+                .map(id => (
+                    <LMessage
+                        key={id}
+                        log={logs[id] as { message: LoggedMessage; }}
+                        forceUpdate={forceUpdate} onClose={onClose}
+                    />
+                ))}
             {canLoadMore && <Button style={{ marginTop: "1rem", width: "100%" }} size={Button.Sizes.SMALL} onClick={() => handleLoadMore()}>Load More</Button>}
         </div>
     );
 }
 
-interface LMessageProps { log: { message: LoggedMessage; }; forceUpdate: () => void; onClose: () => void; }
+interface LMessageProps {
+    log: { message: LoggedMessage; };
+    forceUpdate: () => void;
+    onClose: () => void;
+}
 function LMessage({ log, forceUpdate, onClose }: LMessageProps) {
     const message = useMemo(() => {
         const message: LoggedMessage = new MessageClass.Z(log.message);
         message.timestamp = moment(message.timestamp);
-        message.editedTimestamp = moment(message.editedTimestamp);
+
         const editHistory = message.editHistory?.map(mapEditHistory);
-        if (editHistory) message.editHistory = editHistory;
+        if (editHistory && editHistory.length > 0) {
+            message.editHistory = editHistory;
+            message.editedTimestamp = moment(message.editedTimestamp);
+        }
         message.author = new AuthorClass.Z(message.author);
         if ("globalName" in message.author) {
             (message.author as any).nick = message.author.globalName ?? message.author.username;
+        } else {
+            (message.author as any).nick = message.author.username;
         }
         return message;
     }, [log]);
