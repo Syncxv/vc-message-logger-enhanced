@@ -161,7 +161,7 @@ function LogsContent({ logs, tab, query, forceUpdate, onClose, sortNewest }: Log
     return (
         <div className={cl("content-inner")}>
             {flattenedMessages
-                .filter(m => logs[m].message?.content?.includes(query))
+                .filter(m => logs[m].message?.content?.toLowerCase()?.includes(query.toLowerCase()))
                 // newest first
                 .sort((a, b) => {
                     const timestampA = new Date(logs[a].message!.timestamp as any).getTime(); // im not sorry

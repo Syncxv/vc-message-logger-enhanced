@@ -182,13 +182,20 @@ export default definePlugin({
 const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
     if (!props) return;
 
-    if (!children.some(child => child?.props?.id === "open-logs")) {
+    if (!children.some(child => child?.props?.id === "message-logger")) {
         children.push(
             <Menu.MenuItem
-                id="open-logs"
-                label="Open Logs"
-                action={() => openLogModal()}
-            />
+                id="message-logger"
+                label="Message Logger"
+            >
+
+                <Menu.MenuItem
+                    id="open-logs"
+                    label="Open Logs"
+                    action={() => openLogModal()}
+                />
+
+            </Menu.MenuItem>
         );
     }
 };
