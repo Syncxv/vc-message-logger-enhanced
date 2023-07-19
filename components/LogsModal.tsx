@@ -21,11 +21,11 @@ import { copyWithToast } from "@utils/misc";
 import { ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findLazy } from "@webpack";
-import { Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, TabBar, TextInput, useCallback, useMemo, useState } from "@webpack/common";
+import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, TabBar, TextInput, useCallback, useMemo, useState } from "@webpack/common";
 import { Message, User } from "discord-types/general";
 import moment from "moment";
 
-import { getLoggedMessages, removeLog } from "../LoggedMessageManager";
+import { clearLogs, defaultLoggedMessages, getLoggedMessages, removeLog } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessages } from "../types";
 import { mapEditHistory } from "../utils";
 
@@ -56,7 +56,7 @@ export function LogsModal({ modalProps }: Props) {
     const [x, setX] = useState(0);
     const forceUpdate = () => setX(e => e + 1);
     const [logs, _, pending] = useAwaiter(getLoggedMessages, {
-        fallbackValue: { deletedMessages: {}, editedMessages: {} },
+        fallbackValue: defaultLoggedMessages,
         deps: [x]
     });
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
@@ -91,7 +91,23 @@ export function LogsModal({ modalProps }: Props) {
                 <LogsContent logs={logs} tab={currentTab} forceUpdate={forceUpdate} onClose={modalProps.onClose} />
             </ModalContent>
             <ModalFooter>
-                <Button>Cool</Button>
+                <Button
+                    color={Button.Colors.RED}
+                    onClick={() => Alerts.show({
+                        title: "Clear Logs",
+                        body: "Are you sure you want to delete all the logs",
+                        confirmText: "Clear",
+                        confirmColor: Button.Colors.RED,
+                        cancelText: "Cancel",
+                        onConfirm: async () => {
+                            await clearLogs();
+                            forceUpdate();
+                        }
+
+                    })}
+                >
+                    Clear Logs
+                </Button>
             </ModalFooter>
         </ModalRoot>
     );
@@ -141,6 +157,9 @@ function LMessage({ log, forceUpdate, onClose }: LMessageProps) {
         const editHistory = message.editHistory?.map(mapEditHistory);
         if (editHistory) message.editHistory = editHistory;
         message.author = new AuthorClass.Z(message.author);
+        if ("globalName" in message.author) {
+            (message.author as any).nick = message.author.globalName ?? message.author.username;
+        }
         return message;
     }, [log]);
     return (

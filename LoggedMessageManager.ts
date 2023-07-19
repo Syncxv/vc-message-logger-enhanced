@@ -21,11 +21,14 @@ import { DataStore } from "@api/index";
 
 import { LoggedMessage, LoggedMessages } from "./types";
 
-export const LOGGED_MESSAGES_KEY = "logged-messages-hi";
+export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, };
 
+export const LOGGED_MESSAGES_KEY = "logged-messages-hi";
 export const MessageLoggerStore = createStore("MessageLoggerData", "MessageLoggerStore");
 
-export let loggedMessagesCache: LoggedMessages = { deletedMessages: {}, editedMessages: {}, };
+export let loggedMessagesCache: LoggedMessages = defaultLoggedMessages;
+
+
 (async () => {
     try {
         const res = await MessageLoggerStore("readonly", store => promisifyRequest<LoggedMessages>(store.get(LOGGED_MESSAGES_KEY)));
@@ -37,7 +40,7 @@ export let loggedMessagesCache: LoggedMessages = { deletedMessages: {}, editedMe
 })();
 
 
-export const getLoggedMessages = async (): Promise<LoggedMessages> => (await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore)) ?? { deletedMessages: {}, editedMessages: {} };
+export const getLoggedMessages = async (): Promise<LoggedMessages> => (await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore)) ?? defaultLoggedMessages;
 export const refreshCache = async () => loggedMessagesCache = await getLoggedMessages();
 
 export const addMessage = async (message: LoggedMessage, key: "deletedMessages" | "editedMessages") => {
@@ -82,7 +85,10 @@ export async function removeLog(id: string) {
     }
 }
 
-
+export async function clearLogs() {
+    await DataStore.set(LOGGED_MESSAGES_KEY, defaultLoggedMessages, MessageLoggerStore);
+    await refreshCache();
+}
 
 export const isLogEmpty = async () => {
     const logs = await getLoggedMessages();
