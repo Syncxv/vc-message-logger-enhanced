@@ -62,6 +62,7 @@ export function LogsModal({ modalProps }: Props) {
     });
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
     const [query, setQuery] = useState("");
+    const [sortNewest, setSortNewest] = useState(true);
 
     console.log(logs, _, pending);
 
@@ -97,6 +98,7 @@ export function LogsModal({ modalProps }: Props) {
                     forceUpdate={forceUpdate}
                     onClose={modalProps.onClose}
                     query={query}
+                    sortNewest={sortNewest}
                 />
             </ModalContent>
             <ModalFooter>
@@ -117,6 +119,13 @@ export function LogsModal({ modalProps }: Props) {
                 >
                     Clear Logs
                 </Button>
+                <Button
+                    look={Button.Looks.LINK}
+                    color={Button.Colors.PRIMARY}
+                    onClick={() => setSortNewest(e => !e)}
+                >
+                    Sort {sortNewest ? "Oldest First" : "Newest First"}
+                </Button>
             </ModalFooter>
         </ModalRoot>
     );
@@ -125,11 +134,12 @@ export function LogsModal({ modalProps }: Props) {
 interface LogContentProps {
     logs: LoggedMessages | null,
     tab: "deletedMessages" | "editedMessages";
+    query: string;
+    sortNewest: boolean;
     forceUpdate: () => void;
     onClose: () => void;
-    query: string;
 }
-function LogsContent({ logs, tab, query, forceUpdate, onClose }: LogContentProps) {
+function LogsContent({ logs, tab, query, forceUpdate, onClose, sortNewest }: LogContentProps) {
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
     const handleLoadMore = useCallback(() => {
         setNumDisplayedMessages(prevNum => prevNum + 50);
@@ -152,6 +162,12 @@ function LogsContent({ logs, tab, query, forceUpdate, onClose }: LogContentProps
         <div className={cl("content-inner")}>
             {flattenedMessages
                 .filter(m => logs[m].message?.content?.includes(query))
+                // newest first
+                .sort((a, b) => {
+                    const timestampA = new Date(logs[a].message!.timestamp as any).getTime(); // im not sorry
+                    const timestampB = new Date(logs[b].message!.timestamp as any).getTime(); // im not sorry
+                    return sortNewest ? timestampB - timestampA : timestampA - timestampB;
+                })
                 .map(id => (
                     <LMessage
                         key={id}
