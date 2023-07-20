@@ -1,4 +1,4 @@
-# vc-message-logger-save-logs
+# vc-message-logger-enhanced
 
 ## Features
 - Restore deleted and edited messages after reloading discord
@@ -12,13 +12,13 @@
 # How to update
 cd into your vencord folder and run this
 ```bash
-cd src/userplugins/vc-message-logger-save-logs
+cd src/userplugins/vc-message-logger-enhanced
 git pull
 pnpm build
 ```
 
 # Demo
-https://github.com/Syncxv/vc-message-logger-save-logs/assets/47534062/de932bff-91fe-4825-8ef7-551cf245e51a
+https://github.com/Syncxv/vc-message-logger-enhanced/assets/47534062/de932bff-91fe-4825-8ef7-551cf245e51a
 
 ## found a bug?
 Message me on discord. @daveyy1
