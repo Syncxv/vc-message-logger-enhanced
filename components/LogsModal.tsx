@@ -180,11 +180,11 @@ function LogsContent({ logs, query: queryEh, messages, sortNewest, forceUpdate, 
 
     console.time("hi");
 
-    const { success, key, id, query } = parseQuery(queryEh);
+    const { success, type, id, query } = parseQuery(queryEh);
 
     const flattendAndfilteredAndSortedMessages = messages
         .flat()
-        .filter(m => logs[m].message != null && (success === false ? true : doesMatch(key!, id!, logs[m].message!)))
+        .filter(m => logs[m].message != null && (success === false ? true : doesMatch(type!, id!, logs[m].message!)))
         .filter(m => logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()))
         .sort((a, b) => {
             const timestampA = new Date(logs[a]?.message?.timestamp as any).getTime();
@@ -289,6 +289,18 @@ function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
                         label="Copy Channel ID"
                         action={() => copyWithToast(message.channel_id)}
                     />
+
+                    {
+                        log.message.guildId != null
+                        && (
+                            <Menu.MenuItem
+                                key="copy-server-id"
+                                id="copy-server-id"
+                                label="Copy Server ID"
+                                action={() => copyWithToast(log.message.guildId!)}
+                            />
+                        )
+                    }
 
                     <Menu.MenuItem
                         key="delete-log"

@@ -1,7 +1,8 @@
 .msg-logger-modal-root {
     max-height: 80vh;
     min-height: 80vh;
-    min-width: 75vw;
+    min-width: 85vw;
+    max-width: 85vw;
 }
 
 .msg-logger-modal-empty-logs {
@@ -47,10 +48,6 @@
     margin-top: 20px;
     width: 100%;
     justify-content: space-around;
-}
-
-.msg-logger-modal-msg-preview {
-    min-width: 75vw;
 }
 
 

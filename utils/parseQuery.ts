@@ -16,16 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ChannelStore } from "@webpack/common";
 
 import { LoggedMessageJSON } from "../types";
+import { getGuildIdByChannel } from "./index";
 
 const validIdSearchTypes = ["server", "channel", "user", "message"] as const;
 type ValidIdSearchTypesUnion = typeof validIdSearchTypes[number];
 
 export function parseQuery(query: string) {
-    let filter;
-    let rest;
+    let filter: string;
+    let rest: string;
 
     filter = query.substring(0, query.indexOf(" "));
     rest = query.substring(query.indexOf(" ") + 1);
@@ -64,7 +64,7 @@ export function parseQuery(query: string) {
 
     return {
         success: true,
-        key: type,
+        type,
         id,
         query: rest
     };
@@ -82,8 +82,7 @@ export function doesMatch(type: typeof validIdSearchTypes[number], value: string
         case "server": {
             if (message.guildId)
                 return message.guildId === value;
-            const guild_id = ChannelStore.getChannel(message.channel_id)?.guild_id;
-            return guild_id === value;
+            return getGuildIdByChannel(message.channel_id) === value;
         }
         default:
     }

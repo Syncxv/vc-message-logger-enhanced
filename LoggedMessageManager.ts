@@ -78,9 +78,9 @@ export const removeFromKey = (
 
 export async function removeLog(id: string) {
     const loggedMessages = await getLoggedMessages();
-    if (loggedMessages[id]) {
-        const message = loggedMessages[id];
-        const channel_id = message.message?.channel_id;
+    const record = loggedMessages[id];
+    if (record) {
+        const channel_id = record.message?.channel_id;
 
         if (channel_id != null) {
             removeFromKey(id, channel_id, loggedMessages, "editedMessages");
@@ -109,5 +109,4 @@ export const isLogEmpty = async () => {
     if (hasDeletedMessages && hasEditedMessages && hasMessages) return true;
 
     return false;
-
 };

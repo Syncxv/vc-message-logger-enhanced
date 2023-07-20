@@ -16,15 +16,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { MessageStore, moment } from "@webpack/common";
+import { ChannelStore, MessageStore, moment } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { loggedMessagesCache } from "../LoggedMessageManager";
 import { LoggedMessageJSON } from "../types";
 
+export function getGuildIdByChannel(channel_id: string) {
+    return ChannelStore.getChannel(channel_id)?.guild_id;
+}
 
 export function cleanupMessage(message: any) {
     const ret = JSON.parse(JSON.stringify(message.toJS()));
+    ret.guildId = getGuildIdByChannel(ret.channel_id);
     if (ret.type === 19) {
         ret.message_reference = message.message_reference || message.messageReference;
         if (ret.message_reference) {

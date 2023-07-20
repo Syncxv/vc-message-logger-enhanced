@@ -226,7 +226,6 @@ export default definePlugin({
         removeContextMenuPatch("user-context", openLogsPatch);
         removeContextMenuPatch("guild-context", openLogsPatch);
         removeContextMenuPatch("gdm-context", openLogsPatch);
-
     }
 });
 
