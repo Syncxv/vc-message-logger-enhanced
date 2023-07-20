@@ -153,8 +153,6 @@ function messageLoadSuccess(payload: LoadMessagePayload) {
             if (cachedUser) (message.mentions[j] as any) = cleanupUserObject(cachedUser);
         }
 
-        message.embeds.map(m => ({ ...m, id: undefined }));
-
         const author = fetchUser(message.author.id);
         if (!author) continue;
         (message.author as any) = cleanupUserObject(author);
