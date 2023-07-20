@@ -8,6 +8,8 @@
 - Blacklist servers, channels and users
 - Log Messages from channels / dms you didnt open
 - Cache server messages (can be toggled in settings. disabled by default)
+- Export Logs
+- Import Logs
 
 # How to update
 cd into your vencord folder and run this
