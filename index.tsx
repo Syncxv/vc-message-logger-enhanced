@@ -224,7 +224,7 @@ export const settings = definePluginSettings({
 
 
 export default definePlugin({
-    name: "MessageLoggerThingy",
+    name: "MessageLoggerEnhanced",
     authors: [Devs.Aria],
     description: "G'day",
     dependencies: ["MessageLogger"],
@@ -303,24 +303,24 @@ export default definePlugin({
     },
 
     start() {
-        addContextMenuPatch("message", openLogsPatch);
-        addContextMenuPatch("channel-context", openLogsPatch);
-        addContextMenuPatch("user-context", openLogsPatch);
-        addContextMenuPatch("guild-context", openLogsPatch);
-        addContextMenuPatch("gdm-context", openLogsPatch);
+        addContextMenuPatch("message", contextMenuPath);
+        addContextMenuPatch("channel-context", contextMenuPath);
+        addContextMenuPatch("user-context", contextMenuPath);
+        addContextMenuPatch("guild-context", contextMenuPath);
+        addContextMenuPatch("gdm-context", contextMenuPath);
     },
 
     stop() {
-        removeContextMenuPatch("message", openLogsPatch);
-        removeContextMenuPatch("channel-context", openLogsPatch);
-        removeContextMenuPatch("user-context", openLogsPatch);
-        removeContextMenuPatch("guild-context", openLogsPatch);
-        removeContextMenuPatch("gdm-context", openLogsPatch);
+        removeContextMenuPatch("message", contextMenuPath);
+        removeContextMenuPatch("channel-context", contextMenuPath);
+        removeContextMenuPatch("user-context", contextMenuPath);
+        removeContextMenuPatch("guild-context", contextMenuPath);
+        removeContextMenuPatch("gdm-context", contextMenuPath);
     }
 });
 
 
-const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
+const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
     if (!props) return;
 
     if (!children.some(child => child?.props?.id === "message-logger")) {
