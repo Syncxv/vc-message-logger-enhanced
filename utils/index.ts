@@ -16,12 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ChannelStore, MessageStore, moment } from "@webpack/common";
+import { Settings } from "@api/Settings";
+import { ChannelStore, MessageStore, moment, UserStore } from "@webpack/common";
 import { User } from "discord-types/general";
 
+import { settings } from "../index";
 import { loggedMessagesCache } from "../LoggedMessageManager";
 import { LoggedMessageJSON } from "../types";
-
 export function getGuildIdByChannel(channel_id: string) {
     return ChannelStore.getChannel(channel_id)?.guild_id;
 }
@@ -159,4 +160,49 @@ export function reAddDeletedMessages(messages: LoggedMessageJSON[], deletedMessa
 export function mapEditHistory(m: any) {
     m.timestamp = moment(m.timestamp);
     return m;
+}
+
+interface ShouldIgnoreArguments {
+    channelId?: string,
+    authorId?: string,
+    guildId?: string;
+    flags?: number,
+    bot?: boolean;
+}
+
+const EPHEMERAL = 64;
+export function shouldIgnore({ channelId, authorId, guildId, flags, bot }: ShouldIgnoreArguments) {
+    if (channelId && guildId == null)
+        guildId = getGuildIdByChannel(channelId);
+
+    const myId = UserStore.getCurrentUser().id;
+
+    const { ignoreBots, ignoreSelf, ignoreUsers } = Settings.plugins.MessageLogger;
+
+    const ids = [authorId, channelId, guildId];
+
+    const shouldIgnore =
+        ((flags ?? 0) & EPHEMERAL) === EPHEMERAL ||
+        ignoreBots && bot ||
+        ignoreSelf && authorId === myId ||
+        [...settings.store.blacklistedIds.split(","), ...ignoreUsers.split(",")].some(e => ids.includes(e));
+
+    return shouldIgnore;
+}
+
+
+export function addToBlacklist(id: string) {
+    const items = settings.store.blacklistedIds ? settings.store.blacklistedIds.split(",") : [];
+    items.push(id);
+
+    settings.store.blacklistedIds = items.join(",");
+}
+
+export function removeFromBlacklist(id: string) {
+    const items = settings.store.blacklistedIds ? settings.store.blacklistedIds.split(",") : [];
+    const index = items.indexOf(id);
+    if (index !== -1) {
+        items.splice(index, 1);
+    }
+    settings.store.blacklistedIds = items.join(",");
 }

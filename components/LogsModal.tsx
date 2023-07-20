@@ -21,7 +21,7 @@ import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findLazy } from "@webpack";
-import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, TabBar, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
+import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 import moment from "moment";
 
@@ -112,6 +112,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                                 ? Object.values(logs?.deletedMessages ?? {})
                                 : Object.values(logs?.editedMessages ?? {})
                         }
+                        tab={currentTab}
                         logs={logs}
                         forceUpdate={forceUpdate}
                         query={query}
@@ -161,9 +162,10 @@ interface LogContentProps {
     query: string;
     sortNewest: boolean;
     messages: string[],
+    tab: LogTabs;
     forceUpdate: () => void;
 }
-function LogsContent({ logs, query: queryEh, messages, sortNewest, forceUpdate, }: LogContentProps) {
+function LogsContent({ logs, query: queryEh, messages, sortNewest, tab, forceUpdate, }: LogContentProps) {
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
     const handleLoadMore = useCallback(() => {
         setNumDisplayedMessages(prevNum => prevNum + 50);
@@ -178,22 +180,33 @@ function LogsContent({ logs, query: queryEh, messages, sortNewest, forceUpdate, 
             </div>
         );
 
+
+
     console.time("hi");
 
     const { success, type, id, query } = parseQuery(queryEh);
 
     const flattendAndfilteredAndSortedMessages = messages
         .flat()
-        .filter(m => logs[m].message != null && (success === false ? true : doesMatch(type!, id!, logs[m].message!)))
-        .filter(m => logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()))
+        .filter(m => logs[m]?.message != null && (success === false ? true : doesMatch(type!, id!, logs[m].message!)))
+        .filter(m => logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()) ?? logs[m].message?.editHistory?.map(m => m.content?.toLowerCase()).includes(query.toLowerCase()))
         .sort((a, b) => {
-            const timestampA = new Date(logs[a]?.message?.timestamp as any).getTime();
-            const timestampB = new Date(logs[b]?.message?.timestamp as any).getTime();
+            const timestampA = new Date(logs[a]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
+            const timestampB = new Date(logs[b]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
             return sortNewest ? timestampB - timestampA : timestampA - timestampB;
         });
     const visibleMessages = flattendAndfilteredAndSortedMessages.slice(0, numDisplayedMessages);
 
-    const canLoadMore = numDisplayedMessages < flattendAndfilteredAndSortedMessages.flat().length;
+    const canLoadMore = numDisplayedMessages < flattendAndfilteredAndSortedMessages.length;
+
+    if (visibleMessages.length === 0)
+        return (
+            <div className={cl("empty-logs", "content-inner")}>
+                <Text variant="text-lg/normal" style={{ textAlign: "center", }}>
+                    No results in <b>{tab === LogTabs.DELETED ? "deleted messages" : "edited message"}</b> maybe try <b>{tab === LogTabs.DELETED ? "edited message" : "deleted messages"}</b>
+                </Text>
+            </div>
+        );
 
     console.timeEnd("hi");
     return (

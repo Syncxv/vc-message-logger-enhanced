@@ -47,7 +47,7 @@ export interface MessageDeletePayload {
 export interface MessageUpdatePayload {
     type: string;
     guildId: string;
-    message: Message;
+    message: MessageJSON;
 }
 
 export interface MessageCreatePayload {

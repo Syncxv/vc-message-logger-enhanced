@@ -29,16 +29,28 @@ import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { addMessage, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { cleanupMessage, cleanupUserObject, mapEditHistory, reAddDeletedMessages } from "./utils";
+import { addToBlacklist, cleanupMessage, cleanupUserObject, mapEditHistory, reAddDeletedMessages, removeFromBlacklist } from "./utils";
+import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
+import { doesMatch } from "./utils/parseQuery";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
-
 
 export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>(1000);
 
 async function messageDeleteHandler(payload: MessageDeletePayload) {
     const message: LoggedMessage | LoggedMessageJSON =
         MessageStore.getMessage(payload.channelId, payload.id) ?? { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true };
+    if (
+        shouldIgnore({
+            channelId: message?.channel_id ?? payload.channelId,
+            guildId: payload.guildId,
+            authorId: message?.author?.id,
+            bot: message?.bot,
+            flags: message?.flags
+        })
+    )
+        return console.log("this message has been blacklisted", payload);
+
     if (message == null || message.channel_id == null || !message.deleted) return;
 
     console.log("ADDING MESSAGE (DELETED)", message);
@@ -46,12 +58,24 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
 }
 
 async function messageUpdateHandler(payload: MessageUpdatePayload) {
+    if (
+        shouldIgnore({
+            channelId: payload.message?.channel_id,
+            guildId: payload.guildId ?? (payload as any).guild_id,
+            authorId: payload.message?.author?.id,
+            bot: (payload.message as any)?.bot,
+            flags: payload.message?.flags
+        })
+    )
+        return console.log("this message has been blacklisted", payload);
+
     let message: LoggedMessage | LoggedMessageJSON
         = MessageStore.getMessage(payload.message.channel_id, payload.message.id);
 
     if (message == null) {
         const cachedMessage = cacheSentMessages.get(`${payload.message.channel_id},${payload.message.id}`);
-        if (cachedMessage != null) {
+        // MESSAGE_UPDATE gets dispatched when emebeds change too and content becomes null
+        if (cachedMessage != null && payload.message.content != null && cachedMessage.content !== payload.message.content) {
             message = {
                 ...cachedMessage,
                 content: payload.message.content,
@@ -70,7 +94,7 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
 
     if (message == null || message.channel_id == null || message.editHistory == null || message.editHistory.length === 0) return;
 
-    console.log("ADDING MESSAGE (EDITED)", message);
+    console.log("ADDING MESSAGE (EDITED)", message, payload);
     await addMessage(message, "editedMessages");
 }
 
@@ -134,13 +158,19 @@ export const settings = definePluginSettings({
     cacheMessagesFromServers: {
         default: false,
         type: OptionType.BOOLEAN,
-        description: "Enables caching of messages from servers. Note that this may cause the cache to exceed its limit, resulting in some messages being missed. If you are in a lot of servers, this may significantly increase the chances of messages being saved, which can result in a large message record and the inclusion of irrelevant messages.",
+        description: "Enables caching of messages from servers. Note that this may cause the cache to exceed its limit, resulting in some messages being missed. If you are in a lot of servers, this may significantly increase the chances of messages being logged, which can result in a large message record and the inclusion of irrelevant messages.",
     },
 
     cacheLimit: {
         default: 1000,
         type: OptionType.NUMBER,
         description: "Maximum number of messages to store in the cache. Older messages are deleted when the limit is reached. This helps reduce memory usage and improve performance."
+    },
+
+    blacklistedIds: {
+        default: "",
+        type: OptionType.STRING,
+        description: "List of server, channel, and user IDs, separated by commas, that you want to exclude from logging."
     },
 
     importLogs: {
@@ -239,6 +269,7 @@ export default definePlugin({
     messageLoadSuccess,
     store: MessageLoggerStore,
     openLogModal,
+    doesMatch,
 
     getDeleted(m1, m2) {
         const deleted = m2?.deleted;
@@ -297,21 +328,91 @@ const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
 
                 {
                     props.guild && (
-                        <Menu.MenuItem
-                            id="open-logs-for-server"
-                            label="Open Logs For Server"
-                            action={() => openLogModal(`server:${props.guild.id}`)}
-                        />
+                        <>
+                            <Menu.MenuItem
+                                id="open-logs-for-server"
+                                label="Open Logs For Server"
+                                action={() => openLogModal(`server:${props.guild.id}`)}
+                            />
+                            {
+                                !settings.store.blacklistedIds.includes(props.guild.id) && (
+                                    <Menu.MenuItem
+                                        id="blacklist-server"
+                                        label="Blacklist Server"
+                                        action={() => addToBlacklist(props.guild.id)}
+                                    />
+                                )
+                            }
+
+                            {
+                                settings.store.blacklistedIds.includes(props.guild.id) && (
+                                    <Menu.MenuItem
+                                        id="remove-server-from-blacklist"
+                                        label="Remove Server From Blacklist"
+                                        action={() => removeFromBlacklist(props.guild.id)}
+                                    />
+                                )
+                            }
+                        </>
                     )
                 }
 
                 {
                     (props.message?.channel_id != null || props.channel?.id != null)
                     && (
+                        <>
+                            <Menu.MenuItem
+                                id="open-logs-for-channel"
+                                label="Open Logs For Channel"
+                                action={() => openLogModal(`channel:${props.message?.channel_id || props.channel?.id}`)}
+                            />
+
+                            {
+                                !settings.store.blacklistedIds.includes(props.message?.channel_id || props.channel?.id)
+                                && (
+                                    <Menu.MenuItem
+                                        id="blacklist-channel"
+                                        label="Blacklist Channel"
+                                        action={() => addToBlacklist(props.message?.channel_id || props.channel?.id)}
+                                    />
+                                )
+                            }
+
+                            {
+                                settings.store.blacklistedIds.includes(props.message?.channel_id || props.channel?.id)
+                                && (
+                                    <Menu.MenuItem
+                                        id="remove-channel-from-blacklist"
+                                        label="Remove Channel From Blacklist"
+                                        action={() => removeFromBlacklist(props.message?.channel_id || props.channel?.id)}
+                                    />
+                                )
+                            }
+
+                        </>
+                    )
+                }
+
+                {
+                    (props.message?.author?.id || props.user)
+                    && !settings.store.blacklistedIds.includes(props.message?.author?.id || props.user?.id)
+                    && (
                         <Menu.MenuItem
-                            id="open-logs-for-channel"
-                            label="Open Logs For Channel"
-                            action={() => openLogModal(`channel:${props.message?.channel_id || props.channel?.id}`)}
+                            id="blacklist-user"
+                            label="Blacklist User"
+                            action={() => addToBlacklist(props.message?.author?.id || props.user?.id)}
+                        />
+                    )
+                }
+
+                {
+                    (props.message?.author?.id || props.user)
+                    && settings.store.blacklistedIds.includes(props.message?.author?.id || props.user?.id)
+                    && (
+                        <Menu.MenuItem
+                            id="remove-from-blacklist-user"
+                            label="Remove User From Blacklist"
+                            action={() => removeFromBlacklist(props.message?.author?.id || props.user?.id)}
                         />
                     )
                 }
