@@ -29,10 +29,9 @@ import { settings } from "..";
 import { clearLogs, defaultLoggedMessages, getLoggedMessages, removeLog } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
 import { mapEditHistory } from "../utils";
+import { doesMatch, parseQuery } from "../utils/parseQuery";
 
-interface Props {
-    modalProps: ModalProps;
-}
+
 
 export interface MessagePreviewProps {
     className: string;
@@ -53,7 +52,13 @@ enum LogTabs {
     DELETED = "deletedMessages",
     EDITED = "editedMessages"
 }
-export function LogsModal({ modalProps }: Props) {
+
+
+interface Props {
+    modalProps: ModalProps;
+    initalQuery?: string;
+}
+export function LogsModal({ modalProps, initalQuery }: Props) {
     const [x, setX] = useState(0);
     const forceUpdate = () => setX(e => e + 1);
 
@@ -62,7 +67,7 @@ export function LogsModal({ modalProps }: Props) {
         deps: [x]
     });
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
-    const [query, setQuery] = useState("");
+    const [query, setQuery] = useState(initalQuery ?? "");
     const [sortNewest, setSortNewest] = useState(settings.store.sortNewest);
     const contentRef = useRef<HTMLDivElement | null>(null);
 
@@ -71,7 +76,7 @@ export function LogsModal({ modalProps }: Props) {
     return (
         <ModalRoot {...modalProps} size={ModalSize.LARGE}>
             <ModalHeader className={cl("header")}>
-                <TextInput onChange={e => setQuery(e)} style={{ width: "100%" }} placeholder="Filter Messages" />
+                <TextInput value={query} onChange={e => setQuery(e)} style={{ width: "100%" }} placeholder="Filter Messages" />
                 <TabBar
                     type="top"
                     look="brand"
@@ -158,7 +163,7 @@ interface LogContentProps {
     messages: string[],
     forceUpdate: () => void;
 }
-function LogsContent({ logs, query, messages, sortNewest, forceUpdate, }: LogContentProps) {
+function LogsContent({ logs, query: queryEh, messages, sortNewest, forceUpdate, }: LogContentProps) {
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
     const handleLoadMore = useCallback(() => {
         setNumDisplayedMessages(prevNum => prevNum + 50);
@@ -173,8 +178,13 @@ function LogsContent({ logs, query, messages, sortNewest, forceUpdate, }: LogCon
             </div>
         );
 
+    console.time("hi");
+
+    const { success, key, id, query } = parseQuery(queryEh);
+
     const flattendAndfilteredAndSortedMessages = messages
         .flat()
+        .filter(m => logs[m].message != null && (success === false ? true : doesMatch(key!, id!, logs[m].message!)))
         .filter(m => logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()))
         .sort((a, b) => {
             const timestampA = new Date(logs[a]?.message?.timestamp as any).getTime();
@@ -183,8 +193,9 @@ function LogsContent({ logs, query, messages, sortNewest, forceUpdate, }: LogCon
         });
     const visibleMessages = flattendAndfilteredAndSortedMessages.slice(0, numDisplayedMessages);
 
-    const canLoadMore = numDisplayedMessages < messages.flat().length;
+    const canLoadMore = numDisplayedMessages < flattendAndfilteredAndSortedMessages.flat().length;
 
+    console.timeEnd("hi");
     return (
         <div className={cl("content-inner")}>
             {visibleMessages
@@ -295,7 +306,7 @@ function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
     );
 }
 
-export const openLogModal = () => openModal(modalProps => <LogsModal modalProps={modalProps} />);
+export const openLogModal = (initalQuery?: string) => openModal(modalProps => <LogsModal modalProps={modalProps} initalQuery={initalQuery} />);
 
 function isGroupStart(
     currentMessage: LoggedMessageJSON | undefined,

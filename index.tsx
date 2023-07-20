@@ -127,7 +127,7 @@ export const settings = definePluginSettings({
         type: OptionType.COMPONENT,
         description: "Open Logs",
         component: () =>
-            <Button onClick={openLogModal}>
+            <Button onClick={() => openLogModal()}>
                 Open Logs
             </Button>
     }
@@ -216,12 +216,14 @@ export default definePlugin({
         addContextMenuPatch("message", openLogsPatch);
         addContextMenuPatch("channel-context", openLogsPatch);
         addContextMenuPatch("user-context", openLogsPatch);
+        addContextMenuPatch("guild-context", openLogsPatch);
     },
 
     stop() {
         removeContextMenuPatch("message", openLogsPatch);
         removeContextMenuPatch("channel-context", openLogsPatch);
         removeContextMenuPatch("user-context", openLogsPatch);
+        removeContextMenuPatch("guild-context", openLogsPatch);
 
     }
 });
@@ -243,6 +245,27 @@ const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
                     label="Open Logs"
                     action={() => openLogModal()}
                 />
+
+                {
+                    props.guild && (
+                        <Menu.MenuItem
+                            id="open-logs-for-server"
+                            label="Open Logs For Server"
+                            action={() => openLogModal(`server:${props.guild.id}`)}
+                        />
+                    )
+                }
+
+                {
+                    (props.message?.channel_id != null || props.channel?.id != null)
+                    && (
+                        <Menu.MenuItem
+                            id="open-logs-for-channel"
+                            label="Open Logs For Channel"
+                            action={() => openLogModal(`channel:${props.message?.channel_id || props.channel?.id}`)}
+                        />
+                    )
+                }
 
                 {
                     props.navId === "message"

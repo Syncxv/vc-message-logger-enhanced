@@ -19,6 +19,7 @@
 import { Message } from "discord-types/general";
 
 export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
+    guildId?: string,
     timestamp: string;
     deleted?: boolean,
     editHistory?: {
