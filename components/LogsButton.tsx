@@ -16,6 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { LazyComponent } from "@utils/react";
+import { findByCode } from "@webpack";
+
+import { openLogModal } from "./LogsModal";
+const HeaderBarIcon = LazyComponent(() => findByCode(".HEADER_BAR_BADGE,", ".tooltip"));
+
 export function OpenLogsIcon() {
     return (
         <svg
@@ -35,5 +41,16 @@ export function OpenLogsIcon() {
             >
             </path>
         </svg>
+    );
+}
+
+export function OpenLogsButton() {
+    return (
+        <HeaderBarIcon
+            className="vc-log-toolbox-btn"
+            onClick={() => openLogModal()}
+            tooltip={"Open Logs"}
+            icon={OpenLogsIcon}
+        />
     );
 }

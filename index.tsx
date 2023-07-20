@@ -22,12 +22,10 @@ import { addContextMenuPatch, NavContextMenuPatchCallback, removeContextMenuPatc
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
-import { LazyComponent } from "@utils/react";
 import definePlugin, { OptionType } from "@utils/types";
-import { findByCode } from "@webpack";
 import { Alerts, Button, FluxDispatcher, Menu, MessageStore, Toasts, UserStore } from "@webpack/common";
 
-import { OpenLogsIcon } from "./components/LogsButton";
+import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { addMessage, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageDeletePayload, MessageUpdatePayload } from "./types";
@@ -35,7 +33,6 @@ import { cleanupUserObject, mapEditHistory, reAddDeletedMessages } from "./utils
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
 
 
-const HeaderBarIcon = LazyComponent(() => findByCode(".HEADER_BAR_BADGE,", ".tooltip"));
 async function messageDeleteHandler(payload: MessageDeletePayload) {
     const message: LoggedMessage = MessageStore.getMessage(payload.channelId, payload.id);
     if (message == null || message.channel_id == null || !message.deleted) return;
@@ -181,23 +178,13 @@ export default definePlugin({
         if (Array.isArray(e.toolbar))
             return e.toolbar.push(
                 <ErrorBoundary noop={true}>
-                    <HeaderBarIcon
-                        className="vc-log-toolbox-btn"
-                        onClick={() => openLogModal()}
-                        tooltip={"Open Logs"}
-                        icon={OpenLogsIcon}
-                    />
+                    <OpenLogsButton />
                 </ErrorBoundary>
             );
 
         e.toolbar = [
             <ErrorBoundary noop={true}>
-                <HeaderBarIcon
-                    className="vc-log-toolbox-btn"
-                    onClick={() => openLogModal()}
-                    tooltip={"Open Logs"}
-                    icon={OpenLogsIcon}
-                />
+                <OpenLogsButton />
             </ErrorBoundary>,
             e.toolbar,
         ];

@@ -63,9 +63,9 @@ export const addMessage = async (message: LoggedMessage, key: keyof LoggedMessag
 
 export const removeFromKey = (
     id: string,
+    channel_id: string,
     loggedMessages: LoggedMessages,
     key: keyof LoggedMessageIds,
-    channel_id: string
 ) => {
     if (loggedMessages[key][channel_id!]) {
         loggedMessages[key][channel_id!] = loggedMessages[key][channel_id!].filter(msgid => msgid !== id);
@@ -83,8 +83,8 @@ export async function removeLog(id: string) {
         const channel_id = message.message?.channel_id;
 
         if (channel_id != null) {
-            removeFromKey(id, loggedMessages, "editedMessages", channel_id);
-            removeFromKey(id, loggedMessages, "deletedMessages", channel_id);
+            removeFromKey(id, channel_id, loggedMessages, "editedMessages");
+            removeFromKey(id, channel_id, loggedMessages, "deletedMessages");
         }
 
         delete loggedMessages[id];
