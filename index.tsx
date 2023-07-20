@@ -374,6 +374,17 @@ const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
                 }
 
                 {
+                    (props.message?.author?.id || props.user?.id)
+                    && (
+                        <Menu.MenuItem
+                            id="open-logs-for-user"
+                            label="Open Logs For User"
+                            action={() => openLogModal(`user:${props.message?.author?.id || props.user?.id}`)}
+                        />
+                    )
+                }
+
+                {
                     (props.message?.channel_id != null || props.channel?.id != null)
                     && (
                         <>
@@ -410,7 +421,7 @@ const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
                 }
 
                 {
-                    (props.message?.author?.id || props.user)
+                    (props.message?.author?.id || props.user?.id)
                     && !settings.store.blacklistedIds.includes(props.message?.author?.id || props.user?.id)
                     && (
                         <Menu.MenuItem
@@ -422,7 +433,7 @@ const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
                 }
 
                 {
-                    (props.message?.author?.id || props.user)
+                    (props.message?.author?.id || props.user?.id)
                     && settings.store.blacklistedIds.includes(props.message?.author?.id || props.user?.id)
                     && (
                         <Menu.MenuItem
