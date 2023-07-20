@@ -284,6 +284,13 @@ function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
                     />
 
                     <Menu.MenuItem
+                        key="copy-channel-id"
+                        id="copy-channel-id"
+                        label="Copy Channel ID"
+                        action={() => copyWithToast(message.channel_id)}
+                    />
+
+                    <Menu.MenuItem
                         key="delete-log"
                         id="delete-log"
                         label="Delete Log"

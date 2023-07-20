@@ -30,7 +30,7 @@
 .msg-logger-modal-content-inner {
     padding-top: 1rem;
     padding-bottom: 1rem;
-    height: 80%;
+    height: 100%;
 }
 
 .msg-logger-modal-header > div:has(input) {
