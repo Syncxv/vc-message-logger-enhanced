@@ -16,11 +16,28 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { moment } from "@webpack/common";
+import { MessageStore, moment } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { loggedMessagesCache } from "../LoggedMessageManager";
 import { LoggedMessage } from "../types";
+
+
+export function cleanupMessage(message: any) {
+    const ret = JSON.parse(JSON.stringify(message.toJS()));
+    if (ret.type === 19) {
+        ret.message_reference = message.message_reference || message.messageReference;
+        if (ret.message_reference) {
+            if (message.referenced_message) {
+                ret.referenced_message = cleanupMessage(message.referenced_message);
+            } else if (MessageStore.getMessage(ret.message_reference.channel_id, ret.message_reference.message_id)) {
+                ret.referenced_message = cleanupMessage(MessageStore.getMessage(ret.message_reference.channel_id, ret.message_reference.message_id));
+            }
+        }
+    }
+
+    return ret;
+}
 
 // stolen from mlv2
 export function cleanupEmbed(embed) {

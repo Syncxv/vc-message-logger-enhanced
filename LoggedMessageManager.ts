@@ -18,10 +18,9 @@
 
 import { createStore, promisifyRequest } from "@api/DataStore";
 import { DataStore } from "@api/index";
-import { JSMessage } from "discord-types/general";
 
 import { LoggedMessage, LoggedMessages } from "./types";
-import { cleanupEmbed } from "./utils";
+import { cleanupMessage } from "./utils";
 
 export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, };
 
@@ -47,9 +46,8 @@ export const refreshCache = async () => loggedMessagesCache = await getLoggedMes
 
 export const addMessage = async (message: LoggedMessage, key: "deletedMessages" | "editedMessages") => {
     const loggedMessages = await getLoggedMessages();
-    const jsonSafeMessage: JSMessage = JSON.parse(JSON.stringify(message.toJS()));
-    jsonSafeMessage.embeds = jsonSafeMessage.embeds.map(cleanupEmbed);
-    loggedMessages[message.id] = { message: jsonSafeMessage };
+    const finalMessage = cleanupMessage(message);
+    loggedMessages[message.id] = { message: finalMessage };
 
     if (!loggedMessages[key][message.channel_id])
         loggedMessages[key][message.channel_id] = [];
