@@ -339,32 +339,11 @@ const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
 
                 {
                     props.guild && (
-                        <>
-                            <Menu.MenuItem
-                                id="open-logs-for-server"
-                                label="Open Logs For Server"
-                                action={() => openLogModal(`server:${props.guild.id}`)}
-                            />
-                            {
-                                !settings.store.blacklistedIds.includes(props.guild.id) && (
-                                    <Menu.MenuItem
-                                        id="blacklist-server"
-                                        label="Blacklist Server"
-                                        action={() => addToBlacklist(props.guild.id)}
-                                    />
-                                )
-                            }
-
-                            {
-                                settings.store.blacklistedIds.includes(props.guild.id) && (
-                                    <Menu.MenuItem
-                                        id="remove-server-from-blacklist"
-                                        label="Remove Server From Blacklist"
-                                        action={() => removeFromBlacklist(props.guild.id)}
-                                    />
-                                )
-                            }
-                        </>
+                        <Menu.MenuItem
+                            id="open-logs-for-server"
+                            label="Open Logs For Server"
+                            action={() => openLogModal(`server:${props.guild.id}`)}
+                        />
                     )
                 }
 
@@ -412,6 +391,26 @@ const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
                             }
 
                         </>
+                    )
+                }
+
+                {
+                    !settings.store.blacklistedIds.includes(props.guild.id) && (
+                        <Menu.MenuItem
+                            id="blacklist-server"
+                            label="Blacklist Server"
+                            action={() => addToBlacklist(props.guild.id)}
+                        />
+                    )
+                }
+
+                {
+                    settings.store.blacklistedIds.includes(props.guild.id) && (
+                        <Menu.MenuItem
+                            id="remove-server-from-blacklist"
+                            label="Remove Server From Blacklist"
+                            action={() => removeFromBlacklist(props.guild.id)}
+                        />
                     )
                 }
 
