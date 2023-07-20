@@ -28,7 +28,7 @@ import { Alerts, Button, FluxDispatcher, Menu, MessageStore, Toasts, UserStore }
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
-import { addMessage, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
+import { addMessage, clearLogs, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { addToBlacklist, cleanupMessage, cleanupUserObject, mapEditHistory, reAddDeletedMessages, removeFromBlacklist } from "./utils";
 import { shouldIgnore } from "./utils/index";
@@ -162,6 +162,12 @@ function messageLoadSuccess(payload: LoadMessagePayload) {
 }
 
 export const settings = definePluginSettings({
+    saveMessages: {
+        default: true,
+        type: OptionType.BOOLEAN,
+        description: "Wether to save the deleted and edited messages",
+    },
+
     sortNewest: {
         default: true,
         type: OptionType.BOOLEAN,
@@ -303,6 +309,9 @@ export default definePlugin({
     },
 
     start() {
+        if (!settings.store.saveMessages)
+            clearLogs();
+
         addContextMenuPatch("message", contextMenuPath);
         addContextMenuPatch("channel-context", contextMenuPath);
         addContextMenuPatch("user-context", contextMenuPath);
@@ -311,6 +320,9 @@ export default definePlugin({
     },
 
     stop() {
+        if (!settings.store.saveMessages)
+            clearLogs();
+
         removeContextMenuPatch("message", contextMenuPath);
         removeContextMenuPatch("channel-context", contextMenuPath);
         removeContextMenuPatch("user-context", contextMenuPath);
