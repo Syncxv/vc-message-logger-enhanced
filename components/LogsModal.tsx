@@ -20,15 +20,14 @@ import { classNameFactory } from "@api/Styles";
 import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
-import { find, findLazy } from "@webpack";
-import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
+import { find } from "@webpack";
+import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
-import moment from "moment";
 
-import { settings } from "..";
+import { settings } from "../index";
 import { clearLogs, defaultLoggedMessages, getLoggedMessages, removeLog, removeLogs } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
-import { mapEditHistory } from "../utils";
+import { messageJsonToMessageClass, sortMessagesByDate } from "../utils";
 import { doesMatch, parseQuery } from "../utils/parseQuery";
 
 
@@ -43,8 +42,7 @@ export interface MessagePreviewProps {
 }
 
 const MessagePreview: React.FC<MessagePreviewProps> = LazyComponent(() => find(m => m?.type?.toString().includes("previewLinkTarget:") && !m?.type?.toString().includes("HAS_THREAD")));
-const MessageClass: any = findLazy(m => m?.Z?.prototype?.isEdited);
-const AuthorClass = findLazy(m => m?.Z?.prototype?.getAvatarURL);
+
 
 const cl = classNameFactory("msg-logger-modal-");
 
@@ -63,7 +61,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const forceUpdate = () => setX(e => e + 1);
 
     const [logs, _, pending] = useAwaiter(getLoggedMessages, {
-        fallbackValue: defaultLoggedMessages,
+        fallbackValue: defaultLoggedMessages as LoggedMessages,
         deps: [x]
     });
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
@@ -78,39 +76,36 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
 
     // console.log(logs, _, pending, contentRef);
 
-    // console.time("hi");
+    console.time("hi");
     const flattendAndfilteredAndSortedMessages = useMemo(() => {
-        const messages: string[] = currentTab === LogTabs.DELETED
+        if (pending) return [];
+        const messages: string[][] = currentTab === LogTabs.DELETED
             ? Object.values(logs?.deletedMessages ?? {})
             : Object.values(logs?.editedMessages ?? {});
 
         const { success, type, id, query } = parseQuery(queryEh);
 
         if (query === "" && !success) {
-            return messages
+            const result = messages
                 .flat()
-                .sort((a, b) => {
-                    const timestampA = new Date(logs[a]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
-                    const timestampB = new Date(logs[b]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
-                    return sortNewest ? timestampB - timestampA : timestampA - timestampB;
-                });
+                .sort(sortMessagesByDate);
+            return sortNewest ? result : result.reverse();
         }
 
-        return messages
+        const result = messages
             .flat()
             .filter(m => logs[m]?.message != null && (success === false ? true : doesMatch(type!, id!, logs[m].message!)))
             .filter(m => logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()) ?? logs[m].message?.editHistory?.map(m => m.content?.toLowerCase()).includes(query.toLowerCase()))
-            .sort((a, b) => {
-                const timestampA = new Date(logs[a]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
-                const timestampB = new Date(logs[b]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
-                return sortNewest ? timestampB - timestampA : timestampA - timestampB;
-            });
+            .sort(sortMessagesByDate);
+
+        return sortNewest ? result : result.reverse();
     }, [currentTab, logs, queryEh, sortNewest]);
+
     const visibleMessages = flattendAndfilteredAndSortedMessages.slice(0, numDisplayedMessages);
 
     const canLoadMore = numDisplayedMessages < flattendAndfilteredAndSortedMessages.length;
 
-    // console.timeEnd("hi");
+    console.timeEnd("hi");
     return (
         <ModalRoot className={cl("root")} {...modalProps} size={ModalSize.LARGE}>
             <ModalHeader className={cl("header")}>
@@ -122,6 +117,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     selectedItem={currentTab}
                     onItemSelect={e => {
                         setCurrentTab(e);
+                        setNumDisplayedMessages(50);
                         contentRef.current?.firstElementChild?.scrollTo(0, 0);
                         // forceUpdate();
                     }}
@@ -144,20 +140,21 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                 <ModalContent
                     className={cl("content")}
                 >
-                    <LogsContent
-                        messages={
-                            currentTab === LogTabs.DELETED
-                                ? Object.values(logs?.deletedMessages ?? {})
-                                : Object.values(logs?.editedMessages ?? {})
-                        }
-                        visibleMessages={visibleMessages}
-                        canLoadMore={canLoadMore}
-                        tab={currentTab}
-                        logs={logs}
-                        sortNewest={sortNewest}
-                        forceUpdate={forceUpdate}
-                        handleLoadMore={handleLoadMore}
-                    />
+                    {!pending &&
+                        <LogsContentMemo
+                            messages={
+                                currentTab === LogTabs.DELETED
+                                    ? Object.values(logs?.deletedMessages ?? {})
+                                    : Object.values(logs?.editedMessages ?? {})
+                            }
+                            visibleMessages={visibleMessages}
+                            canLoadMore={canLoadMore}
+                            tab={currentTab}
+                            logs={logs}
+                            sortNewest={sortNewest}
+                            forceUpdate={forceUpdate}
+                            handleLoadMore={handleLoadMore}
+                        />}
                 </ModalContent>
             </div>
             <ModalFooter>
@@ -191,7 +188,6 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                             await removeLogs(visibleMessages);
                             forceUpdate();
                         }
-
                     })}
                 >
                     Clear Visible Logs
@@ -218,7 +214,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
 interface LogContentProps {
     logs: LoggedMessages | null,
     sortNewest: boolean;
-    messages: string[],
+    messages: string[][],
     tab: LogTabs;
     visibleMessages: string[];
     canLoadMore: boolean;
@@ -268,36 +264,22 @@ function LogsContent({ logs, visibleMessages, canLoadMore, messages, sortNewest,
     );
 }
 
+const LogsContentMemo = LazyComponent(() => React.memo(LogsContent));
+
 interface LMessageProps {
     log: { message: LoggedMessageJSON; };
     isGroupStart: boolean,
     forceUpdate: () => void;
 }
 function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
-    const message = useMemo(() => {
-        const message: LoggedMessage = new MessageClass.Z(log.message);
-        message.timestamp = moment(message.timestamp);
-
-        const editHistory = message.editHistory?.map(mapEditHistory);
-        if (editHistory && editHistory.length > 0) {
-            message.editHistory = editHistory;
-            message.editedTimestamp = moment(message.editedTimestamp);
-        }
-        message.author = new AuthorClass.Z(message.author);
-        if ("globalName" in message.author) {
-            (message.author as any).nick = message.author.globalName ?? message.author.username;
-        } else {
-            (message.author as any).nick = message.author.username;
-        }
-        return message;
-    }, [log]);
+    const message = useMemo(() => messageJsonToMessageClass(log), [log]);
     return (
         <div onContextMenu={e => {
             ContextMenu.open(e, () =>
                 <Menu.Menu
-                    navId="gif-collection-id"
+                    navId="message-logger"
                     onClose={() => FluxDispatcher.dispatch({ type: "CONTEXT_MENU_CLOSE" })}
-                    aria-label="Gif Collections"
+                    aria-label="Message Logger"
                 >
 
                     <Menu.MenuItem

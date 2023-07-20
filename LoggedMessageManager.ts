@@ -41,7 +41,9 @@ export let loggedMessagesCache: LoggedMessages = defaultLoggedMessages;
 })();
 
 
-export const getLoggedMessages = async (): Promise<LoggedMessages> => (await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore)) ?? defaultLoggedMessages;
+export const getLoggedMessages = async (): Promise<LoggedMessages> => {
+    return (await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore)) ?? defaultLoggedMessages;
+};
 export const refreshCache = async () => loggedMessagesCache = await getLoggedMessages();
 
 export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key: keyof LoggedMessageIds) => {

@@ -19,59 +19,40 @@
 
 import { LoggedMessageJSON } from "../types";
 import { getGuildIdByChannel } from "./index";
+import { memoize } from "./memoize";
+
 
 const validIdSearchTypes = ["server", "channel", "user", "message"] as const;
 type ValidIdSearchTypesUnion = typeof validIdSearchTypes[number];
 
-export function parseQuery(query: string) {
-    let filter: string;
-    let rest: string;
-
-    filter = query.substring(0, query.indexOf(" "));
-    rest = query.substring(query.indexOf(" ") + 1);
-    if (!filter) {
-        filter = query;
-        rest = "";
-    }
-
-    if (!filter)
-        return {
-            success: false,
-            query,
-        };
-
-    const splitted = filter.split(":");
-    if (splitted.length < 2)
-        return {
-            success: false,
-            query,
-        };
-
-    const [type, id] = splitted as [ValidIdSearchTypesUnion, string];
-
-    if (!type || !id)
-        return {
-            success: false,
-            query,
-        };
-
-
-    if (!validIdSearchTypes.includes(type))
-        return {
-            success: false,
-            query,
-        };
-
-    return {
-        success: true,
-        type,
-        id,
-        query: rest
-    };
+interface QueryResult {
+    success: boolean;
+    query: string;
+    type?: ValidIdSearchTypesUnion;
+    id?: string;
 }
 
+export const parseQuery = memoize((query: string): QueryResult => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+        return { success: false, query };
+    }
 
-export function doesMatch(type: typeof validIdSearchTypes[number], value: string, message: LoggedMessageJSON) {
+    const [filter, rest] = trimmedQuery.split(" ", 2);
+    if (!filter) {
+        return { success: false, query };
+    }
+
+    const [type, id] = filter.split(":") as [ValidIdSearchTypesUnion, string];
+    if (!type || !id || !validIdSearchTypes.includes(type)) {
+        return { success: false, query };
+    }
+
+    return { success: true, type, id, query: rest ?? "" };
+});
+
+
+export const doesMatch = memoize((type: typeof validIdSearchTypes[number], value: string, message: LoggedMessageJSON) => {
     switch (type) {
         case "channel":
             return message.channel_id === value;
@@ -85,5 +66,6 @@ export function doesMatch(type: typeof validIdSearchTypes[number], value: string
             return getGuildIdByChannel(message.channel_id) === value;
         }
         default:
+            return false;
     }
-}
+});

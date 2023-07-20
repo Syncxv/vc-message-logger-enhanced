@@ -17,12 +17,19 @@
 */
 
 import { Settings } from "@api/Settings";
+import { findLazy } from "@webpack";
 import { ChannelStore, MessageStore, moment, UserStore } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { settings } from "../index";
 import { loggedMessagesCache } from "../LoggedMessageManager";
-import { LoggedMessageJSON } from "../types";
+import { LoggedMessage, LoggedMessageJSON } from "../types";
+import { memoize } from "./memoize";
+
+
+const MessageClass: any = findLazy(m => m?.Z?.prototype?.isEdited);
+const AuthorClass = findLazy(m => m?.Z?.prototype?.getAvatarURL);
+
 export function getGuildIdByChannel(channel_id: string) {
     return ChannelStore.getChannel(channel_id)?.guild_id;
 }
@@ -121,9 +128,9 @@ export function findLastIndex<T>(array: T[], predicate: (e: T, t: number, n: T[]
 // stolen from mlv2
 // https://github.com/1Lighty/BetterDiscordPlugins/blob/master/Plugins/MessageLoggerV2/MessageLoggerV2.plugin.js#L2367
 interface Id { id: string, time: number; }
+const DISCORD_EPOCH = 14200704e5;
 export function reAddDeletedMessages(messages: LoggedMessageJSON[], deletedMessages: string[], channelStart: boolean, channelEnd: boolean) {
     if (!messages.length || !deletedMessages?.length) return;
-    const DISCORD_EPOCH = 14200704e5;
     const IDs: Id[] = [];
     const savedIDs: Id[] = [];
 
@@ -157,10 +164,10 @@ export function reAddDeletedMessages(messages: LoggedMessageJSON[], deletedMessa
     }
 }
 
-export function mapEditHistory(m: any) {
+export const mapEditHistory = memoize((m: any) => {
     m.timestamp = moment(m.timestamp);
     return m;
-}
+});
 
 interface ShouldIgnoreArguments {
     channelId?: string,
@@ -206,3 +213,29 @@ export function removeFromBlacklist(id: string) {
     }
     settings.store.blacklistedIds = items.join(",");
 }
+
+export const discordIdToDate = (id: string) => new Date((parseInt(id) / 4194304) + DISCORD_EPOCH);
+
+export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJSON; }) => {
+    console.time("message populate");
+    const message: LoggedMessage = new MessageClass.Z(log.message);
+    message.timestamp = moment(message.timestamp);
+
+    const editHistory = message.editHistory?.map(mapEditHistory);
+    if (editHistory && editHistory.length > 0) {
+        message.editHistory = editHistory;
+        message.editedTimestamp = moment(message.editedTimestamp);
+    }
+    message.author = new AuthorClass.Z(message.author);
+    (message.author as any).nick = (message.author as any).globalName ?? message.author.username;
+
+    console.timeEnd("message populate");
+    return message;
+});
+
+
+export const sortMessagesByDate = memoize((a: string, b: string) => {
+    const timestampA = discordIdToDate(a).getTime();
+    const timestampB = discordIdToDate(b).getTime();
+    return timestampB - timestampA;
+});
