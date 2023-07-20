@@ -21,7 +21,7 @@ import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findLazy } from "@webpack";
-import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, TabBar, TextInput, useCallback, useMemo, useState } from "@webpack/common";
+import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, TabBar, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { Message, User } from "discord-types/general";
 import moment from "moment";
 
@@ -63,8 +63,9 @@ export function LogsModal({ modalProps }: Props) {
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
     const [query, setQuery] = useState("");
     const [sortNewest, setSortNewest] = useState(true);
+    const contentRef = useRef<HTMLDivElement | null>(null);
 
-    console.log(logs, _, pending);
+    console.log(logs, _, pending, contentRef);
 
     return (
         <ModalRoot {...modalProps} size={ModalSize.LARGE}>
@@ -75,7 +76,11 @@ export function LogsModal({ modalProps }: Props) {
                     look="brand"
                     className={cl("tab-bar")}
                     selectedItem={currentTab}
-                    onItemSelect={setCurrentTab}
+                    onItemSelect={e => {
+                        setCurrentTab(e);
+                        contentRef.current?.firstElementChild?.scrollTo(0, 0);
+                        // forceUpdate();
+                    }}
                 >
                     <TabBar.Item
                         className={cl("tab-bar-item")}
@@ -91,15 +96,27 @@ export function LogsModal({ modalProps }: Props) {
                     </TabBar.Item>
                 </TabBar>
             </ModalHeader>
-            <ModalContent className={cl("content")}>
-                <LogsContent
-                    logs={logs}
-                    tab={currentTab}
-                    forceUpdate={forceUpdate}
-                    query={query}
-                    sortNewest={sortNewest}
-                />
-            </ModalContent>
+            <div ref={contentRef}>
+                <ModalContent
+                    className={cl("content")}
+                >
+                    {
+                        currentTab === LogTabs.DELETED ? <LogsContent
+                            messages={Object.values(logs?.deletedMessages ?? {})}
+                            logs={logs}
+                            forceUpdate={forceUpdate}
+                            query={query}
+                            sortNewest={sortNewest}
+                        /> : <LogsContent
+                            messages={Object.values(logs?.editedMessages ?? {})}
+                            logs={logs}
+                            forceUpdate={forceUpdate}
+                            query={query}
+                            sortNewest={sortNewest}
+                        />
+                    }
+                </ModalContent>
+            </div>
             <ModalFooter>
                 <Button
                     color={Button.Colors.RED}
@@ -132,19 +149,17 @@ export function LogsModal({ modalProps }: Props) {
 
 interface LogContentProps {
     logs: LoggedMessages | null,
-    tab: "deletedMessages" | "editedMessages";
     query: string;
     sortNewest: boolean;
+    messages: string[],
     forceUpdate: () => void;
 }
-function LogsContent({ logs, tab, query, forceUpdate, sortNewest }: LogContentProps) {
+function LogsContent({ logs, query, messages, forceUpdate, sortNewest }: LogContentProps) {
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
     const handleLoadMore = useCallback(() => {
         setNumDisplayedMessages(prevNum => prevNum + 50);
     }, []);
 
-    const messages = tab === "deletedMessages" ? Object.values(logs?.deletedMessages ?? {}) : Object.values(logs?.editedMessages ?? {});
-    const flattenedMessages = messages.flat().slice(0, numDisplayedMessages);
     if (logs == null || messages.length === 0)
         return (
             <div className={cl("empty-logs")}>
@@ -154,18 +169,21 @@ function LogsContent({ logs, tab, query, forceUpdate, sortNewest }: LogContentPr
             </div>
         );
 
+    const flattendAndfilteredAndSortedMessages = messages
+        .flat()
+        .filter(m => logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()))
+        .sort((a, b) => {
+            const timestampA = new Date(logs[a]?.message?.timestamp as any).getTime();
+            const timestampB = new Date(logs[b]?.message?.timestamp as any).getTime();
+            return sortNewest ? timestampB - timestampA : timestampA - timestampB;
+        });
+    const visibleMessages = flattendAndfilteredAndSortedMessages.slice(0, numDisplayedMessages);
+
     const canLoadMore = numDisplayedMessages < messages.flat().length;
 
     return (
         <div className={cl("content-inner")}>
-            {flattenedMessages
-                .filter(m => logs[m].message?.content?.toLowerCase()?.includes(query.toLowerCase()))
-                // newest first
-                .sort((a, b) => {
-                    const timestampA = new Date(logs[a].message!.timestamp as any).getTime(); // im not sorry
-                    const timestampB = new Date(logs[b].message!.timestamp as any).getTime(); // im not sorry
-                    return sortNewest ? timestampB - timestampA : timestampA - timestampB;
-                })
+            {visibleMessages
                 .map(id => (
                     <LMessage
                         key={id}
@@ -173,7 +191,15 @@ function LogsContent({ logs, tab, query, forceUpdate, sortNewest }: LogContentPr
                         forceUpdate={forceUpdate}
                     />
                 ))}
-            {canLoadMore && <Button style={{ marginTop: "1rem", width: "100%" }} size={Button.Sizes.SMALL} onClick={() => handleLoadMore()}>Load More</Button>}
+            {
+                canLoadMore &&
+                <Button
+                    style={{ marginTop: "1rem", width: "100%" }}
+                    size={Button.Sizes.SMALL} onClick={() => handleLoadMore()}
+                >
+                    Load More
+                </Button>
+            }
         </div>
     );
 }

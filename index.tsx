@@ -20,18 +20,22 @@ import "./styles.css";
 
 import { addContextMenuPatch, NavContextMenuPatchCallback, removeContextMenuPatch } from "@api/ContextMenu";
 import { definePluginSettings } from "@api/Settings";
+import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
+import { LazyComponent } from "@utils/react";
 import definePlugin, { OptionType } from "@utils/types";
-import { Alerts, Button, Menu, MessageStore, UserStore } from "@webpack/common";
+import { findByCode } from "@webpack";
+import { Alerts, Button, FluxDispatcher, Menu, MessageStore, Toasts, UserStore } from "@webpack/common";
 
+import { OpenLogsIcon } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
-import { addMessage, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache } from "./LoggedMessageManager";
+import { addMessage, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { cleanupUserObject, mapEditHistory, reAddDeletedMessages } from "./utils";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
 
 
-
+const HeaderBarIcon = LazyComponent(() => findByCode(".HEADER_BAR_BADGE,", ".tooltip"));
 async function messageDeleteHandler(payload: MessageDeletePayload) {
     const message: LoggedMessage = MessageStore.getMessage(payload.channelId, payload.id);
     if (message == null || message.channel_id == null || !message.deleted) return;
@@ -120,6 +124,8 @@ export const settings = definePluginSettings({
     }
 });
 
+
+
 export default definePlugin({
     name: "MessageLoggerThingy",
     authors: [Devs.Aria],
@@ -141,10 +147,49 @@ export default definePlugin({
                 match: /(attachments:.{1,3}\(.{1,500})deleted:.{1,50},editHistory:.{1,30},/,
                 replace: "$1deleted: $self.getDeleted(...arguments),editHistory: $self.getEdited(...arguments),"
             }
+        },
+
+        {
+            find: ".mobileToolbar",
+            replacement: {
+                match: /(function .{1,3}\(.\){)(.{1,200}toolbar.{1,100}mobileToolbar)/,
+                replace: "$1$self.addIconToToolBar(arguments[0]);$2"
+            }
         }
     ],
-
     settings,
+
+    toolboxActions: {
+        "Message Logger"() {
+            openLogModal();
+        }
+    },
+
+    addIconToToolBar(e: { toolbar: React.ReactNode[] | React.ReactNode; }) {
+        if (Array.isArray(e.toolbar))
+            return e.toolbar.push(
+                <ErrorBoundary noop={true}>
+                    <HeaderBarIcon
+                        className="vc-log-toolbox-btn"
+                        onClick={() => openLogModal()}
+                        tooltip={"Open Logs"}
+                        icon={OpenLogsIcon}
+                    />
+                </ErrorBoundary>
+            );
+
+        e.toolbar = [
+            <ErrorBoundary noop={true}>
+                <HeaderBarIcon
+                    className="vc-log-toolbox-btn"
+                    onClick={() => openLogModal()}
+                    tooltip={"Open Logs"}
+                    icon={OpenLogsIcon}
+                />
+            </ErrorBoundary>,
+            e.toolbar,
+        ];
+    },
 
     refreshCache,
     messageLoadSuccess,
@@ -171,12 +216,13 @@ export default definePlugin({
     start() {
         addContextMenuPatch("message", openLogsPatch);
         addContextMenuPatch("channel-context", openLogsPatch);
-
+        addContextMenuPatch("user-context", openLogsPatch);
     },
 
     stop() {
         removeContextMenuPatch("message", openLogsPatch);
         removeContextMenuPatch("channel-context", openLogsPatch);
+        removeContextMenuPatch("user-context", openLogsPatch);
 
     }
 });
@@ -187,6 +233,7 @@ const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
 
     if (!children.some(child => child?.props?.id === "message-logger")) {
         children.push(
+            <Menu.MenuSeparator />,
             <Menu.MenuItem
                 id="message-logger"
                 label="Message Logger"
@@ -197,6 +244,38 @@ const openLogsPatch: NavContextMenuPatchCallback = (children, props) => {
                     label="Open Logs"
                     action={() => openLogModal()}
                 />
+
+                {
+                    props.navId === "message"
+                    && (props.message?.deleted || props.message?.editHistory?.length > 0)
+                    && (
+                        <Menu.MenuItem
+                            id="remove-message"
+                            label={props.message?.deleted ? "Remove Message (Permanent)" : "Remove Message History (Permanent)"}
+                            color="danger"
+                            action={() =>
+                                removeLog(props.message.id)
+                                    .then(() => {
+                                        if (props.message.deleted) {
+                                            FluxDispatcher.dispatch({
+                                                type: "MESSAGE_DELETE",
+                                                channelId: props.message.channel_id,
+                                                id: props.message.id,
+                                                mlDeleted: true
+                                            });
+                                        } else {
+                                            props.message.editHistory = [];
+                                        }
+                                    }).catch(() => Toasts.show({
+                                        type: Toasts.Type.FAILURE,
+                                        message: "Failed to remove message",
+                                        id: Toasts.genId()
+                                    }))
+
+                            }
+                        />
+                    )
+                }
 
             </Menu.MenuItem>
         );

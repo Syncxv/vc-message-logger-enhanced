@@ -19,7 +19,7 @@
     padding-bottom: 1rem;
     max-height: 534.655px;
     min-height: 534.655px;
-    min-width: 808px;
+    min-width: 928px;
 }
 
 .msg-logger-modal-header > div:has(input) {
@@ -40,4 +40,14 @@
 
 .msg-logger-modal-msg-preview {
     min-width: 808px;
+}
+
+
+
+.vc-log-toolbox-btn svg {
+    color: var(--interactive-normal);
+}
+
+:is(.vc-log-toolbox-btn:hover, .vc-log-toolbox-btn[class*="selected"]) svg {
+    color: var(--interactive-active);
 }
