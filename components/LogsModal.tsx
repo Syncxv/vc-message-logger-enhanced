@@ -22,11 +22,12 @@ import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, Mod
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findLazy } from "@webpack";
 import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, TabBar, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
-import { Message, User } from "discord-types/general";
+import { User } from "discord-types/general";
 import moment from "moment";
 
+import { settings } from "..";
 import { clearLogs, defaultLoggedMessages, getLoggedMessages, removeLog } from "../LoggedMessageManager";
-import { LoggedMessage, LoggedMessages } from "../types";
+import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
 import { mapEditHistory } from "../utils";
 
 interface Props {
@@ -36,7 +37,7 @@ interface Props {
 export interface MessagePreviewProps {
     className: string;
     author: User;
-    message: Message;
+    message: LoggedMessage;
     compact: boolean;
     isGroupStart: boolean;
     hideSimpleEmbedContent: boolean;
@@ -62,7 +63,7 @@ export function LogsModal({ modalProps }: Props) {
     });
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
     const [query, setQuery] = useState("");
-    const [sortNewest, setSortNewest] = useState(true);
+    const [sortNewest, setSortNewest] = useState(settings.store.sortNewest);
     const contentRef = useRef<HTMLDivElement | null>(null);
 
     console.log(logs, _, pending, contentRef);
@@ -134,7 +135,14 @@ export function LogsModal({ modalProps }: Props) {
                 <Button
                     look={Button.Looks.LINK}
                     color={Button.Colors.PRIMARY}
-                    onClick={() => setSortNewest(e => !e)}
+                    onClick={() => {
+                        setSortNewest(e => {
+                            const val = !e;
+                            settings.store.sortNewest = val;
+                            return val;
+                        });
+                        contentRef.current?.firstElementChild?.scrollTo(0, 0);
+                    }}
                 >
                     Sort {sortNewest ? "Oldest First" : "Newest First"}
                 </Button>
@@ -150,7 +158,7 @@ interface LogContentProps {
     messages: string[],
     forceUpdate: () => void;
 }
-function LogsContent({ logs, query, messages, forceUpdate, sortNewest }: LogContentProps) {
+function LogsContent({ logs, query, messages, sortNewest, forceUpdate, }: LogContentProps) {
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
     const handleLoadMore = useCallback(() => {
         setNumDisplayedMessages(prevNum => prevNum + 50);
@@ -180,11 +188,12 @@ function LogsContent({ logs, query, messages, forceUpdate, sortNewest }: LogCont
     return (
         <div className={cl("content-inner")}>
             {visibleMessages
-                .map(id => (
+                .map((id, i) => (
                     <LMessage
                         key={id}
-                        log={logs[id] as { message: LoggedMessage; }}
+                        log={logs[id] as { message: LoggedMessageJSON; }}
                         forceUpdate={forceUpdate}
+                        isGroupStart={isGroupStart(logs[id].message, logs[visibleMessages[i - 1]]?.message, sortNewest)}
                     />
                 ))}
             {
@@ -201,10 +210,11 @@ function LogsContent({ logs, query, messages, forceUpdate, sortNewest }: LogCont
 }
 
 interface LMessageProps {
-    log: { message: LoggedMessage; };
+    log: { message: LoggedMessageJSON; };
+    isGroupStart: boolean,
     forceUpdate: () => void;
 }
-function LMessage({ log, forceUpdate, }: LMessageProps) {
+function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
     const message = useMemo(() => {
         const message: LoggedMessage = new MessageClass.Z(log.message);
         message.timestamp = moment(message.timestamp);
@@ -278,7 +288,7 @@ function LMessage({ log, forceUpdate, }: LMessageProps) {
                 author={message.author}
                 message={message}
                 compact={false}
-                isGroupStart={true}
+                isGroupStart={isGroupStart}
                 hideSimpleEmbedContent={false}
             />
         </div>
@@ -286,3 +296,23 @@ function LMessage({ log, forceUpdate, }: LMessageProps) {
 }
 
 export const openLogModal = () => openModal(modalProps => <LogsModal modalProps={modalProps} />);
+
+function isGroupStart(
+    currentMessage: LoggedMessageJSON | undefined,
+    previousMessage: LoggedMessageJSON | undefined,
+    sortNewest: boolean
+) {
+    if (!currentMessage || !previousMessage) return true;
+
+    const [newestMessage, oldestMessage] = sortNewest
+        ? [previousMessage, currentMessage]
+        : [currentMessage, previousMessage];
+
+    if (newestMessage.author.id !== oldestMessage.author.id) return true;
+
+    const timeDifferenceInMinutes = Math.abs(
+        (new Date(newestMessage.timestamp).getTime() - new Date(oldestMessage.timestamp).getTime()) / (1000 * 60)
+    );
+
+    return timeDifferenceInMinutes >= 5;
+}

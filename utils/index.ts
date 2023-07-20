@@ -20,7 +20,7 @@ import { MessageStore, moment } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { loggedMessagesCache } from "../LoggedMessageManager";
-import { LoggedMessage } from "../types";
+import { LoggedMessageJSON } from "../types";
 
 
 export function cleanupMessage(message: any) {
@@ -113,7 +113,7 @@ export function findLastIndex<T>(array: T[], predicate: (e: T, t: number, n: T[]
 // stolen from mlv2
 // https://github.com/1Lighty/BetterDiscordPlugins/blob/master/Plugins/MessageLoggerV2/MessageLoggerV2.plugin.js#L2367
 interface Id { id: string, time: number; }
-export function reAddDeletedMessages(messages: LoggedMessage[], deletedMessages: string[], channelStart: boolean, channelEnd: boolean) {
+export function reAddDeletedMessages(messages: LoggedMessageJSON[], deletedMessages: string[], channelStart: boolean, channelEnd: boolean) {
     if (!messages.length || !deletedMessages?.length) return;
     const DISCORD_EPOCH = 14200704e5;
     const IDs: Id[] = [];
@@ -145,7 +145,7 @@ export function reAddDeletedMessages(messages: LoggedMessage[], deletedMessages:
         if (messages.findIndex(e => e.id === id) !== -1) continue;
         const record = loggedMessagesCache[id];
         if (!record.message) continue;
-        messages.splice(i, 0, record.message!);
+        messages.splice(i, 0, record.message);
     }
 
     console.log(messages);

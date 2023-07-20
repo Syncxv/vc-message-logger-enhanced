@@ -30,7 +30,7 @@ import { Alerts, Button, FluxDispatcher, Menu, MessageStore, Toasts, UserStore }
 import { OpenLogsIcon } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { addMessage, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
-import { LoadMessagePayload, LoggedMessage, MessageDeletePayload, MessageUpdatePayload } from "./types";
+import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { cleanupUserObject, mapEditHistory, reAddDeletedMessages } from "./utils";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
 
@@ -76,7 +76,7 @@ function messageLoadSuccess(payload: LoadMessagePayload) {
     for (let i = 0, len = recordIDs.length; i < len; i++) {
         const id = recordIDs[i];
         if (!loggedMessagesCache[id]) continue;
-        const { message } = loggedMessagesCache[id] as { message: LoggedMessage; };
+        const { message } = loggedMessagesCache[id] as { message: LoggedMessageJSON; };
 
         for (let j = 0, len2 = message.mentions.length; j < len2; j++) {
             const user = message.mentions[j];
@@ -95,6 +95,12 @@ function messageLoadSuccess(payload: LoadMessagePayload) {
 }
 
 export const settings = definePluginSettings({
+    sortNewest: {
+        default: true,
+        type: OptionType.BOOLEAN,
+        description: "Sort logs by newest",
+    },
+
     importLogs: {
         type: OptionType.COMPONENT,
         description: "Import Logs",

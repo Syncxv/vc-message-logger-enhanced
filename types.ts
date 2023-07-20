@@ -18,6 +18,15 @@
 
 import { Message } from "discord-types/general";
 
+export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
+    timestamp: string;
+    deleted?: boolean,
+    editHistory?: {
+        timestamp: string;
+        content: string;
+    }[];
+}
+
 export interface LoggedMessage extends Message {
     deleted?: boolean,
     editHistory?: {
@@ -25,6 +34,7 @@ export interface LoggedMessage extends Message {
         content: string;
     }[];
 }
+
 
 export interface MessageDeletePayload {
     type: string;
@@ -42,7 +52,7 @@ export interface MessageUpdatePayload {
 export interface LoadMessagePayload {
     type: string;
     channelId: string;
-    messages: LoggedMessage[];
+    messages: LoggedMessageJSON[];
     isBefore: boolean;
     isAfter: boolean;
     hasMoreBefore: boolean;
@@ -60,4 +70,4 @@ export type LoggedMessageIds = {
     editedMessages: LoggedMessageId;
 };
 
-export type LoggedMessages = LoggedMessageIds & { [message_id: string]: { message?: LoggedMessage; }; };
+export type LoggedMessages = LoggedMessageIds & { [message_id: string]: { message?: LoggedMessageJSON; }; };
