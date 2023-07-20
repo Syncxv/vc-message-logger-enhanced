@@ -147,8 +147,6 @@ export function reAddDeletedMessages(messages: LoggedMessageJSON[], deletedMessa
         if (!record.message) continue;
         messages.splice(i, 0, record.message);
     }
-
-    console.log(messages);
 }
 
 export function mapEditHistory(m: any) {

@@ -217,6 +217,7 @@ export default definePlugin({
         addContextMenuPatch("channel-context", openLogsPatch);
         addContextMenuPatch("user-context", openLogsPatch);
         addContextMenuPatch("guild-context", openLogsPatch);
+        addContextMenuPatch("gdm-context", openLogsPatch);
     },
 
     stop() {
@@ -224,6 +225,7 @@ export default definePlugin({
         removeContextMenuPatch("channel-context", openLogsPatch);
         removeContextMenuPatch("user-context", openLogsPatch);
         removeContextMenuPatch("guild-context", openLogsPatch);
+        removeContextMenuPatch("gdm-context", openLogsPatch);
 
     }
 });
