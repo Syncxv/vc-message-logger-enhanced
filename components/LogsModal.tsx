@@ -74,7 +74,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     console.log(logs, _, pending, contentRef);
 
     return (
-        <ModalRoot {...modalProps} size={ModalSize.LARGE}>
+        <ModalRoot className={cl("root")} {...modalProps} size={ModalSize.LARGE}>
             <ModalHeader className={cl("header")}>
                 <TextInput value={query} onChange={e => setQuery(e)} style={{ width: "100%" }} placeholder="Filter Messages" />
                 <TabBar
@@ -102,7 +102,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     </TabBar.Item>
                 </TabBar>
             </ModalHeader>
-            <div ref={contentRef}>
+            <div className={cl("content-container")} ref={contentRef}>
                 <ModalContent
                     className={cl("content")}
                 >
@@ -171,7 +171,7 @@ function LogsContent({ logs, query: queryEh, messages, sortNewest, forceUpdate, 
 
     if (logs == null || messages.length === 0)
         return (
-            <div className={cl("empty-logs")}>
+            <div className={cl("empty-logs", "content-inner")}>
                 <Forms.FormText variant="text-lg/normal" style={{ textAlign: "center" }}>
                     Empty eh
                 </Forms.FormText>

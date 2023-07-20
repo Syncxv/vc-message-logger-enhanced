@@ -1,3 +1,9 @@
+.msg-logger-modal-root {
+    max-height: 80vh;
+    min-height: 80vh;
+    min-width: 75vw;
+}
+
 .msg-logger-modal-empty-logs {
     display: grid;
     place-content: center;
@@ -10,16 +16,21 @@
     /* width: 100%; */
 }
 
+.msg-logger-modal-content-container {
+    /* max-height: 80vh; */
+    overflow: hidden;
+    height: 100%;
+}
+
 .msg-logger-modal-content {
     padding-bottom: 20px;
+    height: 100%;
 }
 
 .msg-logger-modal-content-inner {
     padding-top: 1rem;
     padding-bottom: 1rem;
-    max-height: 534.655px;
-    min-height: 534.655px;
-    min-width: 928px;
+    height: 80%;
 }
 
 .msg-logger-modal-header > div:has(input) {
@@ -39,7 +50,7 @@
 }
 
 .msg-logger-modal-msg-preview {
-    min-width: 808px;
+    min-width: 75vw;
 }
 
 
