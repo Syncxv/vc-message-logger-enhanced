@@ -50,12 +50,14 @@ export interface LoadMessagePayload {
     limit: number;
     isStale: boolean;
 }
-export type LoggedMessageIds = {
+type LoggedMessageId = {
     [channel_id: string]: string[];
 };
 
 
-export type LoggedMessages = {
-    deletedMessages: LoggedMessageIds;
-    editedMessages: LoggedMessageIds;
-} & { [message_id: string]: { message?: LoggedMessage; }; };
+export type LoggedMessageIds = {
+    deletedMessages: LoggedMessageId;
+    editedMessages: LoggedMessageId;
+};
+
+export type LoggedMessages = LoggedMessageIds & { [message_id: string]: { message?: LoggedMessage; }; };

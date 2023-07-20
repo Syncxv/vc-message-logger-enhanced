@@ -100,21 +100,17 @@ export function LogsModal({ modalProps }: Props) {
                 <ModalContent
                     className={cl("content")}
                 >
-                    {
-                        currentTab === LogTabs.DELETED ? <LogsContent
-                            messages={Object.values(logs?.deletedMessages ?? {})}
-                            logs={logs}
-                            forceUpdate={forceUpdate}
-                            query={query}
-                            sortNewest={sortNewest}
-                        /> : <LogsContent
-                            messages={Object.values(logs?.editedMessages ?? {})}
-                            logs={logs}
-                            forceUpdate={forceUpdate}
-                            query={query}
-                            sortNewest={sortNewest}
-                        />
-                    }
+                    <LogsContent
+                        messages={
+                            currentTab === LogTabs.DELETED
+                                ? Object.values(logs?.deletedMessages ?? {})
+                                : Object.values(logs?.editedMessages ?? {})
+                        }
+                        logs={logs}
+                        forceUpdate={forceUpdate}
+                        query={query}
+                        sortNewest={sortNewest}
+                    />
                 </ModalContent>
             </div>
             <ModalFooter>

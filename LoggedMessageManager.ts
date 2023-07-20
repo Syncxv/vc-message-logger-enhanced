@@ -19,7 +19,7 @@
 import { createStore, promisifyRequest } from "@api/DataStore";
 import { DataStore } from "@api/index";
 
-import { LoggedMessage, LoggedMessages } from "./types";
+import { LoggedMessage, LoggedMessageIds, LoggedMessages } from "./types";
 import { cleanupMessage } from "./utils";
 
 export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, };
@@ -44,7 +44,7 @@ export let loggedMessagesCache: LoggedMessages = defaultLoggedMessages;
 export const getLoggedMessages = async (): Promise<LoggedMessages> => (await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore)) ?? defaultLoggedMessages;
 export const refreshCache = async () => loggedMessagesCache = await getLoggedMessages();
 
-export const addMessage = async (message: LoggedMessage, key: "deletedMessages" | "editedMessages") => {
+export const addMessage = async (message: LoggedMessage, key: keyof LoggedMessageIds) => {
     const loggedMessages = await getLoggedMessages();
     const finalMessage = cleanupMessage(message);
     loggedMessages[message.id] = { message: finalMessage };
@@ -61,24 +61,31 @@ export const addMessage = async (message: LoggedMessage, key: "deletedMessages" 
 };
 
 
+export const removeFromKey = (
+    id: string,
+    loggedMessages: LoggedMessages,
+    key: keyof LoggedMessageIds,
+    channel_id: string
+) => {
+    if (loggedMessages[key][channel_id!]) {
+        loggedMessages[key][channel_id!] = loggedMessages[key][channel_id!].filter(msgid => msgid !== id);
+
+        if (loggedMessages[key][channel_id!].length === 0) {
+            delete loggedMessages[key][channel_id!];
+        }
+    }
+};
+
 export async function removeLog(id: string) {
     const loggedMessages = await getLoggedMessages();
     if (loggedMessages[id]) {
         const message = loggedMessages[id];
-        const channel_id = message.message?.channel_id || undefined;
+        const channel_id = message.message?.channel_id;
 
-        const removeFromKey = (key: "editedMessages" | "deletedMessages") => {
-            if (loggedMessages[key][channel_id!]) {
-                loggedMessages[key][channel_id!] = loggedMessages[key][channel_id!].filter(msgid => msgid !== id);
-
-                if (loggedMessages[key][channel_id!].length === 0) {
-                    delete loggedMessages[key][channel_id!];
-                }
-            }
-        };
-
-        removeFromKey("editedMessages");
-        removeFromKey("deletedMessages");
+        if (channel_id != null) {
+            removeFromKey(id, loggedMessages, "editedMessages", channel_id);
+            removeFromKey(id, loggedMessages, "deletedMessages", channel_id);
+        }
 
         delete loggedMessages[id];
 
