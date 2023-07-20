@@ -62,9 +62,13 @@ function messageLoadSuccess(payload: LoadMessagePayload) {
     for (let i = 0; i < payload.messages.length; ++i) {
         const recievedMessage = payload.messages[i];
         const record = loggedMessagesCache[recievedMessage.id];
-        if (!record || !record.message || record.message.editHistory!.length === 0) continue;
 
-        payload.messages[i].editHistory = record.message.editHistory;
+        if (record == null || record.message == null) continue;
+
+        if (record.message.editHistory!.length !== 0) {
+            payload.messages[i].editHistory = record.message.editHistory;
+        }
+
     }
 
     const fetchUser = (id: string) => UserStore.getUser(id) || payload.messages.find(e => e.author.id === id);
@@ -79,6 +83,8 @@ function messageLoadSuccess(payload: LoadMessagePayload) {
             const cachedUser = fetchUser((user as any).id || user);
             if (cachedUser) (message.mentions[j] as any) = cleanupUserObject(cachedUser);
         }
+
+        message.embeds.map(m => ({ ...m, id: undefined }));
 
         const author = fetchUser(message.author.id);
         if (!author) continue;
