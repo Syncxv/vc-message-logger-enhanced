@@ -23,6 +23,7 @@ import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
+import { findByPropsLazy } from "@webpack";
 import { Alerts, Button, FluxDispatcher, Menu, MessageStore, Toasts, UserStore } from "@webpack/common";
 
 import { OpenLogsButton } from "./components/LogsButton";
@@ -37,7 +38,12 @@ import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
 
 export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>(1000);
 
+
+const cacheThing = findByPropsLazy("commit", "getOrCreate");
+
 async function messageDeleteHandler(payload: MessageDeletePayload) {
+    if (payload.mlDeleted) return;
+
     const message: LoggedMessage | LoggedMessageJSON =
         MessageStore.getMessage(payload.channelId, payload.id) ?? { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true };
     if (
@@ -49,7 +55,12 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
             flags: message?.flags
         })
     )
-        return console.log("this message has been blacklisted", payload);
+        return FluxDispatcher.dispatch({
+            type: "MESSAGE_DELETE",
+            channelId: payload.channelId,
+            id: payload.id,
+            mlDeleted: true
+        });
 
     if (message == null || message.channel_id == null || !message.deleted) return;
 
@@ -66,8 +77,13 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
             bot: (payload.message as any)?.bot,
             flags: payload.message?.flags
         })
-    )
+    ) {
+        const cache = cacheThing.getOrCreate(payload.message.channel_id);
+        const message = cache.get(payload.message.id);
+        message.editHistory = [];
+        cacheThing.commit(cache);
         return console.log("this message has been blacklisted", payload);
+    }
 
     let message: LoggedMessage | LoggedMessageJSON
         = MessageStore.getMessage(payload.message.channel_id, payload.message.id);
@@ -86,7 +102,7 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
                         timestamp: (new Date()).toISOString()
                     }
                 ]
-            } as unknown as LoggedMessageJSON; // bruh
+            };
 
             cacheSentMessages.set(`${payload.message.channel_id},${payload.message.id}`, message);
         }
