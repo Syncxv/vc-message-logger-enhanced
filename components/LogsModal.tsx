@@ -26,7 +26,7 @@ import { User } from "discord-types/general";
 import moment from "moment";
 
 import { settings } from "..";
-import { clearLogs, defaultLoggedMessages, getLoggedMessages, removeLog } from "../LoggedMessageManager";
+import { clearLogs, defaultLoggedMessages, getLoggedMessages, removeLog, removeLogs } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
 import { mapEditHistory } from "../utils";
 import { doesMatch, parseQuery } from "../utils/parseQuery";
@@ -67,16 +67,54 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
         deps: [x]
     });
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
-    const [query, setQuery] = useState(initalQuery ?? "");
+    const [queryEh, setQuery] = useState(initalQuery ?? "");
     const [sortNewest, setSortNewest] = useState(settings.store.sortNewest);
+    const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
     const contentRef = useRef<HTMLDivElement | null>(null);
 
-    console.log(logs, _, pending, contentRef);
+    const handleLoadMore = useCallback(() => {
+        setNumDisplayedMessages(prevNum => prevNum + 50);
+    }, []);
 
+    // console.log(logs, _, pending, contentRef);
+
+    // console.time("hi");
+    const flattendAndfilteredAndSortedMessages = useMemo(() => {
+        const messages: string[] = currentTab === LogTabs.DELETED
+            ? Object.values(logs?.deletedMessages ?? {})
+            : Object.values(logs?.editedMessages ?? {});
+
+        const { success, type, id, query } = parseQuery(queryEh);
+
+        if (query === "" && !success) {
+            return messages
+                .flat()
+                .sort((a, b) => {
+                    const timestampA = new Date(logs[a]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
+                    const timestampB = new Date(logs[b]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
+                    return sortNewest ? timestampB - timestampA : timestampA - timestampB;
+                });
+        }
+
+        return messages
+            .flat()
+            .filter(m => logs[m]?.message != null && (success === false ? true : doesMatch(type!, id!, logs[m].message!)))
+            .filter(m => logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()) ?? logs[m].message?.editHistory?.map(m => m.content?.toLowerCase()).includes(query.toLowerCase()))
+            .sort((a, b) => {
+                const timestampA = new Date(logs[a]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
+                const timestampB = new Date(logs[b]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
+                return sortNewest ? timestampB - timestampA : timestampA - timestampB;
+            });
+    }, [currentTab, logs, queryEh, sortNewest]);
+    const visibleMessages = flattendAndfilteredAndSortedMessages.slice(0, numDisplayedMessages);
+
+    const canLoadMore = numDisplayedMessages < flattendAndfilteredAndSortedMessages.length;
+
+    // console.timeEnd("hi");
     return (
         <ModalRoot className={cl("root")} {...modalProps} size={ModalSize.LARGE}>
             <ModalHeader className={cl("header")}>
-                <TextInput value={query} onChange={e => setQuery(e)} style={{ width: "100%" }} placeholder="Filter Messages" />
+                <TextInput value={queryEh} onChange={e => setQuery(e)} style={{ width: "100%" }} placeholder="Filter Messages" />
                 <TabBar
                     type="top"
                     look="brand"
@@ -112,11 +150,13 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                                 ? Object.values(logs?.deletedMessages ?? {})
                                 : Object.values(logs?.editedMessages ?? {})
                         }
+                        visibleMessages={visibleMessages}
+                        canLoadMore={canLoadMore}
                         tab={currentTab}
                         logs={logs}
-                        forceUpdate={forceUpdate}
-                        query={query}
                         sortNewest={sortNewest}
+                        forceUpdate={forceUpdate}
+                        handleLoadMore={handleLoadMore}
                     />
                 </ModalContent>
             </div>
@@ -125,7 +165,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     color={Button.Colors.RED}
                     onClick={() => Alerts.show({
                         title: "Clear Logs",
-                        body: "Are you sure you want to delete all the logs",
+                        body: "Are you sure you want to clear all the logs",
                         confirmText: "Clear",
                         confirmColor: Button.Colors.RED,
                         cancelText: "Cancel",
@@ -136,7 +176,25 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
 
                     })}
                 >
-                    Clear Logs
+                    Clear All Logs
+                </Button>
+                <Button
+                    style={{ marginRight: "16px" }}
+                    color={Button.Colors.YELLOW}
+                    onClick={() => Alerts.show({
+                        title: "Clear Logs",
+                        body: `Are you sure you want to clear ${visibleMessages.length} logs`,
+                        confirmText: "Clear",
+                        confirmColor: Button.Colors.RED,
+                        cancelText: "Cancel",
+                        onConfirm: async () => {
+                            await removeLogs(visibleMessages);
+                            forceUpdate();
+                        }
+
+                    })}
+                >
+                    Clear Visible Logs
                 </Button>
                 <Button
                     look={Button.Looks.LINK}
@@ -159,18 +217,15 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
 
 interface LogContentProps {
     logs: LoggedMessages | null,
-    query: string;
     sortNewest: boolean;
     messages: string[],
     tab: LogTabs;
+    visibleMessages: string[];
+    canLoadMore: boolean;
     forceUpdate: () => void;
+    handleLoadMore: () => void;
 }
-function LogsContent({ logs, query: queryEh, messages, sortNewest, tab, forceUpdate, }: LogContentProps) {
-    const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
-    const handleLoadMore = useCallback(() => {
-        setNumDisplayedMessages(prevNum => prevNum + 50);
-    }, []);
-
+function LogsContent({ logs, visibleMessages, canLoadMore, messages, sortNewest, tab, forceUpdate, handleLoadMore }: LogContentProps) {
     if (logs == null || messages.length === 0)
         return (
             <div className={cl("empty-logs", "content-inner")}>
@@ -180,35 +235,15 @@ function LogsContent({ logs, query: queryEh, messages, sortNewest, tab, forceUpd
             </div>
         );
 
-
-
-    console.time("hi");
-
-    const { success, type, id, query } = parseQuery(queryEh);
-
-    const flattendAndfilteredAndSortedMessages = messages
-        .flat()
-        .filter(m => logs[m]?.message != null && (success === false ? true : doesMatch(type!, id!, logs[m].message!)))
-        .filter(m => logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()) ?? logs[m].message?.editHistory?.map(m => m.content?.toLowerCase()).includes(query.toLowerCase()))
-        .sort((a, b) => {
-            const timestampA = new Date(logs[a]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
-            const timestampB = new Date(logs[b]?.message?.timestamp ?? "2023-07-20T15:34:29.064Z").getTime();
-            return sortNewest ? timestampB - timestampA : timestampA - timestampB;
-        });
-    const visibleMessages = flattendAndfilteredAndSortedMessages.slice(0, numDisplayedMessages);
-
-    const canLoadMore = numDisplayedMessages < flattendAndfilteredAndSortedMessages.length;
-
     if (visibleMessages.length === 0)
         return (
             <div className={cl("empty-logs", "content-inner")}>
                 <Text variant="text-lg/normal" style={{ textAlign: "center", }}>
-                    No results in <b>{tab === LogTabs.DELETED ? "deleted messages" : "edited message"}</b> maybe try <b>{tab === LogTabs.DELETED ? "edited message" : "deleted messages"}</b>
+                    No results in <b>{tab === LogTabs.DELETED ? "deleted messages" : "edited messages"}</b> maybe try <b>{tab === LogTabs.DELETED ? "edited message" : "deleted messages"}</b>
                 </Text>
             </div>
         );
 
-    console.timeEnd("hi");
     return (
         <div className={cl("content-inner")}>
             {visibleMessages

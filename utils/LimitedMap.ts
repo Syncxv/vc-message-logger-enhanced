@@ -16,12 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { settings } from "../index";
+
 export class LimitedMap<K, V> {
     public map: Map<K, V> = new Map();
-    constructor(public limit: number) { }
+    constructor() { }
 
     set(key: K, value: V) {
-        if (this.map.size >= this.limit) {
+        if (this.map.size >= settings.store.cacheLimit) {
             // delete the first entry
             this.map.delete(this.map.keys().next().value);
         }

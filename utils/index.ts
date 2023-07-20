@@ -29,7 +29,7 @@ export function getGuildIdByChannel(channel_id: string) {
 
 export function cleanupMessage(message: any): LoggedMessageJSON {
     const ret = typeof message.toJS === "function" ? JSON.parse(JSON.stringify(message.toJS())) : message;
-    ret.guildId = getGuildIdByChannel(ret.channel_id);
+    ret.guildId = ret.guild_id ?? getGuildIdByChannel(ret.channel_id);
     ret.embeds = (ret.embeds ?? []).map(cleanupEmbed);
     ret.deleted = ret.deleted ?? false;
     ret.editHistory = ret.editHistory ?? [];

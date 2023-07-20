@@ -76,8 +76,7 @@ export const removeFromKey = (
     }
 };
 
-export async function removeLog(id: string) {
-    const loggedMessages = await getLoggedMessages();
+async function removeLogWithoutSaving(id: string, loggedMessages: LoggedMessages) {
     const record = loggedMessages[id];
     if (record) {
         const channel_id = record.message?.channel_id;
@@ -88,10 +87,30 @@ export async function removeLog(id: string) {
         }
 
         delete loggedMessages[id];
-
-        await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
-        await refreshCache();
     }
+
+    return loggedMessages;
+}
+
+
+
+export async function removeLogs(ids: string[]) {
+    const loggedMessages = await getLoggedMessages();
+    for (const msgId of ids) {
+        removeLogWithoutSaving(msgId, loggedMessages);
+    }
+    await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
+    await refreshCache();
+}
+
+export async function removeLog(id: string) {
+    const loggedMessages = await getLoggedMessages();
+
+    removeLogWithoutSaving(id, loggedMessages);
+
+    await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
+    await refreshCache();
+
 }
 
 export async function clearLogs() {

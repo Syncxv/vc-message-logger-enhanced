@@ -36,8 +36,7 @@ import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
 
-export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>(1000);
-
+export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
 
 const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
@@ -306,8 +305,6 @@ export default definePlugin({
     },
 
     start() {
-        cacheSentMessages.limit = settings.store.cacheLimit;
-
         addContextMenuPatch("message", openLogsPatch);
         addContextMenuPatch("channel-context", openLogsPatch);
         addContextMenuPatch("user-context", openLogsPatch);
