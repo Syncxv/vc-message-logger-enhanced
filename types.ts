@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Message } from "discord-types/general";
+import { Message, MessageJSON } from "discord-types/general";
 
 export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
     guildId?: string,
@@ -48,6 +48,15 @@ export interface MessageUpdatePayload {
     type: string;
     guildId: string;
     message: Message;
+}
+
+export interface MessageCreatePayload {
+    type: string;
+    guildId: string;
+    channelId: string;
+    message: MessageJSON;
+    optimistic: boolean;
+    isPushNotification: boolean;
 }
 
 export interface LoadMessagePayload {

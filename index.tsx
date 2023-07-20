@@ -28,13 +28,17 @@ import { Alerts, Button, FluxDispatcher, Menu, MessageStore, Toasts, UserStore }
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { addMessage, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
-import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { cleanupUserObject, mapEditHistory, reAddDeletedMessages } from "./utils";
+import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
+import { cleanupMessage, cleanupUserObject, mapEditHistory, reAddDeletedMessages } from "./utils";
+import { LimitedMap } from "./utils/LimitedMap";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
 
 
+export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>(1000);
+
 async function messageDeleteHandler(payload: MessageDeletePayload) {
-    const message: LoggedMessage = MessageStore.getMessage(payload.channelId, payload.id);
+    const message: LoggedMessage | LoggedMessageJSON =
+        MessageStore.getMessage(payload.channelId, payload.id) ?? { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true };
     if (message == null || message.channel_id == null || !message.deleted) return;
 
     console.log("ADDING MESSAGE (DELETED)", message);
@@ -42,11 +46,40 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
 }
 
 async function messageUpdateHandler(payload: MessageUpdatePayload) {
-    const message: LoggedMessage = MessageStore.getMessage(payload.message.channel_id, payload.message.id);
+    let message: LoggedMessage | LoggedMessageJSON
+        = MessageStore.getMessage(payload.message.channel_id, payload.message.id);
+
+    if (message == null) {
+        const cachedMessage = cacheSentMessages.get(`${payload.message.channel_id},${payload.message.id}`);
+        if (cachedMessage != null) {
+            message = {
+                ...cachedMessage,
+                content: payload.message.content,
+                editHistory: [
+                    ...(cachedMessage.editHistory ?? []),
+                    {
+                        content: cachedMessage.content,
+                        timestamp: (new Date()).toISOString()
+                    }
+                ]
+            } as unknown as LoggedMessageJSON; // bruh
+
+            cacheSentMessages.set(`${payload.message.channel_id},${payload.message.id}`, message);
+        }
+    }
+
     if (message == null || message.channel_id == null || message.editHistory == null || message.editHistory.length === 0) return;
 
     console.log("ADDING MESSAGE (EDITED)", message);
     await addMessage(message, "editedMessages");
+}
+
+function messageCreateHandler(payload: MessageCreatePayload) {
+    // only cache dm messages
+    if (!payload.message || (!settings.store.cacheMessagesFromServers && payload.guildId != null)) return;
+
+    cacheSentMessages.set(`${payload.message.channel_id},${payload.message.id}`, cleanupMessage(payload.message));
+    // console.log(`cached\nkey:${payload.message.channel_id},${payload.message.id}\nvalue:`, payload.message);
 }
 
 // also stolen from mlv2
@@ -95,7 +128,19 @@ export const settings = definePluginSettings({
     sortNewest: {
         default: true,
         type: OptionType.BOOLEAN,
-        description: "Sort logs by newest",
+        description: "Sort logs by newest.",
+    },
+
+    cacheMessagesFromServers: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "Enables caching of messages from servers. Note that this may cause the cache to exceed its limit, resulting in some messages being missed. If you are in a lot of servers, this may significantly increase the chances of messages being saved, which can result in a large message record and the inclusion of irrelevant messages.",
+    },
+
+    cacheLimit: {
+        default: 1000,
+        type: OptionType.NUMBER,
+        description: "Maximum number of messages to store in the cache. Older messages are deleted when the limit is reached. This helps reduce memory usage and improve performance."
     },
 
     importLogs: {
@@ -210,9 +255,12 @@ export default definePlugin({
     flux: {
         "MESSAGE_DELETE": messageDeleteHandler,
         "MESSAGE_UPDATE": messageUpdateHandler,
+        "MESSAGE_CREATE": messageCreateHandler
     },
 
     start() {
+        cacheSentMessages.limit = settings.store.cacheLimit;
+
         addContextMenuPatch("message", openLogsPatch);
         addContextMenuPatch("channel-context", openLogsPatch);
         addContextMenuPatch("user-context", openLogsPatch);

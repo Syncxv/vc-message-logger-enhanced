@@ -19,7 +19,7 @@
 import { createStore, promisifyRequest } from "@api/DataStore";
 import { DataStore } from "@api/index";
 
-import { LoggedMessage, LoggedMessageIds, LoggedMessages } from "./types";
+import { LoggedMessage, LoggedMessageIds, LoggedMessageJSON, LoggedMessages } from "./types";
 import { cleanupMessage } from "./utils";
 
 export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, };
@@ -44,7 +44,7 @@ export let loggedMessagesCache: LoggedMessages = defaultLoggedMessages;
 export const getLoggedMessages = async (): Promise<LoggedMessages> => (await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore)) ?? defaultLoggedMessages;
 export const refreshCache = async () => loggedMessagesCache = await getLoggedMessages();
 
-export const addMessage = async (message: LoggedMessage, key: keyof LoggedMessageIds) => {
+export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key: keyof LoggedMessageIds) => {
     const loggedMessages = await getLoggedMessages();
     const finalMessage = cleanupMessage(message);
     loggedMessages[message.id] = { message: finalMessage };

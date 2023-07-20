@@ -26,9 +26,12 @@ export function getGuildIdByChannel(channel_id: string) {
     return ChannelStore.getChannel(channel_id)?.guild_id;
 }
 
-export function cleanupMessage(message: any) {
-    const ret = JSON.parse(JSON.stringify(message.toJS()));
+export function cleanupMessage(message: any): LoggedMessageJSON {
+    const ret = typeof message.toJS === "function" ? JSON.parse(JSON.stringify(message.toJS())) : message;
     ret.guildId = getGuildIdByChannel(ret.channel_id);
+    ret.embeds = (ret.embeds ?? []).map(cleanupEmbed);
+    ret.deleted = ret.deleted ?? false;
+    ret.editHistory = ret.editHistory ?? [];
     if (ret.type === 19) {
         ret.message_reference = message.message_reference || message.messageReference;
         if (ret.message_reference) {
