@@ -164,10 +164,10 @@ export function reAddDeletedMessages(messages: LoggedMessageJSON[], deletedMessa
     }
 }
 
-export const mapEditHistory = memoize((m: any) => {
+export const mapEditHistory = (m: any) => {
     m.timestamp = moment(m.timestamp);
     return m;
-});
+};
 
 interface ShouldIgnoreArguments {
     channelId?: string,
@@ -217,7 +217,7 @@ export function removeFromBlacklist(id: string) {
 export const discordIdToDate = (id: string) => new Date((parseInt(id) / 4194304) + DISCORD_EPOCH);
 
 export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJSON; }) => {
-    console.time("message populate");
+    // console.time("message populate");
     const message: LoggedMessage = new MessageClass.Z(log.message);
     message.timestamp = moment(message.timestamp);
 
@@ -229,13 +229,13 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     message.author = new AuthorClass.Z(message.author);
     (message.author as any).nick = (message.author as any).globalName ?? message.author.username;
 
-    console.timeEnd("message populate");
+    // console.timeEnd("message populate");
     return message;
 });
 
 
-export const sortMessagesByDate = memoize((a: string, b: string) => {
+export const sortMessagesByDate = (a: string, b: string) => {
     const timestampA = discordIdToDate(a).getTime();
     const timestampB = discordIdToDate(b).getTime();
     return timestampB - timestampA;
-});
+};

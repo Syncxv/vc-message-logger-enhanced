@@ -76,7 +76,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
 
     // console.log(logs, _, pending, contentRef);
 
-    console.time("hi");
+    // console.time("hi");
     const flattendAndfilteredAndSortedMessages = useMemo(() => {
         if (pending) return [];
         const messages: string[][] = currentTab === LogTabs.DELETED
@@ -105,7 +105,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
 
     const canLoadMore = numDisplayedMessages < flattendAndfilteredAndSortedMessages.length;
 
-    console.timeEnd("hi");
+    // console.timeEnd("hi");
     return (
         <ModalRoot className={cl("root")} {...modalProps} size={ModalSize.LARGE}>
             <ModalHeader className={cl("header")}>

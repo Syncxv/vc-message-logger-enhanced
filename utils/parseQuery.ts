@@ -52,7 +52,7 @@ export const parseQuery = memoize((query: string): QueryResult => {
 });
 
 
-export const doesMatch = memoize((type: typeof validIdSearchTypes[number], value: string, message: LoggedMessageJSON) => {
+export const doesMatch = (type: typeof validIdSearchTypes[number], value: string, message: LoggedMessageJSON) => {
     switch (type) {
         case "channel":
             return message.channel_id === value;
@@ -68,4 +68,4 @@ export const doesMatch = memoize((type: typeof validIdSearchTypes[number], value
         default:
             return false;
     }
-});
+};
