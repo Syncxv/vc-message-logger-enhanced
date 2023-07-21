@@ -413,6 +413,7 @@ const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
                 }
 
                 {
+                    props.guild?.id &&
                     !settings.store.blacklistedIds.includes(props.guild?.id) && (
                         <Menu.MenuItem
                             id="blacklist-server"
@@ -423,6 +424,7 @@ const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
                 }
 
                 {
+                    props.guild?.id &&
                     settings.store.blacklistedIds.includes(props.guild?.id) && (
                         <Menu.MenuItem
                             id="remove-server-from-blacklist"
