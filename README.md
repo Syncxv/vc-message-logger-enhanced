@@ -1,10 +1,11 @@
 # vc-message-logger-enhanced
 
 ## Features
-- Restore deleted and edited messages after reloading discord
+- Restore deleted and edited messages even after reloading discord (optional)
 - Logs Modal (view deleted and edited messages)
   - Sort Messages
   - Search logs by channel id, user id, server id and message id
+- Message Limit (settings)
 - Blacklist servers, channels and users
 - Log Messages from channels / dms you didnt open
 - Cache server messages (can be toggled in settings. disabled by default)
