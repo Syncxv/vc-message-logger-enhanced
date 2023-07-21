@@ -78,6 +78,8 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key
         }
     }
 
+    saveLoggedMessages(loggedMessages);
+
 };
 
 
