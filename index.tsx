@@ -61,7 +61,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
             mlDeleted: true
         });
 
-    if (message == null || message.channel_id == null || !message.deleted) return;
+    if (!settings.store.saveMessages || message == null || message.channel_id == null || !message.deleted) return;
 
     console.log("ADDING MESSAGE (DELETED)", message);
     await addMessage(message, "deletedMessages");
@@ -83,6 +83,8 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
         cacheThing.commit(cache);
         return console.log("this message has been blacklisted", payload);
     }
+
+    if (!settings.store.saveMessages) return;
 
     let message: LoggedMessage | LoggedMessageJSON
         = MessageStore.getMessage(payload.message.channel_id, payload.message.id);
@@ -178,6 +180,12 @@ export const settings = definePluginSettings({
         default: false,
         type: OptionType.BOOLEAN,
         description: "Enables caching of messages from servers. Note that this may cause the cache to exceed its limit, resulting in some messages being missed. If you are in a lot of servers, this may significantly increase the chances of messages being logged, which can result in a large message record and the inclusion of irrelevant messages.",
+    },
+
+    messageLimit: {
+        default: 200,
+        type: OptionType.NUMBER,
+        description: "Maximum number of messages to save. Older messages are deleted when the limit is reached"
     },
 
     cacheLimit: {

@@ -19,6 +19,7 @@
 import { createStore, promisifyRequest } from "@api/DataStore";
 import { DataStore } from "@api/index";
 
+import { settings } from ".";
 import { LoggedMessage, LoggedMessageIds, LoggedMessageJSON, LoggedMessages } from "./types";
 import { cleanupMessage } from "./utils";
 
@@ -56,6 +57,13 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key
 
     if (!loggedMessages[key][message.channel_id].includes(message.id)) {
         loggedMessages[key][message.channel_id].push(message.id);
+    }
+
+    if ((Object.keys(loggedMessages).length - 2) > settings.store.messageLimit) {
+        const id = loggedMessages[key][message.channel_id].shift();
+        if (id) {
+            removeLog(id);
+        }
     }
 
     await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
