@@ -61,7 +61,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
             mlDeleted: true
         });
 
-    if (!settings.store.saveMessages || message == null || message.channel_id == null || !message.deleted) return;
+    if (message == null || message.channel_id == null || !message.deleted) return;
 
     console.log("ADDING MESSAGE (DELETED)", message);
     await addMessage(message, "deletedMessages");
@@ -83,8 +83,6 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
         cacheThing.commit(cache);
         return console.log("this message has been blacklisted", payload);
     }
-
-    if (!settings.store.saveMessages) return;
 
     let message: LoggedMessage | LoggedMessageJSON
         = MessageStore.getMessage(payload.message.channel_id, payload.message.id);

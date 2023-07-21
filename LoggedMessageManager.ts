@@ -43,9 +43,21 @@ export let loggedMessagesCache: LoggedMessages = defaultLoggedMessages;
 
 
 export const getLoggedMessages = async (): Promise<LoggedMessages> => {
-    return (await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore)) ?? defaultLoggedMessages;
+    return settings.store.saveMessages
+        ? (await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore)) ?? defaultLoggedMessages
+        : loggedMessagesCache;
 };
 export const refreshCache = async () => loggedMessagesCache = await getLoggedMessages();
+
+
+export const saveLoggedMessages = async (loggedMessages: LoggedMessages) => {
+    if (settings.store.saveMessages) {
+        await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
+        await refreshCache();
+    } else {
+        loggedMessagesCache = loggedMessages;
+    }
+};
 
 export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key: keyof LoggedMessageIds) => {
     const loggedMessages = await getLoggedMessages();
@@ -66,8 +78,6 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key
         }
     }
 
-    await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
-    await refreshCache();
 };
 
 
@@ -109,8 +119,7 @@ export async function removeLogs(ids: string[]) {
     for (const msgId of ids) {
         removeLogWithoutSaving(msgId, loggedMessages);
     }
-    await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
-    await refreshCache();
+    saveLoggedMessages(loggedMessages);
 }
 
 export async function removeLog(id: string) {
@@ -118,8 +127,7 @@ export async function removeLog(id: string) {
 
     removeLogWithoutSaving(id, loggedMessages);
 
-    await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
-    await refreshCache();
+    saveLoggedMessages(loggedMessages);
 
 }
 
