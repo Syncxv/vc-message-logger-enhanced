@@ -30,7 +30,7 @@ import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { addMessage, clearLogs, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { addToBlacklist, cleanupMessage, cleanupUserObject, mapEditHistory, reAddDeletedMessages, removeFromBlacklist } from "./utils";
+import { addToBlacklist, cleanupMessage, cleanupUserObject, hasPingged, mapEditHistory, reAddDeletedMessages, removeFromBlacklist } from "./utils";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
@@ -114,8 +114,12 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
 }
 
 function messageCreateHandler(payload: MessageCreatePayload) {
-    // only cache dm messages
-    if (!payload.message || (!settings.store.cacheMessagesFromServers && payload.guildId != null)) return;
+    if (
+        (
+            !payload.message
+            || (!settings.store.cacheMessagesFromServers && payload.guildId != null)
+        ) && !hasPingged(payload.message as any)
+    ) return;
 
     cacheSentMessages.set(`${payload.message.channel_id},${payload.message.id}`, cleanupMessage(payload.message));
     // console.log(`cached\nkey:${payload.message.channel_id},${payload.message.id}\nvalue:`, payload.message);

@@ -21,13 +21,13 @@ import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find } from "@webpack";
-import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Forms, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
+import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { settings } from "../index";
 import { clearLogs, defaultLoggedMessages, getLoggedMessages, removeLog, removeLogs } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
-import { messageJsonToMessageClass, sortMessagesByDate } from "../utils";
+import { isGhostPinged, messageJsonToMessageClass, sortMessagesByDate } from "../utils";
 import { doesMatch, parseQuery } from "../utils/parseQuery";
 
 
@@ -47,8 +47,9 @@ const MessagePreview: React.FC<MessagePreviewProps> = LazyComponent(() => find(m
 const cl = classNameFactory("msg-logger-modal-");
 
 enum LogTabs {
-    DELETED = "deletedMessages",
-    EDITED = "editedMessages"
+    DELETED = "Deleted",
+    EDITED = "Edited",
+    GHOST_PING = "Ghost Pinged"
 }
 
 
@@ -77,23 +78,26 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     // console.log(logs, _, pending, contentRef);
 
     // console.time("hi");
+    const messages: string[][] = currentTab === LogTabs.DELETED || currentTab === LogTabs.GHOST_PING
+        ? Object.values(logs?.deletedMessages ?? {})
+        : Object.values(logs?.editedMessages ?? {});
+
     const flattendAndfilteredAndSortedMessages = useMemo(() => {
         if (pending) return [];
-        const messages: string[][] = currentTab === LogTabs.DELETED
-            ? Object.values(logs?.deletedMessages ?? {})
-            : Object.values(logs?.editedMessages ?? {});
 
         const { success, type, id, query } = parseQuery(queryEh);
 
         if (query === "" && !success) {
             const result = messages
                 .flat()
+                .filter(m => currentTab === LogTabs.GHOST_PING ? isGhostPinged(logs[m].message!) : true)
                 .sort(sortMessagesByDate);
             return sortNewest ? result : result.reverse();
         }
 
         const result = messages
             .flat()
+            .filter(m => currentTab === LogTabs.GHOST_PING ? isGhostPinged(logs[m].message) : true)
             .filter(m => logs[m]?.message != null && (success === false ? true : doesMatch(type!, id!, logs[m].message!)))
             .filter(m => logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()) ?? logs[m].message?.editHistory?.map(m => m.content?.toLowerCase()).includes(query.toLowerCase()))
             .sort(sortMessagesByDate);
@@ -134,27 +138,33 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     >
                         Edited
                     </TabBar.Item>
+                    <TabBar.Item
+                        className={cl("tab-bar-item")}
+                        id={LogTabs.GHOST_PING}
+                    >
+                        Ghost Pinged
+                    </TabBar.Item>
                 </TabBar>
             </ModalHeader>
             <div className={cl("content-container")} ref={contentRef}>
                 <ModalContent
                     className={cl("content")}
                 >
-                    {!pending &&
-                        <LogsContentMemo
-                            messages={
-                                currentTab === LogTabs.DELETED
-                                    ? Object.values(logs?.deletedMessages ?? {})
-                                    : Object.values(logs?.editedMessages ?? {})
-                            }
-                            visibleMessages={visibleMessages}
-                            canLoadMore={canLoadMore}
-                            tab={currentTab}
-                            logs={logs}
-                            sortNewest={sortNewest}
-                            forceUpdate={forceUpdate}
-                            handleLoadMore={handleLoadMore}
-                        />}
+                    {
+                        !pending && logs == null || messages.length === 0
+                            ? <EmptyLogs />
+                            : (
+                                <LogsContentMemo
+                                    visibleMessages={visibleMessages}
+                                    canLoadMore={canLoadMore}
+                                    tab={currentTab}
+                                    logs={logs}
+                                    sortNewest={sortNewest}
+                                    forceUpdate={forceUpdate}
+                                    handleLoadMore={handleLoadMore}
+                                />
+                            )
+                    }
                 </ModalContent>
             </div>
             <ModalFooter>
@@ -178,6 +188,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                 <Button
                     style={{ marginRight: "16px" }}
                     color={Button.Colors.YELLOW}
+                    disabled={visibleMessages.length === 0}
                     onClick={() => Alerts.show({
                         title: "Clear Logs",
                         body: `Are you sure you want to clear ${visibleMessages.length} logs`,
@@ -212,33 +223,18 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
 }
 
 interface LogContentProps {
-    logs: LoggedMessages | null,
+    logs: LoggedMessages,
     sortNewest: boolean;
-    messages: string[][],
     tab: LogTabs;
     visibleMessages: string[];
     canLoadMore: boolean;
     forceUpdate: () => void;
     handleLoadMore: () => void;
 }
-function LogsContent({ logs, visibleMessages, canLoadMore, messages, sortNewest, tab, forceUpdate, handleLoadMore }: LogContentProps) {
-    if (logs == null || messages.length === 0)
-        return (
-            <div className={cl("empty-logs", "content-inner")}>
-                <Forms.FormText variant="text-lg/normal" style={{ textAlign: "center" }}>
-                    Empty eh
-                </Forms.FormText>
-            </div>
-        );
 
+function LogsContent({ logs, visibleMessages, canLoadMore, sortNewest, tab, forceUpdate, handleLoadMore }: LogContentProps) {
     if (visibleMessages.length === 0)
-        return (
-            <div className={cl("empty-logs", "content-inner")}>
-                <Text variant="text-lg/normal" style={{ textAlign: "center", }}>
-                    No results in <b>{tab === LogTabs.DELETED ? "deleted messages" : "edited messages"}</b> maybe try <b>{tab === LogTabs.DELETED ? "edited message" : "deleted messages"}</b>
-                </Text>
-            </div>
-        );
+        return <NoResults tab={tab} />;
 
     return (
         <div className={cl("content-inner")}>
@@ -265,6 +261,46 @@ function LogsContent({ logs, visibleMessages, canLoadMore, messages, sortNewest,
 }
 
 const LogsContentMemo = LazyComponent(() => React.memo(LogsContent));
+
+
+function NoResults({ tab }: { tab: LogTabs; }) {
+    const generateSuggestedTabs = (tab: LogTabs) => {
+        switch (tab) {
+            case LogTabs.DELETED:
+                return { nextTab: LogTabs.EDITED, lastTab: LogTabs.GHOST_PING };
+            case LogTabs.EDITED:
+                return { nextTab: LogTabs.GHOST_PING, lastTab: LogTabs.DELETED };
+            case LogTabs.GHOST_PING:
+                return { nextTab: LogTabs.DELETED, lastTab: LogTabs.EDITED };
+            default:
+                return { nextTab: "", lastTab: "" };
+        }
+    };
+
+    const { nextTab, lastTab } = generateSuggestedTabs(tab);
+
+    return (
+        <div className={cl("empty-logs", "content-inner")} style={{ textAlign: "center" }}>
+            <Text variant="text-lg/normal">
+                No results in <b>{tab}</b>.
+            </Text>
+            <Text variant="text-lg/normal" style={{ marginTop: "0.2rem" }}>
+                Maybe try <b>{nextTab}</b> or <b>{lastTab}</b>
+            </Text>
+        </div>
+    );
+}
+
+function EmptyLogs() {
+    return (
+        <div className={cl("empty-logs", "content-inner")} style={{ textAlign: "center" }}>
+            <Text variant="text-lg/normal">
+                Empty eh
+            </Text>
+        </div>
+    );
+
+}
 
 interface LMessageProps {
     log: { message: LoggedMessageJSON; };

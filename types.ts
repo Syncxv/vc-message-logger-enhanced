@@ -19,7 +19,9 @@
 import { Message, MessageJSON } from "discord-types/general";
 
 export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
+    mention_everyone?: string,
     guildId?: string,
+    ghostPinged?: boolean;
     timestamp: string;
     deleted?: boolean,
     editHistory?: {
