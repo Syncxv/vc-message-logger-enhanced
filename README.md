@@ -1,16 +1,21 @@
 # vc-message-logger-enhanced
 
 ## Features
-- Restore deleted and edited messages even after reloading discord (optional)
-- Logs Modal (view deleted and edited messages)
-  - Sort Messages
-  - Search logs by channel id, user id, server id and message id
-- Message Limit (settings)
-- Blacklist servers, channels and users
-- Log Messages from channels / dms you didnt open
-- Cache server messages (can be toggled in settings. disabled by default)
-- Export Logs
-- Import Logs
+- Restore deleted and edited messages even after reloading Discord (optional).
+- Log messages from channels or DMs you haven't opened.
+- View logs in a modal that shows your logged messages.
+  - Sort messages based on timestamps.
+  - Search logs by channel ID, user ID, server ID, and message ID.
+  - Ghost Pinged tab to track and view ghost pings.
+- Set a message limit to manage the number of saved logs (settings).
+- Blacklist servers, channels, and users to prevent logging specific content.
+- Whitelist feature to selectively allow logging for specific servers, channels, or users.
+- Whitelist overrides server blacklist, allowing logging of whitelisted users' actions in blacklisted servers and channels.
+- Export logs for backup and analysis purposes.
+- Import logs to restore previous logging data.
+
+  
+### **Note:** Enabling "Cache Messages From Servers" can increase the size of log records and disk space usage. Consider this before enabling the feature.
 
 # How to update
 cd into your vencord folder and run this
