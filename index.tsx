@@ -73,7 +73,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
 
     if (message == null || message.channel_id == null || !message.deleted) return;
 
-    console.log("ADDING MESSAGE (DELETED)", message);
+    // console.log("ADDING MESSAGE (DELETED)", message);
     await addMessage(message, "deletedMessages");
 }
 
