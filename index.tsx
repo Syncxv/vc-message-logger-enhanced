@@ -47,7 +47,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
         MessageStore.getMessage(payload.channelId, payload.id);
     if (message == null) {
         const cachedMessage = cacheSentMessages.get(`${payload.channelId},${payload.id}`);
-        if (!cachedMessage) return console.log("no message to save");
+        if (!cachedMessage) return; // console.log("no message to save");
 
         message = { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true } as LoggedMessageJSON;
     }
@@ -61,7 +61,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
             ghostPinged: isGhostPinged(message as any)
         })
     ) {
-        console.log("IGNORING", message, payload);
+        // console.log("IGNORING", message, payload);
         return FluxDispatcher.dispatch({
             type: "MESSAGE_DELETE",
             channelId: payload.channelId,
@@ -94,7 +94,7 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
             message.editHistory = [];
             cacheThing.commit(cache);
         }
-        return console.log("this message has been ignored", payload);
+        return; // console.log("this message has been ignored", payload);
     }
 
     let message: LoggedMessage | LoggedMessageJSON
@@ -122,7 +122,7 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
 
     if (message == null || message.channel_id == null || message.editHistory == null || message.editHistory.length === 0) return;
 
-    console.log("ADDING MESSAGE (EDITED)", message, payload);
+    // console.log("ADDING MESSAGE (EDITED)", message, payload);
     await addMessage(message, "editedMessages");
 }
 
