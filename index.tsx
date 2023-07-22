@@ -24,13 +24,13 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
-import { Alerts, Button, FluxDispatcher, Menu, MessageStore, Toasts, UserStore } from "@webpack/common";
+import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { addMessage, clearLogs, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { addToBlacklist, cleanupMessage, cleanupUserObject, hasPingged, mapEditHistory, reAddDeletedMessages, removeFromBlacklist } from "./utils";
+import { addToXAndRemoveFromOpposite, cleanupMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
@@ -43,23 +43,33 @@ const cacheThing = findByPropsLazy("commit", "getOrCreate");
 async function messageDeleteHandler(payload: MessageDeletePayload) {
     if (payload.mlDeleted) return;
 
-    const message: LoggedMessage | LoggedMessageJSON =
-        MessageStore.getMessage(payload.channelId, payload.id) ?? { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true };
+    let message: LoggedMessage | LoggedMessageJSON | null =
+        MessageStore.getMessage(payload.channelId, payload.id);
+    if (message == null) {
+        const cachedMessage = cacheSentMessages.get(`${payload.channelId},${payload.id}`);
+        if (!cachedMessage) return console.log("no message to save");
+
+        message = { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true } as LoggedMessageJSON;
+    }
     if (
         shouldIgnore({
             channelId: message?.channel_id ?? payload.channelId,
-            guildId: payload.guildId,
+            guildId: payload.guildId ?? (message as any).guildId ?? (message as any).guild_id,
             authorId: message?.author?.id,
             bot: message?.bot,
-            flags: message?.flags
+            flags: message?.flags,
+            ghostPinged: isGhostPinged(message as any)
         })
-    )
+    ) {
+        console.log("IGNORING", message, payload);
         return FluxDispatcher.dispatch({
             type: "MESSAGE_DELETE",
             channelId: payload.channelId,
             id: payload.id,
             mlDeleted: true
         });
+    }
+
 
     if (message == null || message.channel_id == null || !message.deleted) return;
 
@@ -73,15 +83,18 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
             channelId: payload.message?.channel_id,
             guildId: payload.guildId ?? (payload as any).guild_id,
             authorId: payload.message?.author?.id,
-            bot: (payload.message as any)?.bot,
-            flags: payload.message?.flags
+            bot: (payload.message?.author as any)?.bot,
+            flags: payload.message?.flags,
+            ghostPinged: isGhostPinged(payload.message as any)
         })
     ) {
         const cache = cacheThing.getOrCreate(payload.message.channel_id);
         const message = cache.get(payload.message.id);
-        message.editHistory = [];
-        cacheThing.commit(cache);
-        return console.log("this message has been blacklisted", payload);
+        if (message) {
+            message.editHistory = [];
+            cacheThing.commit(cache);
+        }
+        return console.log("this message has been ignored", payload);
     }
 
     let message: LoggedMessage | LoggedMessageJSON
@@ -114,12 +127,17 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
 }
 
 function messageCreateHandler(payload: MessageCreatePayload) {
-    if (
-        (
-            !payload.message
-            || (!settings.store.cacheMessagesFromServers && payload.guildId != null)
-        ) && !hasPingged(payload.message as any)
-    ) return;
+    // we do this here because cache is limited and to save memory
+    if (!settings.store.cacheMessagesFromServers && payload.guildId != null) {
+        const ids = [payload.channelId, payload.message?.author?.id, payload.guildId];
+        const isWhitelisted =
+            settings.store.whitelistedIds
+                .split(",")
+                .some(e => ids.includes(e));
+        if (!isWhitelisted) {
+            return; // dont cache messages from servers when cacheMessagesFromServers is disabled and not whitelisted.
+        }
+    }
 
     cacheSentMessages.set(`${payload.message.channel_id},${payload.message.id}`, cleanupMessage(payload.message));
     // console.log(`cached\nkey:${payload.message.channel_id},${payload.message.id}\nvalue:`, payload.message);
@@ -196,10 +214,16 @@ export const settings = definePluginSettings({
         description: "Maximum number of messages to store in the cache. Older messages are deleted when the limit is reached. This helps reduce memory usage and improve performance."
     },
 
+    whitelistedIds: {
+        default: "",
+        type: OptionType.STRING,
+        description: "Whitelisted server, channel, or user IDs"
+    },
+
     blacklistedIds: {
         default: "",
         type: OptionType.STRING,
-        description: "List of server, channel, and user IDs, separated by commas, that you want to exclude from logging."
+        description: "Blacklisted server, channel, or user IDs"
     },
 
     importLogs: {
@@ -342,6 +366,52 @@ export default definePlugin({
 });
 
 
+const idFunctions = {
+    Server: props => props?.guild?.id,
+    User: props => props?.message?.author?.id || props?.user?.id,
+    Channel: props => props.message?.channel_id || props.channel?.id
+} as const;
+
+type idKeys = keyof typeof idFunctions;
+
+function renderListOption(listType: ListType, IdType: idKeys, props: any) {
+    const id = idFunctions[IdType](props);
+    if (!id) return null;
+
+    const isBlocked = settings.store[listType].includes(id);
+    const oppositeListType = listType === "blacklistedIds" ? "whitelistedIds" : "blacklistedIds";
+    const isOppositeBlocked = settings.store[oppositeListType].includes(id);
+    const list = listType === "blacklistedIds" ? "Blacklist" : "Whitelist";
+
+    const addToList = () => addToXAndRemoveFromOpposite(listType, id);
+    const removeFromList = () => removeFromX(listType, id);
+
+    return (
+        <Menu.MenuItem
+            id={`${listType}-${IdType}-${id}`}
+            label={
+                isOppositeBlocked
+                    ? `Move ${IdType} to ${list}`
+                    : isBlocked ? `Remove ${IdType} From ${list}` : `${list} ${IdType}`
+            }
+            action={isBlocked ? removeFromList : addToList}
+        />
+    );
+}
+
+function renderOpenLogs(idType: idKeys, props: any) {
+    const id = idFunctions[idType](props);
+    if (!id) return null;
+
+    return (
+        <Menu.MenuItem
+            id={`open-logs-for-${idType.toLowerCase()}`}
+            label={`Open Logs For ${idType}`}
+            action={() => openLogModal(`${idType.toLowerCase()}:${id}`)}
+        />
+    );
+}
+
 const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
     if (!props) return;
 
@@ -359,138 +429,49 @@ const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
                     action={() => openLogModal()}
                 />
 
-                {
-                    props.guild && (
-                        <Menu.MenuItem
-                            id="open-logs-for-server"
-                            label="Open Logs For Server"
-                            action={() => openLogModal(`server:${props.guild.id}`)}
-                        />
-                    )
-                }
+                {Object.keys(idFunctions).map(IdType => renderOpenLogs(IdType as idKeys, props))}
 
-                {
-                    (props.message?.author?.id || props.user?.id)
-                    && (
-                        <Menu.MenuItem
-                            id="open-logs-for-user"
-                            label="Open Logs For User"
-                            action={() => openLogModal(`user:${props.message?.author?.id || props.user?.id}`)}
-                        />
-                    )
-                }
+                <Menu.MenuSeparator />
 
-                {
-                    (props.message?.channel_id != null || props.channel?.id != null)
-                    && (
-                        <>
-                            <Menu.MenuItem
-                                id="open-logs-for-channel"
-                                label="Open Logs For Channel"
-                                action={() => openLogModal(`channel:${props.message?.channel_id || props.channel?.id}`)}
-                            />
-
-                            {
-                                !settings.store.blacklistedIds.includes(props.message?.channel_id || props.channel?.id)
-                                && (
-                                    <Menu.MenuItem
-                                        id="blacklist-channel"
-                                        label="Blacklist Channel"
-                                        action={() => addToBlacklist(props.message?.channel_id || props.channel?.id)}
-                                    />
-                                )
-                            }
-
-                            {
-                                settings.store.blacklistedIds.includes(props.message?.channel_id || props.channel?.id)
-                                && (
-                                    <Menu.MenuItem
-                                        id="remove-channel-from-blacklist"
-                                        label="Remove Channel From Blacklist"
-                                        action={() => removeFromBlacklist(props.message?.channel_id || props.channel?.id)}
-                                    />
-                                )
-                            }
-
-                        </>
-                    )
-                }
-
-                {
-                    props.guild?.id &&
-                    !settings.store.blacklistedIds.includes(props.guild?.id) && (
-                        <Menu.MenuItem
-                            id="blacklist-server"
-                            label="Blacklist Server"
-                            action={() => addToBlacklist(props.guild?.id)}
-                        />
-                    )
-                }
-
-                {
-                    props.guild?.id &&
-                    settings.store.blacklistedIds.includes(props.guild?.id) && (
-                        <Menu.MenuItem
-                            id="remove-server-from-blacklist"
-                            label="Remove Server From Blacklist"
-                            action={() => removeFromBlacklist(props.guild?.id)}
-                        />
-                    )
-                }
-
-                {
-                    (props.message?.author?.id || props.user?.id)
-                    && !settings.store.blacklistedIds.includes(props.message?.author?.id || props.user?.id)
-                    && (
-                        <Menu.MenuItem
-                            id="blacklist-user"
-                            label="Blacklist User"
-                            action={() => addToBlacklist(props.message?.author?.id || props.user?.id)}
-                        />
-                    )
-                }
-
-                {
-                    (props.message?.author?.id || props.user?.id)
-                    && settings.store.blacklistedIds.includes(props.message?.author?.id || props.user?.id)
-                    && (
-                        <Menu.MenuItem
-                            id="remove-from-blacklist-user"
-                            label="Remove User From Blacklist"
-                            action={() => removeFromBlacklist(props.message?.author?.id || props.user?.id)}
-                        />
-                    )
-                }
+                {Object.keys(idFunctions).map(IdType => (
+                    <React.Fragment key={IdType}>
+                        {renderListOption("blacklistedIds", IdType as idKeys, props)}
+                        {renderListOption("whitelistedIds", IdType as idKeys, props)}
+                    </React.Fragment>
+                ))}
 
                 {
                     props.navId === "message"
                     && (props.message?.deleted || props.message?.editHistory?.length > 0)
                     && (
-                        <Menu.MenuItem
-                            id="remove-message"
-                            label={props.message?.deleted ? "Remove Message (Permanent)" : "Remove Message History (Permanent)"}
-                            color="danger"
-                            action={() =>
-                                removeLog(props.message.id)
-                                    .then(() => {
-                                        if (props.message.deleted) {
-                                            FluxDispatcher.dispatch({
-                                                type: "MESSAGE_DELETE",
-                                                channelId: props.message.channel_id,
-                                                id: props.message.id,
-                                                mlDeleted: true
-                                            });
-                                        } else {
-                                            props.message.editHistory = [];
-                                        }
-                                    }).catch(() => Toasts.show({
-                                        type: Toasts.Type.FAILURE,
-                                        message: "Failed to remove message",
-                                        id: Toasts.genId()
-                                    }))
+                        <>
+                            <Menu.MenuSeparator />
+                            <Menu.MenuItem
+                                id="remove-message"
+                                label={props.message?.deleted ? "Remove Message (Permanent)" : "Remove Message History (Permanent)"}
+                                color="danger"
+                                action={() =>
+                                    removeLog(props.message.id)
+                                        .then(() => {
+                                            if (props.message.deleted) {
+                                                FluxDispatcher.dispatch({
+                                                    type: "MESSAGE_DELETE",
+                                                    channelId: props.message.channel_id,
+                                                    id: props.message.id,
+                                                    mlDeleted: true
+                                                });
+                                            } else {
+                                                props.message.editHistory = [];
+                                            }
+                                        }).catch(() => Toasts.show({
+                                            type: Toasts.Type.FAILURE,
+                                            message: "Failed to remove message",
+                                            id: Toasts.genId()
+                                        }))
 
-                            }
-                        />
+                                }
+                            />
+                        </>
                     )
                 }
 

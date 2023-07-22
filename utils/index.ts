@@ -74,41 +74,71 @@ interface ShouldIgnoreArguments {
     guildId?: string;
     flags?: number,
     bot?: boolean;
+    ghostPinged?: boolean;
 }
 
 const EPHEMERAL = 64;
-export function shouldIgnore({ channelId, authorId, guildId, flags, bot }: ShouldIgnoreArguments) {
+
+
+/**
+  * the function `shouldIgnore` evaluates whether a message should be ignored or kept, based on certain criteria.
+  * whitelist takes priority. for example if a server is blacklisted but a whitelisted user deletes soemthing it will be saved
+  * @param {ShouldIgnoreArguments} args - An object containing the message details.
+  * @returns {boolean} - True if the message should be ignored, false if it should be kept.
+*/
+export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPinged }: ShouldIgnoreArguments): boolean {
     if (channelId && guildId == null)
         guildId = getGuildIdByChannel(channelId);
 
     const myId = UserStore.getCurrentUser().id;
-
     const { ignoreBots, ignoreSelf, ignoreUsers } = Settings.plugins.MessageLogger;
 
     const ids = [authorId, channelId, guildId];
 
-    const shouldIgnore =
-        ((flags ?? 0) & EPHEMERAL) === EPHEMERAL ||
-        ignoreBots && bot ||
-        ignoreSelf && authorId === myId ||
-        [...settings.store.blacklistedIds.split(","), ...ignoreUsers.split(",")].some(e => ids.includes(e));
+    const whitelistedIds = settings.store.whitelistedIds.split(",");
 
-    return shouldIgnore;
+    const isUserWhitelisted = whitelistedIds.includes(authorId!);
+    const isChannelWhitelisted = whitelistedIds.includes(channelId!);
+    const isGuildWhitelisted = whitelistedIds.includes(guildId!);
+    const isBlacklisted = [...settings.store.blacklistedIds.split(","), ...ignoreUsers.split(",")].some(e => ids.includes(e));
+
+    const isEphemeral = ((flags ?? 0) & EPHEMERAL) === EPHEMERAL;
+    const isWhitelisted = settings.store.whitelistedIds.split(",").some(e => ids.includes(e));
+
+    if (ghostPinged) return false; // keep
+    if (isWhitelisted) return false; // keep
+
+    if (!settings.store.cacheMessagesFromServers && guildId != null && !isGuildWhitelisted) return true; // ignore
+
+    if (isEphemeral) return true; // ignore
+    if ((ignoreBots && bot) && !isWhitelisted) return true; // ignore
+    if (ignoreSelf && authorId === myId) return true; // ignore
+    if (isBlacklisted && (!isUserWhitelisted || !isChannelWhitelisted)) return true; // ignore
+
+    return false;
 }
 
+export type ListType = "blacklistedIds" | "whitelistedIds";
 
-export function addToBlacklist(id: string) {
-    const items = settings.store.blacklistedIds ? settings.store.blacklistedIds.split(",") : [];
+export function addToXAndRemoveFromOpposite(list: ListType, id: string) {
+    const oppositeListType = list === "blacklistedIds" ? "whitelistedIds" : "blacklistedIds";
+    removeFromX(oppositeListType, id);
+
+    addToX(list, id);
+}
+
+export function addToX(list: ListType, id: string) {
+    const items = settings.store[list] ? settings.store[list].split(",") : [];
     items.push(id);
 
-    settings.store.blacklistedIds = items.join(",");
+    settings.store[list] = items.join(",");
 }
 
-export function removeFromBlacklist(id: string) {
-    const items = settings.store.blacklistedIds ? settings.store.blacklistedIds.split(",") : [];
+export function removeFromX(list: ListType, id: string) {
+    const items = settings.store[list] ? settings.store[list].split(",") : [];
     const index = items.indexOf(id);
     if (index !== -1) {
         items.splice(index, 1);
     }
-    settings.store.blacklistedIds = items.join(",");
+    settings.store[list] = items.join(",");
 }
