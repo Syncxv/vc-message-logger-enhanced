@@ -36,12 +36,11 @@ export const isGhostPinged = (message?: LoggedMessageJSON) => {
 
 };
 
-export const hasPingged = (message?: LoggedMessageJSON) => {
+export const hasPingged = (message?: LoggedMessageJSON | { mention_everyone: boolean, mentions: any[]; }) => {
     return message && !!(
         message.mention_everyone ||
-        message.mentions.find(m => (typeof m === "string" ? m : (m as any).id) === UserStore.getCurrentUser().id)
+        message.mentions?.find(m => (typeof m === "string" ? m : m.id) === UserStore.getCurrentUser().id)
     );
-
 };
 
 export const discordIdToDate = (id: string) => new Date((parseInt(id) / 4194304) + DISCORD_EPOCH);
@@ -78,8 +77,9 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     const editHistory = message.editHistory?.map(mapEditHistory);
     if (editHistory && editHistory.length > 0) {
         message.editHistory = editHistory;
-        message.editedTimestamp = moment(message.editedTimestamp);
     }
+    if (message.editedTimestamp)
+        message.editedTimestamp = moment(message.editedTimestamp);
     message.author = new AuthorClass.Z(message.author);
     (message.author as any).nick = (message.author as any).globalName ?? message.author.username;
 
