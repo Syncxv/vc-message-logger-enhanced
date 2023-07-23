@@ -24,6 +24,7 @@ export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
     ghostPinged?: boolean;
     timestamp: string;
     deleted?: boolean,
+    ourCache?: boolean;
     editHistory?: {
         timestamp: string;
         content: string;

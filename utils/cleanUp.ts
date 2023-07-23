@@ -43,6 +43,12 @@ export function cleanupMessage(message: any): LoggedMessageJSON {
     return ret;
 }
 
+export function cleanUpCachedMessage(message: any) {
+    const ret = cleanupMessage(message);
+    ret.ourCache = true;
+    return ret;
+}
+
 // stolen from mlv2
 export function cleanupEmbed(embed) {
     /* backported code from MLV2 rewrite */

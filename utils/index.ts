@@ -75,6 +75,7 @@ interface ShouldIgnoreArguments {
     flags?: number,
     bot?: boolean;
     ghostPinged?: boolean;
+    isCachedByUs?: boolean;
 }
 
 const EPHEMERAL = 64;
@@ -86,7 +87,7 @@ const EPHEMERAL = 64;
   * @param {ShouldIgnoreArguments} args - An object containing the message details.
   * @returns {boolean} - True if the message should be ignored, false if it should be kept.
 */
-export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPinged }: ShouldIgnoreArguments): boolean {
+export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPinged, isCachedByUs }: ShouldIgnoreArguments): boolean {
     if (channelId && guildId == null)
         guildId = getGuildIdByChannel(channelId);
 
@@ -108,7 +109,7 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
     if (ghostPinged) return false; // keep
     if (isWhitelisted) return false; // keep
 
-    if (!settings.store.cacheMessagesFromServers && guildId != null && !isGuildWhitelisted) return true; // ignore
+    if (isCachedByUs && (!settings.store.cacheMessagesFromServers && guildId != null && !isGuildWhitelisted)) return true; // ignore
 
     if (isEphemeral) return true; // ignore
     if ((ignoreBots && bot) && !isWhitelisted) return true; // ignore

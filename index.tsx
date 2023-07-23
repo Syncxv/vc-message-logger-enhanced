@@ -30,7 +30,7 @@ import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { addMessage, clearLogs, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { addToXAndRemoveFromOpposite, cleanupMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
+import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
@@ -58,7 +58,8 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
             authorId: message?.author?.id,
             bot: message?.bot,
             flags: message?.flags,
-            ghostPinged: isGhostPinged(message as any)
+            ghostPinged: isGhostPinged(message as any),
+            isCachedByUs: (message as LoggedMessageJSON).ourCache
         })
     ) {
         // console.log("IGNORING", message, payload);
@@ -78,6 +79,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
 }
 
 async function messageUpdateHandler(payload: MessageUpdatePayload) {
+    const cachedMessage = cacheSentMessages.get(`${payload.message.channel_id},${payload.message.id}`);
     if (
         shouldIgnore({
             channelId: payload.message?.channel_id,
@@ -85,7 +87,8 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
             authorId: payload.message?.author?.id,
             bot: (payload.message?.author as any)?.bot,
             flags: payload.message?.flags,
-            ghostPinged: isGhostPinged(payload.message as any)
+            ghostPinged: isGhostPinged(payload.message as any),
+            isCachedByUs: cachedMessage?.ourCache ?? false
         })
     ) {
         const cache = cacheThing.getOrCreate(payload.message.channel_id);
@@ -94,14 +97,13 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
             message.editHistory = [];
             cacheThing.commit(cache);
         }
-        return; // console.log("this message has been ignored", payload);
+        return;//  console.log("this message has been ignored", payload);
     }
 
     let message: LoggedMessage | LoggedMessageJSON
         = MessageStore.getMessage(payload.message.channel_id, payload.message.id);
 
     if (message == null) {
-        const cachedMessage = cacheSentMessages.get(`${payload.message.channel_id},${payload.message.id}`);
         // MESSAGE_UPDATE gets dispatched when emebeds change too and content becomes null
         if (cachedMessage != null && payload.message.content != null && cachedMessage.content !== payload.message.content) {
             message = {
@@ -139,7 +141,7 @@ function messageCreateHandler(payload: MessageCreatePayload) {
         }
     }
 
-    cacheSentMessages.set(`${payload.message.channel_id},${payload.message.id}`, cleanupMessage(payload.message));
+    cacheSentMessages.set(`${payload.message.channel_id},${payload.message.id}`, cleanUpCachedMessage(payload.message));
     // console.log(`cached\nkey:${payload.message.channel_id},${payload.message.id}\nvalue:`, payload.message);
 }
 
