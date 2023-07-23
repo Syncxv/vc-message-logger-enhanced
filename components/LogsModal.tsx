@@ -52,11 +52,11 @@ enum LogTabs {
     GHOST_PING = "Ghost Pinged"
 }
 
-
 interface Props {
     modalProps: ModalProps;
     initalQuery?: string;
 }
+
 export function LogsModal({ modalProps, initalQuery }: Props) {
     const [x, setX] = useState(0);
     const forceUpdate = () => setX(e => e + 1);
@@ -75,6 +75,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
         setNumDisplayedMessages(prevNum => prevNum + 50);
     }, []);
 
+
     // console.log(logs, _, pending, contentRef);
 
     // console.time("hi");
@@ -83,8 +84,6 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
         : Object.values(logs?.editedMessages ?? {});
 
     const flattendAndfilteredAndSortedMessages = useMemo(() => {
-        if (pending) return [];
-
         const { success, type, id, negate, query } = parseQuery(queryEh);
 
         if (query === "" && !success) {
@@ -162,26 +161,29 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     </TabBar.Item>
                 </TabBar>
             </ModalHeader>
-            <div className={cl("content-container")} ref={contentRef}>
-                <ModalContent
-                    className={cl("content")}
-                >
-                    {
-                        !pending && logs == null || messages.length === 0
-                            ? <EmptyLogs />
-                            : (
-                                <LogsContentMemo
-                                    visibleMessages={visibleMessages}
-                                    canLoadMore={canLoadMore}
-                                    tab={currentTab}
-                                    logs={logs}
-                                    sortNewest={sortNewest}
-                                    forceUpdate={forceUpdate}
-                                    handleLoadMore={handleLoadMore}
-                                />
-                            )
-                    }
-                </ModalContent>
+            <div style={{ opacity: modalProps.transitionState === 1 ? "1" : "0" }} className={cl("content-container")} ref={contentRef}>
+                {
+                    modalProps.transitionState === 1 &&
+                    <ModalContent
+                        className={cl("content")}
+                    >
+                        {
+                            !pending && logs == null || messages.length === 0
+                                ? <EmptyLogs />
+                                : (
+                                    <LogsContentMemo
+                                        visibleMessages={visibleMessages}
+                                        canLoadMore={canLoadMore}
+                                        tab={currentTab}
+                                        logs={logs}
+                                        sortNewest={sortNewest}
+                                        forceUpdate={forceUpdate}
+                                        handleLoadMore={handleLoadMore}
+                                    />
+                                )
+                        }
+                    </ModalContent>
+                }
             </div>
             <ModalFooter>
                 <Button
@@ -326,75 +328,76 @@ interface LMessageProps {
 function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
     const message = useMemo(() => messageJsonToMessageClass(log), [log]);
     return (
-        <div onContextMenu={e => {
-            ContextMenu.open(e, () =>
-                <Menu.Menu
-                    navId="message-logger"
-                    onClose={() => FluxDispatcher.dispatch({ type: "CONTEXT_MENU_CLOSE" })}
-                    aria-label="Message Logger"
-                >
+        <div
+            onContextMenu={e => {
+                ContextMenu.open(e, () =>
+                    <Menu.Menu
+                        navId="message-logger"
+                        onClose={() => FluxDispatcher.dispatch({ type: "CONTEXT_MENU_CLOSE" })}
+                        aria-label="Message Logger"
+                    >
 
-                    <Menu.MenuItem
-                        key="jump-to-message"
-                        id="jump-to-message"
-                        label="Jump To Message"
-                        action={() => {
-                            NavigationRouter.transitionTo(`/channels/${ChannelStore.getChannel(message.channel_id)?.guild_id ?? "@me"}/${message.channel_id}${message.id ? "/" + message.id : ""}`);
-                            closeAllModals();
-                        }}
-                    />
+                        <Menu.MenuItem
+                            key="jump-to-message"
+                            id="jump-to-message"
+                            label="Jump To Message"
+                            action={() => {
+                                NavigationRouter.transitionTo(`/channels/${ChannelStore.getChannel(message.channel_id)?.guild_id ?? "@me"}/${message.channel_id}${message.id ? "/" + message.id : ""}`);
+                                closeAllModals();
+                            }}
+                        />
 
-                    <Menu.MenuItem
-                        key="copy-content"
-                        id="copy-content"
-                        label="Copy Content"
-                        action={() => copyWithToast(message.content)}
-                    />
+                        <Menu.MenuItem
+                            key="copy-content"
+                            id="copy-content"
+                            label="Copy Content"
+                            action={() => copyWithToast(message.content)}
+                        />
 
-                    <Menu.MenuItem
-                        key="copy-user-id"
-                        id="copy-user-id"
-                        label="Copy User ID"
-                        action={() => copyWithToast(message.author.id)}
-                    />
+                        <Menu.MenuItem
+                            key="copy-user-id"
+                            id="copy-user-id"
+                            label="Copy User ID"
+                            action={() => copyWithToast(message.author.id)}
+                        />
 
-                    <Menu.MenuItem
-                        key="copy-message-id"
-                        id="copy-message-id"
-                        label="Copy Message ID"
-                        action={() => copyWithToast(message.id)}
-                    />
+                        <Menu.MenuItem
+                            key="copy-message-id"
+                            id="copy-message-id"
+                            label="Copy Message ID"
+                            action={() => copyWithToast(message.id)}
+                        />
 
-                    <Menu.MenuItem
-                        key="copy-channel-id"
-                        id="copy-channel-id"
-                        label="Copy Channel ID"
-                        action={() => copyWithToast(message.channel_id)}
-                    />
+                        <Menu.MenuItem
+                            key="copy-channel-id"
+                            id="copy-channel-id"
+                            label="Copy Channel ID"
+                            action={() => copyWithToast(message.channel_id)}
+                        />
 
-                    {
-                        log.message.guildId != null
-                        && (
-                            <Menu.MenuItem
-                                key="copy-server-id"
-                                id="copy-server-id"
-                                label="Copy Server ID"
-                                action={() => copyWithToast(log.message.guildId!)}
-                            />
-                        )
-                    }
+                        {
+                            log.message.guildId != null
+                            && (
+                                <Menu.MenuItem
+                                    key="copy-server-id"
+                                    id="copy-server-id"
+                                    label="Copy Server ID"
+                                    action={() => copyWithToast(log.message.guildId!)}
+                                />
+                            )
+                        }
 
-                    <Menu.MenuItem
-                        key="delete-log"
-                        id="delete-log"
-                        label="Delete Log"
-                        color="danger"
-                        action={() => removeLog(log.message.id).then(() => forceUpdate())}
-                    />
+                        <Menu.MenuItem
+                            key="delete-log"
+                            id="delete-log"
+                            label="Delete Log"
+                            color="danger"
+                            action={() => removeLog(log.message.id).then(() => forceUpdate())}
+                        />
 
-                </Menu.Menu>
-            );
-        }}>
+                    </Menu.Menu>
+                );
+            }}>
             <MessagePreview
                 className={`${cl("msg-preview")} ${message.deleted ? "messagelogger-deleted" : ""}`}
                 author={message.author}

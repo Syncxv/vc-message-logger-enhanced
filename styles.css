@@ -21,6 +21,7 @@
     /* max-height: 80vh; */
     overflow: hidden;
     height: 100%;
+    transition: opacity 100ms ease-in;
 }
 
 .msg-logger-modal-content {
