@@ -19,11 +19,11 @@
 import { MessageStore } from "@webpack/common";
 import { User } from "discord-types/general";
 
-import { LoggedMessageJSON } from "../types";
+import { LoggedMessageJSON, RefrencedMessage } from "../types";
 import { getGuildIdByChannel, isGhostPinged } from "./index";
 
 export function cleanupMessage(message: any): LoggedMessageJSON {
-    const ret = typeof message.toJS === "function" ? JSON.parse(JSON.stringify(message.toJS())) : message;
+    const ret: LoggedMessageJSON = typeof message.toJS === "function" ? JSON.parse(JSON.stringify(message.toJS())) : message;
     ret.ghostPinged = ret.mentioned ?? isGhostPinged(message);
     ret.guildId = ret.guild_id ?? getGuildIdByChannel(ret.channel_id);
     ret.embeds = (ret.embeds ?? []).map(cleanupEmbed);
@@ -33,9 +33,9 @@ export function cleanupMessage(message: any): LoggedMessageJSON {
         ret.message_reference = message.message_reference || message.messageReference;
         if (ret.message_reference) {
             if (message.referenced_message) {
-                ret.referenced_message = cleanupMessage(message.referenced_message);
+                ret.referenced_message = cleanupMessage(message.referenced_message) as RefrencedMessage;
             } else if (MessageStore.getMessage(ret.message_reference.channel_id, ret.message_reference.message_id)) {
-                ret.referenced_message = cleanupMessage(MessageStore.getMessage(ret.message_reference.channel_id, ret.message_reference.message_id));
+                ret.referenced_message = cleanupMessage(MessageStore.getMessage(ret.message_reference.channel_id, ret.message_reference.message_id)) as RefrencedMessage;
             }
         }
     }

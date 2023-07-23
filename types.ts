@@ -18,13 +18,18 @@
 
 import { Message, MessageJSON } from "discord-types/general";
 
+export type RefrencedMessage = LoggedMessageJSON & { message_id: string; };
 export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
-    mention_everyone?: string,
-    guildId?: string,
+    mention_everyone?: string;
+    guildId?: string;
+    guild_id?: string;
     ghostPinged?: boolean;
     timestamp: string;
-    deleted?: boolean,
     ourCache?: boolean;
+    referenced_message: RefrencedMessage;
+    message_reference: RefrencedMessage;
+
+    deleted?: boolean;
     editHistory?: {
         timestamp: string;
         content: string;
