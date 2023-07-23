@@ -85,7 +85,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const flattendAndfilteredAndSortedMessages = useMemo(() => {
         if (pending) return [];
 
-        const { success, type, id, query } = parseQuery(queryEh);
+        const { success, type, id, negate, query } = parseQuery(queryEh);
 
         if (query === "" && !success) {
             const result = messages
@@ -97,9 +97,25 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
 
         const result = messages
             .flat()
-            .filter(m => currentTab === LogTabs.GHOST_PING ? isGhostPinged(logs[m].message) : true)
-            .filter(m => logs[m]?.message != null && (success === false ? true : doesMatch(type!, id!, logs[m].message!)))
-            .filter(m => logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()) ?? logs[m].message?.editHistory?.map(m => m.content?.toLowerCase()).includes(query.toLowerCase()))
+            .filter(m =>
+                currentTab === LogTabs.GHOST_PING
+                    ? isGhostPinged(logs[m].message)
+                    : true
+            )
+            .filter(m =>
+                logs[m]?.message != null &&
+                (
+                    success === false
+                        ? true
+                        : negate
+                            ? !doesMatch(type!, id!, logs[m].message!)
+                            : doesMatch(type!, id!, logs[m].message!)
+                )
+            )
+            .filter(m =>
+                logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()) ??
+                logs[m].message?.editHistory?.map(m => m.content?.toLowerCase()).includes(query.toLowerCase())
+            )
             .sort(sortMessagesByDate);
 
         return sortNewest ? result : result.reverse();

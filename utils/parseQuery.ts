@@ -17,12 +17,14 @@
 */
 
 
+import { ChannelStore, GuildStore } from "@webpack/common";
+
 import { LoggedMessageJSON } from "../types";
 import { getGuildIdByChannel } from "./index";
 import { memoize } from "./memoize";
 
 
-const validIdSearchTypes = ["server", "channel", "user", "message"] as const;
+const validIdSearchTypes = ["server", "guild", "channel", "in", "user", "from", "message"] as const;
 type ValidIdSearchTypesUnion = typeof validIdSearchTypes[number];
 
 interface QueryResult {
@@ -30,12 +32,19 @@ interface QueryResult {
     query: string;
     type?: ValidIdSearchTypesUnion;
     id?: string;
+    negate?: boolean;
 }
 
-export const parseQuery = memoize((query: string): QueryResult => {
-    const trimmedQuery = query.trim();
+export const parseQuery = memoize((query: string = ""): QueryResult => {
+    let trimmedQuery = query.trim();
     if (!trimmedQuery) {
         return { success: false, query };
+    }
+
+    let negate = false;
+    if (trimmedQuery.startsWith("!")) {
+        negate = true;
+        trimmedQuery = trimmedQuery.substring(trimmedQuery.length, 1);
     }
 
     const [filter, rest] = trimmedQuery.split(" ", 2);
@@ -48,22 +57,44 @@ export const parseQuery = memoize((query: string): QueryResult => {
         return { success: false, query };
     }
 
-    return { success: true, type, id, query: rest ?? "" };
+    return {
+        success: true,
+        type,
+        id,
+        negate,
+        query: rest ?? ""
+    };
 });
 
 
 export const doesMatch = (type: typeof validIdSearchTypes[number], value: string, message: LoggedMessageJSON) => {
     switch (type) {
+        case "in":
         case "channel":
-            return message.channel_id === value;
+            const channel = ChannelStore.getChannel(message.channel_id);
+            if (!channel)
+                return message.channel_id === value;
+            const { name, id } = channel;
+            return id === value
+                || name.toLowerCase().includes(value.toLowerCase());
         case "message":
             return message.id === value;
+        case "from":
         case "user":
-            return message.author.id === value;
+            return message.author.id === value
+                || message.author?.username?.toLowerCase().includes(value.toLowerCase())
+                || (message.author as any)?.globalName?.toLowerCase()?.includes(value.toLowerCase());
+        case "guild":
         case "server": {
-            if (message.guildId)
-                return message.guildId === value;
-            return getGuildIdByChannel(message.channel_id) === value;
+            const guildId = message.guildId ?? getGuildIdByChannel(message.channel_id);
+            if (!guildId) return false;
+
+            const guild = GuildStore.getGuild(guildId);
+            if (!guild)
+                return guildId === value;
+
+            return guild.id === value
+                || guild.name.toLowerCase().includes(value.toLowerCase());
         }
         default:
             return false;
