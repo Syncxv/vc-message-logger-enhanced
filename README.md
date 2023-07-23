@@ -25,6 +25,20 @@ git pull
 pnpm build
 ```
 
+
+# Changelog
+
+## Version 1.1.0
+
+- Added Whitelist feature
+- Improved message caching:
+  - Graylisted messages that aren't cached by Discord won't be saved
+- Added Ghost Ping Tab
+- Improved searching functionality:
+  - Can now search by names in addition to existing search options
+- Added an automatic update check feature
+- Improved modal performance for better user experience
+
 # Demo
 https://github.com/Syncxv/vc-message-logger-enhanced/assets/47534062/de932bff-91fe-4825-8ef7-551cf245e51a
 
