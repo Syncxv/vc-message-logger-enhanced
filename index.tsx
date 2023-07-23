@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const VERSION = "1.0.1";
+export const VERSION = "1.1.0";
 
 import "./styles.css";
 
@@ -33,6 +33,7 @@ import { openLogModal } from "./components/LogsModal";
 import { addMessage, clearLogs, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
+import { checkForUpdates } from "./utils/checkForUpdates";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
@@ -188,6 +189,14 @@ function messageLoadSuccess(payload: LoadMessagePayload) {
 }
 
 export const settings = definePluginSettings({
+    checkForUpdate: {
+        type: OptionType.COMPONENT,
+        description: "Check for update",
+        component: () =>
+            <Button onClick={() => checkForUpdates()}>
+                Check For Updates
+            </Button>
+    },
     saveMessages: {
         default: true,
         type: OptionType.BOOLEAN,
@@ -204,6 +213,12 @@ export const settings = definePluginSettings({
         default: false,
         type: OptionType.BOOLEAN,
         description: "Enables caching of messages from servers. Note that this may cause the cache to exceed its limit, resulting in some messages being missed. If you are in a lot of servers, this may significantly increase the chances of messages being logged, which can result in a large message record and the inclusion of irrelevant messages.",
+    },
+
+    autoCheckForUpdates: {
+        default: true,
+        type: OptionType.BOOLEAN,
+        description: "Automatically check for updates on startup",
     },
 
     messageLimit: {
@@ -349,6 +364,9 @@ export default definePlugin({
     start() {
         if (!settings.store.saveMessages)
             clearLogs();
+
+        if (settings.store.autoCheckForUpdates)
+            checkForUpdates(10_000, false);
 
         addContextMenuPatch("message", contextMenuPath);
         addContextMenuPatch("channel-context", contextMenuPath);
