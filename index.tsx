@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const VERSION = "1.1.1";
+export const VERSION = "1.2.0";
 
 import "./styles.css";
 
@@ -280,7 +280,23 @@ export const settings = definePluginSettings({
     }
 });
 
-
+export interface ChildrenAccProops {
+    channelMessageProps: {
+        compact: boolean;
+        channel: any;
+        message: LoggedMessage;
+        groupId: string;
+        id: string;
+        isLastItem: boolean;
+        isHighlight: boolean;
+        renderContentOnly: boolean;
+    };
+    hasSpoilerEmbeds: boolean;
+    isInteracting: boolean;
+    isAutomodBlockedMessage: boolean;
+    showClydeAiEmbeds: boolean;
+}
+export let ChildrenAccessories: React.FC<ChildrenAccProops>;
 
 export default definePlugin({
     name: "MessageLoggerEnhanced",
@@ -300,7 +316,7 @@ export default definePlugin({
         {
             find: "THREAD_STARTER_MESSAGE?null===",
             replacement: {
-                match: /(attachments:.{1,3}\(.{1,500})deleted:.{1,50},editHistory:.{1,30},/,
+                match: /(attachments: \i\(.{1,500})deleted:.{1,50},editHistory:.{1,30},/,
                 replace: "$1deleted: $self.getDeleted(...arguments),editHistory: $self.getEdited(...arguments),"
             }
         },
@@ -308,8 +324,28 @@ export default definePlugin({
         {
             find: ".mobileToolbar",
             replacement: {
-                match: /(function .{1,3}\(.\){)(.{1,200}toolbar.{1,100}mobileToolbar)/,
+                match: /(function \i\(.\){)(.{1,200}toolbar.{1,100}mobileToolbar)/,
                 replace: "$1$self.addIconToToolBar(arguments[0]);$2"
+            }
+        },
+
+        // the idea is that we can just do this instead of searching the webpack cache.
+        // cuse if i want to add replies or something then i can just add one more replacement like this
+
+        // childAcc: (0, $self.bruh = D.Z)({...})
+        {
+            find: ".messageListItem,",
+            replacement: {
+                match: /(childrenAccessories:\(0,)(\i.\.\i\))/,
+                replace: "$1$self.ChildrenAccessories = $2"
+            }
+        },
+
+        {
+            find: ".content;return(0,",
+            replacement: {
+                match: /function \i\(\i\){var .{1,50}message,.{1,50}isGroupStart(.|\n){1,1000}return\(0,\i\.jsx\)\(\i\.\i.{/,
+                replace: "$&childrenAccessories:arguments[0].childrenAccessories || null,"
             }
         }
     ],
@@ -319,6 +355,14 @@ export default definePlugin({
         "Message Logger"() {
             openLogModal();
         }
+    },
+
+    set ChildrenAccessories(val) {
+        ChildrenAccessories = val;
+    },
+
+    get ChildrenAccessories() {
+        return ChildrenAccessories;
     },
 
     addIconToToolBar(e: { toolbar: React.ReactNode[] | React.ReactNode; }) {

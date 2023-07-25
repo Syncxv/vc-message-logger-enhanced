@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { findLazy } from "@webpack";
+import { findByCodeLazy, findLazy } from "@webpack";
 import { ChannelStore, moment, UserStore } from "@webpack/common";
 
 import { LoggedMessage, LoggedMessageJSON } from "../types";
@@ -25,6 +25,7 @@ import { memoize } from "./memoize";
 
 const MessageClass: any = findLazy(m => m?.Z?.prototype?.isEdited);
 const AuthorClass = findLazy(m => m?.Z?.prototype?.getAvatarURL);
+const makeEmbed = findByCodeLazy('("embed_"),');
 
 
 export function getGuildIdByChannel(channel_id: string) {
@@ -83,6 +84,7 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     message.author = new AuthorClass.Z(message.author);
     (message.author as any).nick = (message.author as any).globalName ?? message.author.username;
 
+    message.embeds = message.embeds.map(e => makeEmbed(message.channel_id, message.id, e));
     // console.timeEnd("message populate");
     return message;
 });

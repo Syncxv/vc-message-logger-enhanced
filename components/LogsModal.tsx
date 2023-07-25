@@ -20,11 +20,11 @@ import { classNameFactory } from "@api/Styles";
 import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
-import { find } from "@webpack";
+import { find, findLazy } from "@webpack";
 import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
-import { settings } from "../index";
+import { ChildrenAccessories, settings } from "../index";
 import { clearLogs, defaultLoggedMessages, getLoggedMessages, removeLog, removeLogs } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
 import { isGhostPinged, messageJsonToMessageClass, sortMessagesByDate } from "../utils";
@@ -39,10 +39,12 @@ export interface MessagePreviewProps {
     compact: boolean;
     isGroupStart: boolean;
     hideSimpleEmbedContent: boolean;
+
+    childrenAccessories: any;
 }
 
 const MessagePreview: React.FC<MessagePreviewProps> = LazyComponent(() => find(m => m?.type?.toString().includes("previewLinkTarget:") && !m?.type?.toString().includes("HAS_THREAD")));
-
+const ChannelClass = findLazy(m => m?.prototype?.addRecipient);
 
 const cl = classNameFactory("msg-logger-modal-");
 
@@ -405,6 +407,26 @@ function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
                 compact={false}
                 isGroupStart={isGroupStart}
                 hideSimpleEmbedContent={false}
+
+                childrenAccessories={
+                    <ChildrenAccessories
+                        channelMessageProps={{
+                            channel: ChannelStore.getChannel(message.channel_id) || new ChannelClass({ id: "" }),
+                            message,
+                            compact: false,
+                            groupId: "1",
+                            id: message.id,
+                            isLastItem: false,
+                            isHighlight: false,
+                            renderContentOnly: false,
+                        }}
+                        hasSpoilerEmbeds={false}
+                        isInteracting={false}
+                        showClydeAiEmbeds={true}
+                        isAutomodBlockedMessage={false}
+                    />
+                }
+
             />
         </div>
     );
