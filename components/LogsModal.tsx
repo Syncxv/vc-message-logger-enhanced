@@ -20,11 +20,11 @@ import { classNameFactory } from "@api/Styles";
 import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
-import { find, findLazy } from "@webpack";
+import { find, findByCode, findLazy } from "@webpack";
 import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
-import { ChildrenAccessories, settings } from "../index";
+import { settings } from "../index";
 import { clearLogs, defaultLoggedMessages, getLoggedMessages, removeLog, removeLogs } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
 import { isGhostPinged, messageJsonToMessageClass, sortMessagesByDate } from "../utils";
@@ -45,6 +45,24 @@ export interface MessagePreviewProps {
 
 const MessagePreview: React.FC<MessagePreviewProps> = LazyComponent(() => find(m => m?.type?.toString().includes("previewLinkTarget:") && !m?.type?.toString().includes("HAS_THREAD")));
 const ChannelClass = findLazy(m => m?.prototype?.addRecipient);
+
+export interface ChildrenAccProops {
+    channelMessageProps: {
+        compact: boolean;
+        channel: any;
+        message: LoggedMessage;
+        groupId: string;
+        id: string;
+        isLastItem: boolean;
+        isHighlight: boolean;
+        renderContentOnly: boolean;
+    };
+    hasSpoilerEmbeds: boolean;
+    isInteracting: boolean;
+    isAutomodBlockedMessage: boolean;
+    showClydeAiEmbeds: boolean;
+}
+const ChildrenAccessories: React.FC<ChildrenAccProops> = LazyComponent(() => findByCode(".channelMessageProps"));
 
 const cl = classNameFactory("msg-logger-modal-");
 
