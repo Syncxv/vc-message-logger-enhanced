@@ -28,6 +28,9 @@ pnpm build
 
 # Changelog
 
+## Version 1.2.0
+- Render Embeds in logs modal :D
+
 ## Version 1.1.0
 
 - Added Whitelist feature
