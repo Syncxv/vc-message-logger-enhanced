@@ -16,7 +16,8 @@
 
   
 ### **Note:** Enabling "Cache Messages From Servers" can increase the size of log records and disk space usage. Consider this before enabling the feature.
-
+# How to Install
+tutorial: https://youtu.be/8wexjSo8fNw
 # How to update
 cd into your vencord folder and run this
 ```bash
@@ -24,8 +25,6 @@ cd src/userplugins/vc-message-logger-enhanced
 git pull
 pnpm build
 ```
-
-
 # Changelog
 
 ## Version 1.2.0
