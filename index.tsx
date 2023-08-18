@@ -235,7 +235,7 @@ export const settings = definePluginSettings({
     doNotLogMuted: {
         default: true,
         type: OptionType.BOOLEAN,
-        description: "Do not log muted channels",
+        description: "Do not log messages in muted channels/categories/guilds",
     },
 
     messageLimit: {
