@@ -221,6 +221,18 @@ export const settings = definePluginSettings({
         description: "Automatically check for updates on startup",
     },
 
+    alwaysLogDirectMessages: {
+        default: true,
+        type: OptionType.BOOLEAN,
+        description: "Always log DMs",
+    },
+
+    alwaysLogCurrentChannel: {
+        default: true,
+        type: OptionType.BOOLEAN,
+        description: "Always log current selected channel",
+    },
+
     messageLimit: {
         default: 200,
         type: OptionType.NUMBER,

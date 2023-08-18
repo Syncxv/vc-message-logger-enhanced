@@ -17,7 +17,7 @@
 */
 
 import { Settings } from "@api/Settings";
-import { UserStore } from "@webpack/common";
+import { UserStore, SelectedChannelStore, ChannelStore } from "@webpack/common";
 
 import { settings } from "../index";
 import { loggedMessagesCache } from "../LoggedMessageManager";
@@ -88,6 +88,8 @@ const EPHEMERAL = 64;
   * @returns {boolean} - True if the message should be ignored, false if it should be kept.
 */
 export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPinged, isCachedByUs }: ShouldIgnoreArguments): boolean {
+    if (settings.store.alwaysLogCurrentChannel && SelectedChannelStore.getChannelId() == channelId) return false;
+    if (settings.store.alwaysLogDirectMessages && ChannelStore.getChannel(channelId ?? "-1").isDM()) return false;
     if (channelId && guildId == null)
         guildId = getGuildIdByChannel(channelId);
 
