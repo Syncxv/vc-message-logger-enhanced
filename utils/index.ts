@@ -17,13 +17,14 @@
 */
 
 import { Settings } from "@api/Settings";
-import { UserStore, SelectedChannelStore, ChannelStore } from "@webpack/common";
+import { UserStore, SelectedChannelStore, ChannelStore, GuildStore } from "@webpack/common";
 
 import { settings } from "../index";
 import { loggedMessagesCache } from "../LoggedMessageManager";
 import { LoggedMessageJSON } from "../types";
 import { findLastIndex, getGuildIdByChannel } from "./misc";
-
+import { findStoreLazy } from "@webpack";
+const UserGuildSettingsStore = findStoreLazy("UserGuildSettingsStore");
 
 export * from "./cleanUp";
 export * from "./misc";
@@ -118,6 +119,7 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
     if (ignoreSelf && authorId === myId) return true; // ignore
     if (isBlacklisted && (!isUserWhitelisted || !isChannelWhitelisted)) return true; // ignore
 
+    if (settings.store.doNotLogMuted && UserGuildSettingsStore.isGuildOrCategoryOrChannelMuted(guildId ?? "-1", channelId ?? "-1")) return true;
     return false;
 }
 

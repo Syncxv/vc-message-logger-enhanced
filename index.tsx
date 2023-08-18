@@ -232,6 +232,11 @@ export const settings = definePluginSettings({
         type: OptionType.BOOLEAN,
         description: "Always log current selected channel",
     },
+    doNotLogMuted: {
+        default: true,
+        type: OptionType.BOOLEAN,
+        description: "Do not log muted channels",
+    },
 
     messageLimit: {
         default: 200,
