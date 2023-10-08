@@ -73,6 +73,7 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key
 
     if ((Object.keys(loggedMessages).length - 2) > settings.store.messageLimit) {
         const id = loggedMessages[key][message.channel_id].shift();
+        // TODO: fix this. rn it will just delete the latest message instead of the oldest :|
         if (id) {
             removeLog(id);
         }

@@ -34,9 +34,11 @@ import { addMessage, clearLogs, isLogEmpty, loggedMessagesCache, MessageLoggerSt
 import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { checkForUpdates } from "./utils/checkForUpdates";
+import * as fileSystem from "./utils/filesystem";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
+import * as imageUtils from "./utils/saveImage";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
 
 export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
@@ -245,6 +247,11 @@ export const settings = definePluginSettings({
         description: "Blacklisted server, channel, or user IDs"
     },
 
+    imageCacheDir: {
+        type: OptionType.STRING,
+        description: "Where you want the images to be stored",
+    },
+
     importLogs: {
         type: OptionType.COMPONENT,
         description: "Import Logs",
@@ -348,6 +355,8 @@ export default definePlugin({
     store: MessageLoggerStore,
     openLogModal,
     doesMatch,
+    fileSystem,
+    imageUtils,
 
     getDeleted(m1, m2) {
         const deleted = m2?.deleted;
