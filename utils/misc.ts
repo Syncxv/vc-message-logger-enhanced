@@ -73,7 +73,7 @@ export const mapEditHistory = (m: any) => {
     return m;
 };
 
-export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJSON; }) => {
+export const messageJsonToMessageClass = memoize(async (log: { message: LoggedMessageJSON; }) => {
     // console.time("message populate");
     const message: LoggedMessage = new MessageClass.Z(log.message);
     message.timestamp = moment(message.timestamp);
@@ -89,7 +89,7 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
 
     message.embeds = message.embeds.map(e => makeEmbed(message.channel_id, message.id, e));
 
-    message.attachments = message.attachments.map(m => m);
+    message.attachments = await Promise.all(message.attachments.map(getLocalCacheImageUrl));
 
     // console.timeEnd("message populate");
     return message;
@@ -98,9 +98,13 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
 
 export async function getLocalCacheImageUrl(attachment: LoggedMessage["attachments"][0]) {
     const ext = attachment.fileExtension ?? getFileExtension(attachment.filename ?? attachment.url);
-    const data = await readFile(`${settings.store.imageCacheDir}/${attachment.id}.${ext}`);
-    if (!data) return null;
+    const data = await readFile(`${settings.store.imageCacheDir}/${attachment.id}${ext?.startsWith(".") ? ext : `.${ext}`}`);
+    if (!data) return attachment;
 
     const blob = new Blob([data]);
-    return URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob) + "#";
+
+    attachment.url = url;
+    attachment.proxy_url = url;
+    return attachment;
 }

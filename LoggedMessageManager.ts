@@ -62,7 +62,7 @@ export const saveLoggedMessages = async (loggedMessages: LoggedMessages) => {
 
 export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key: keyof LoggedMessageIds) => {
     if (settings.store.saveImages && key === "deletedMessages")
-        cacheMessageImages(message);
+        await cacheMessageImages(message);
     const loggedMessages = await getLoggedMessages();
     const finalMessage = cleanupMessage(message);
     loggedMessages[message.id] = { message: finalMessage };

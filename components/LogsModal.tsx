@@ -346,7 +346,13 @@ interface LMessageProps {
     forceUpdate: () => void;
 }
 function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
-    const message = useMemo(() => messageJsonToMessageClass(log), [log]);
+    const [message] = useAwaiter(() => messageJsonToMessageClass(log), {
+        fallbackValue: null,
+        deps: [log.message.id]
+    });
+
+    if (!message) return null;
+
     return (
         <div
             onContextMenu={e => {

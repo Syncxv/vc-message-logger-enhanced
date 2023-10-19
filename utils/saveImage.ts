@@ -77,7 +77,7 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
     try {
         for (let i = 0; i < message.attachments.length; i++) {
             const attachment = message.attachments[i];
-            if (attachment.content_type?.split("/")[0] === "image" || !isImage(attachment.filename ?? attachment.url)) {
+            if (!isImage(attachment.filename ?? attachment.url) || !(attachment.content_type?.split("/")[0] === "image")) {
                 console.log("skipping", attachment.filename);
                 continue;
             }
