@@ -51,12 +51,28 @@
     justify-content: space-around;
 }
 
-
-
 .vc-log-toolbox-btn svg {
     color: var(--interactive-normal);
 }
 
-:is(.vc-log-toolbox-btn:hover, .vc-log-toolbox-btn[class*="selected"]) svg {
+:is(.vc-log-toolbox-btn:hover, .vc-log-toolbox-btn[class*='selected']) svg {
     color: var(--interactive-active);
+}
+
+.folder-upload-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--background-secondary);
+}
+
+.folder-upload-input {
+    cursor: default;
+    padding: 10px 0 10px 10px;
+    color: var(--header-secondary);
+}
+
+.folder-upload-button {
+    margin: 6px;
+    padding: 4px 8px;
 }

@@ -22,6 +22,7 @@ import { DataStore } from "@api/index";
 import { settings } from ".";
 import { LoggedMessage, LoggedMessageIds, LoggedMessageJSON, LoggedMessages } from "./types";
 import { cleanupMessage } from "./utils";
+import { cacheMessageImages } from "./utils/saveImage";
 
 export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, };
 
@@ -60,6 +61,8 @@ export const saveLoggedMessages = async (loggedMessages: LoggedMessages) => {
 };
 
 export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key: keyof LoggedMessageIds) => {
+    if (settings.store.saveImages && key === "deletedMessages")
+        cacheMessageImages(message);
     const loggedMessages = await getLoggedMessages();
     const finalMessage = cleanupMessage(message);
     loggedMessages[message.id] = { message: finalMessage };

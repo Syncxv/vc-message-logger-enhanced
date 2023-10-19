@@ -24,16 +24,20 @@ import { addContextMenuPatch, NavContextMenuPatchCallback, removeContextMenuPatc
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
+import { showItemInFolder } from "@utils/native";
 import definePlugin, { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
 import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
+import { ImageCacheDir } from "./components/settings/ImageCacheSetting";
 import { addMessage, clearLogs, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
+import * as LoggedMessageManager from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
+import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, getLocalCacheImageUrl, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { checkForUpdates } from "./utils/checkForUpdates";
+import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import * as fileSystem from "./utils/filesystem";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
@@ -48,8 +52,9 @@ const cacheThing = findByPropsLazy("commit", "getOrCreate");
 async function messageDeleteHandler(payload: MessageDeletePayload) {
     if (payload.mlDeleted) return;
 
-    let message: LoggedMessage | LoggedMessageJSON | null =
-        MessageStore.getMessage(payload.channelId, payload.id);
+    let message = MessageStore
+        .getMessage(payload.channelId, payload.id) as LoggedMessage | LoggedMessageJSON | null;
+
     if (message == null) {
         const cachedMessage = cacheSentMessages.get(`${payload.channelId},${payload.id}`);
         if (!cachedMessage) return; // console.log("no message to save");
@@ -105,8 +110,8 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
         return;//  console.log("this message has been ignored", payload);
     }
 
-    let message: LoggedMessage | LoggedMessageJSON
-        = MessageStore.getMessage(payload.message.channel_id, payload.message.id);
+    let message = MessageStore
+        .getMessage(payload.message.channel_id, payload.message.id) as LoggedMessage | LoggedMessageJSON | null;
 
     if (message == null) {
         // MESSAGE_UPDATE gets dispatched when emebeds change too and content becomes null
@@ -247,9 +252,16 @@ export const settings = definePluginSettings({
         description: "Blacklisted server, channel, or user IDs"
     },
 
+    saveImages: {
+        type: OptionType.BOOLEAN,
+        description: "Save deleted messages",
+        default: false
+    },
+
     imageCacheDir: {
-        type: OptionType.STRING,
+        type: OptionType.COMPONENT,
         description: "Where you want the images to be stored",
+        component: ErrorBoundary.wrap(ImageCacheDir) as any
     },
 
     importLogs: {
@@ -284,7 +296,16 @@ export const settings = definePluginSettings({
             <Button onClick={() => openLogModal()}>
                 Open Logs
             </Button>
-    }
+    },
+    openImageCacheFolder: {
+        type: OptionType.COMPONENT,
+        description: "Opens the image cache directory",
+        component: () =>
+            <Button onClick={() => showItemInFolder(settings.store.imageCacheDir)}>
+                Open Image Cache Folder
+            </Button>
+    },
+
 });
 
 export default definePlugin({
@@ -355,6 +376,8 @@ export default definePlugin({
     store: MessageLoggerStore,
     openLogModal,
     doesMatch,
+    getLocalCacheImageUrl,
+    LoggedMessageManager,
     fileSystem,
     imageUtils,
 
@@ -382,6 +405,14 @@ export default definePlugin({
 
         if (settings.store.autoCheckForUpdates)
             checkForUpdates(10_000, false);
+
+        if (!fileSystem.nativeFileSystemAccess) {
+            settings.store.imageCacheDir = DEFAULT_IMAGE_CACHE_DIR;
+        }
+
+        if (fileSystem.nativeFileSystemAccess && settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR) {
+            settings.store.imageCacheDir = imageUtils.getDefaultNativePath();
+        }
 
         addContextMenuPatch("message", contextMenuPath);
         addContextMenuPatch("channel-context", contextMenuPath);

@@ -16,10 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Message, MessageJSON } from "discord-types/general";
+import { Message, MessageAttachment, MessageJSON } from "discord-types/general";
 
 export type RefrencedMessage = LoggedMessageJSON & { message_id: string; };
-export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
+export interface LoggedMessageJSON extends Omit<LoggedMessage, "timestamp"> {
     mention_everyone?: string;
     guildId?: string;
     guild_id?: string;
@@ -37,6 +37,7 @@ export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
 }
 
 export interface LoggedMessage extends Message {
+    attachments: (MessageAttachment & { fileExtension?: string | null; })[];
     deleted?: boolean,
     editHistory?: {
         timestamp: string;

@@ -18,7 +18,15 @@
 
 import { settings } from "..";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
+import { DEFAULT_IMAGE_CACHE_DIR } from "./constants";
 import { exists, mkdir, nativeFileSystemAccess, writeFile } from "./filesystem";
+
+export function getFileExtension(str: string) {
+    const matches = str.match(/(\.[a-zA-Z0-9]+)(?:\?.*)?$/);
+    if (!matches) return null;
+
+    return matches[1];
+}
 
 export function isImage(url: string) {
     return /\.(jpe?g|png|gif|bmp)(\?.*)?$/i.test(url);
@@ -31,30 +39,28 @@ async function checkImageCacheDir(cacheDir: string) {
         await mkdir(cacheDir);
 }
 
-// damn this sucks
-export async function getImageCacheDir() {
-    if (settings.store.imageCacheDir) return settings.store.imageCacheDir;
-
-    if (nativeFileSystemAccess) {
-        const path = window.require("path");
-        const themesDir = await VencordNative.themes.getThemesDir();
-        return path.join(themesDir, "../savedImages");
-    }
-
-    return "savedImages";
-
+export async function getDefaultNativePath() {
+    const path = window.require("path");
+    const themesDir = await VencordNative.themes.getThemesDir();
+    return path.join(themesDir, "../savedImages");
 
 }
 
-export async function cacheImage(url: string, attachmentIdx: number, attachmentId: string, messageId: string, channelId: string, attempts = 0) {
+export async function getImageCacheDir() {
+    if (nativeFileSystemAccess && settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR)
+        return getDefaultNativePath();
+
+    return settings.store.imageCacheDir ?? DEFAULT_IMAGE_CACHE_DIR;
+}
+
+export async function cacheImage(url: string, attachmentIdx: number, attachmentId: string, messageId: string, channelId: string, fileExtension: string | null, attempts = 0) {
     const res = await fetch(url);
     if (res.status !== 200) {
         if (res.status === 404 || res.status === 403) return;
         attempts++;
         if (attempts > 3) return console.warn(`Failed to get image ${attachmentId} for caching, error code ${res.status}`);
-        return setTimeout(() => cacheImage(url, attachmentIdx, attachmentId, messageId, channelId, attempts), 1000);
+        return setTimeout(() => cacheImage(url, attachmentIdx, attachmentId, messageId, channelId, fileExtension, attempts), 1000);
     }
-    const fileExtension = url.match(/(\.[a-zA-Z0-9]+)(?:\?.*)?$/)![1];
     const ab = await res.arrayBuffer();
     const imageCacheDir = await getImageCacheDir();
     await checkImageCacheDir(imageCacheDir);
@@ -66,8 +72,15 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
     try {
         for (let i = 0; i < message.attachments.length; i++) {
             const attachment = message.attachments[i];
-            if (!isImage(attachment.url)) continue;
-            await cacheImage(attachment.url, i, attachment.id, message.id, message.channel_id);
+            if (attachment.content_type?.split("/")[0] === "image" || !isImage(attachment.filename ?? attachment.url)) {
+                console.log("skipping", attachment.filename);
+                continue;
+            }
+            // apparently proxy urls last longer
+            const fileExtension = getFileExtension(attachment.filename ?? attachment.url);
+            attachment.url = attachment.proxy_url;
+            attachment.fileExtension = fileExtension;
+            await cacheImage(attachment.url, i, attachment.id, message.id, message.channel_id, fileExtension);
         }
     } catch (error) {
         console.error("Error caching message images:", error);

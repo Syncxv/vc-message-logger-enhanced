@@ -19,9 +19,12 @@
 import { findByCodeLazy, findLazy } from "@webpack";
 import { ChannelStore, moment, UserStore } from "@webpack/common";
 
+import { settings } from "..";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
+import { readFile } from "./filesystem";
 import { DISCORD_EPOCH } from "./index";
 import { memoize } from "./memoize";
+import { getFileExtension } from "./saveImage";
 
 const MessageClass: any = findLazy(m => m?.Z?.prototype?.isEdited);
 const AuthorClass = findLazy(m => m?.Z?.prototype?.getAvatarURL);
@@ -85,6 +88,19 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     (message.author as any).nick = (message.author as any).globalName ?? message.author.username;
 
     message.embeds = message.embeds.map(e => makeEmbed(message.channel_id, message.id, e));
+
+    message.attachments = message.attachments.map(m => m);
+
     // console.timeEnd("message populate");
     return message;
 });
+
+
+export async function getLocalCacheImageUrl(attachment: LoggedMessage["attachments"][0]) {
+    const ext = attachment.fileExtension ?? getFileExtension(attachment.filename ?? attachment.url);
+    const data = await readFile(`${settings.store.imageCacheDir}/${attachment.id}.${ext}`);
+    if (!data) return null;
+
+    const blob = new Blob([data]);
+    return URL.createObjectURL(blob);
+}
