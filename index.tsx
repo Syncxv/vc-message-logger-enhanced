@@ -399,7 +399,7 @@ export default definePlugin({
         "MESSAGE_CREATE": messageCreateHandler
     },
 
-    start() {
+    async start() {
         if (!settings.store.saveMessages)
             clearLogs();
 
@@ -411,7 +411,7 @@ export default definePlugin({
         }
 
         if (fileSystem.nativeFileSystemAccess && settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR) {
-            settings.store.imageCacheDir = imageUtils.getDefaultNativePath();
+            settings.store.imageCacheDir = await imageUtils.getDefaultNativePath();
         }
 
         addContextMenuPatch("message", contextMenuPath);

@@ -39,10 +39,15 @@ async function checkImageCacheDir(cacheDir: string) {
         await mkdir(cacheDir);
 }
 
-export async function getDefaultNativePath() {
-    const path = window.require("path");
-    const themesDir = await VencordNative.themes.getThemesDir();
-    return path.join(themesDir, "../savedImages");
+export async function getDefaultNativePath(): Promise<string | null> {
+    try {
+        const path = window.require("path");
+        const themesDir = await VencordNative.themes.getThemesDir();
+        return path.join(themesDir, "../savedImages");
+    } catch (err) {
+        console.error("failed to get default native path", err);
+        return null;
+    }
 
 }
 
