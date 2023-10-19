@@ -36,15 +36,20 @@ export interface LoggedMessageJSON extends Omit<LoggedMessage, "timestamp"> {
     }[];
 }
 
+export interface LoggedAttachment extends MessageAttachment {
+    fileExtension?: string | null;
+    path?: string | null;
+    nativefileSystem?: boolean;
+}
+
 export interface LoggedMessage extends Message {
-    attachments: (MessageAttachment & { fileExtension?: string | null; })[];
+    attachments: LoggedAttachment[];
     deleted?: boolean,
     editHistory?: {
         timestamp: string;
         content: string;
     }[];
 }
-
 
 export interface MessageDeletePayload {
     type: string;
@@ -80,10 +85,10 @@ export interface LoadMessagePayload {
     limit: number;
     isStale: boolean;
 }
+
 type LoggedMessageId = {
     [channel_id: string]: string[];
 };
-
 
 export type LoggedMessageIds = {
     deletedMessages: LoggedMessageId;

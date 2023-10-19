@@ -22,7 +22,7 @@ import { DataStore } from "@api/index";
 import { settings } from ".";
 import { LoggedMessage, LoggedMessageIds, LoggedMessageJSON, LoggedMessages } from "./types";
 import { cleanupMessage } from "./utils";
-import { cacheMessageImages } from "./utils/saveImage";
+import { cacheMessageImages, deleteMessageImages } from "./utils/saveImage";
 
 export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, };
 
@@ -83,7 +83,6 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key
     }
 
     saveLoggedMessages(loggedMessages);
-
 };
 
 
@@ -113,6 +112,9 @@ async function removeLogWithoutSaving(id: string, loggedMessages: LoggedMessages
         }
 
         delete loggedMessages[id];
+
+        if (record.message)
+            deleteMessageImages(record.message);
     }
 
     return loggedMessages;

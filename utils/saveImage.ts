@@ -19,7 +19,7 @@
 import { settings } from "..";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./constants";
-import { exists, mkdir, nativeFileSystemAccess, writeFile } from "./filesystem";
+import { deleteFile, exists, mkdir, nativeFileSystemAccess, writeFile } from "./filesystem";
 
 export function getFileExtension(str: string) {
     const matches = str.match(/(\.[a-zA-Z0-9]+)(?:\?.*)?$/);
@@ -68,8 +68,11 @@ export async function cacheImage(url: string, attachmentIdx: number, attachmentI
     }
     const ab = await res.arrayBuffer();
     const imageCacheDir = await getImageCacheDir();
+    const path = `${imageCacheDir}/${attachmentId}${fileExtension}`;
     await checkImageCacheDir(imageCacheDir);
-    await writeFile(`${imageCacheDir}/${attachmentId}${fileExtension}`, new Uint8Array(ab));
+    await writeFile(path, new Uint8Array(ab));
+
+    return path;
 }
 
 
@@ -85,9 +88,20 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
             const fileExtension = getFileExtension(attachment.filename ?? attachment.url);
             attachment.url = attachment.proxy_url;
             attachment.fileExtension = fileExtension;
-            await cacheImage(attachment.url, i, attachment.id, message.id, message.channel_id, fileExtension);
+            const path = await cacheImage(attachment.url, i, attachment.id, message.id, message.channel_id, fileExtension);
+            attachment.path = path;
+            attachment.nativefileSystem = nativeFileSystemAccess;
         }
     } catch (error) {
         console.error("Error caching message images:", error);
+    }
+}
+
+export async function deleteMessageImages(message: LoggedMessage | LoggedMessageJSON) {
+    for (let i = 0; i < message.attachments.length; i++) {
+        const attachment = message.attachments[i];
+        if (!attachment.path) continue;
+
+        deleteFile(attachment.path);
     }
 }

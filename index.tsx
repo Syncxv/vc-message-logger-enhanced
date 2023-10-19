@@ -301,7 +301,10 @@ export const settings = definePluginSettings({
         type: OptionType.COMPONENT,
         description: "Opens the image cache directory",
         component: () =>
-            <Button onClick={() => showItemInFolder(settings.store.imageCacheDir)}>
+            <Button
+                disabled={settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR}
+                onClick={() => showItemInFolder(settings.store.imageCacheDir)}
+            >
                 Open Image Cache Folder
             </Button>
     },
