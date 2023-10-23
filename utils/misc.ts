@@ -26,8 +26,8 @@ import { DISCORD_EPOCH } from "./index";
 import { memoize } from "./memoize";
 import { getFileExtension } from "./saveImage";
 
-const MessageClass: any = findLazy(m => m?.Z?.prototype?.isEdited);
-const AuthorClass = findLazy(m => m?.Z?.prototype?.getAvatarURL);
+const MessageClass = findLazy(m => m?.prototype?.isEdited);
+const AuthorClass = findLazy(m => m?.prototype?.getAvatarURL);
 const makeEmbed = findByCodeLazy('("embed_"),');
 
 
@@ -75,7 +75,7 @@ export const mapEditHistory = (m: any) => {
 
 export const messageJsonToMessageClass = memoize(async (log: { message: LoggedMessageJSON; }) => {
     // console.time("message populate");
-    const message: LoggedMessage = new MessageClass.Z(log.message);
+    const message: LoggedMessage = new MessageClass(log.message);
     message.timestamp = moment(message.timestamp);
 
     const editHistory = message.editHistory?.map(mapEditHistory);
@@ -84,7 +84,7 @@ export const messageJsonToMessageClass = memoize(async (log: { message: LoggedMe
     }
     if (message.editedTimestamp)
         message.editedTimestamp = moment(message.editedTimestamp);
-    message.author = new AuthorClass.Z(message.author);
+    message.author = new AuthorClass(message.author);
     (message.author as any).nick = (message.author as any).globalName ?? message.author.username;
 
     message.embeds = message.embeds.map(e => makeEmbed(message.channel_id, message.id, e));
@@ -97,14 +97,28 @@ export const messageJsonToMessageClass = memoize(async (log: { message: LoggedMe
 
 
 export async function getLocalCacheImageUrl(attachment: LoggedMessage["attachments"][0]) {
-    const ext = attachment.fileExtension ?? getFileExtension(attachment.filename ?? attachment.url);
-    const data = await readFile(`${settings.store.imageCacheDir}/${attachment.id}${ext?.startsWith(".") ? ext : `.${ext}`}`);
-    if (!data) return attachment;
+    if (attachment.blobUrl && attachment.blobUrl.startsWith("blob:")) {
+        console.log("alreayd created blob for ", attachment.id);
+        attachment.url = attachment.blobUrl;
+        attachment.proxy_url = attachment.blobUrl;
+        return attachment;
+    }
+
+    const extension = attachment.fileExtension ?? getFileExtension(attachment.filename ?? attachment.url);
+
+    try {
+        var data = await readFile(`${settings.store.imageCacheDir}/${attachment.id}${extension?.startsWith(".") ? extension : `.${extension}`}`);
+        if (!data) return attachment;
+    } catch (err) {
+        return attachment;
+    }
 
     const blob = new Blob([data]);
+    // fix query params
     const url = URL.createObjectURL(blob) + "#";
 
     attachment.url = url;
     attachment.proxy_url = url;
+    attachment.blobUrl = url;
     return attachment;
 }

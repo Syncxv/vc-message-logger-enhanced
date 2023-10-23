@@ -39,6 +39,7 @@ export interface LoggedMessageJSON extends Omit<LoggedMessage, "timestamp"> {
 export interface LoggedAttachment extends MessageAttachment {
     fileExtension?: string | null;
     path?: string | null;
+    blobUrl?: string;
     nativefileSystem?: boolean;
 }
 
