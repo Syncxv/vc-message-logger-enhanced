@@ -53,6 +53,14 @@ export interface MessageDeletePayload {
     mlDeleted?: boolean;
 }
 
+export interface MessageDeleteBulkPayload {
+    type: string;
+    guildId: string;
+    ids: string[];
+    channelId: string;
+}
+
+
 export interface MessageUpdatePayload {
     type: string;
     guildId: string;

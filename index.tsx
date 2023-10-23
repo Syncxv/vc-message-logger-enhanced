@@ -32,7 +32,7 @@ import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { addMessage, clearLogs, hasLogs, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
-import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
+import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { checkForUpdates } from "./utils/checkForUpdates";
 import { shouldIgnore } from "./utils/index";
@@ -94,6 +94,13 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
     }
     finally {
         handledMessageIds.delete(payload.id);
+    }
+}
+
+async function messageDeleteBulkHandler({ channelId, guildId, ids }: MessageDeleteBulkPayload) {
+    // is this bad? idk man
+    for (const id of ids) {
+        await messageDeleteHandler({ type: "MESSAGE_DELETE", channelId, guildId, id });
     }
 }
 
@@ -386,6 +393,7 @@ export default definePlugin({
     },
     flux: {
         "MESSAGE_DELETE": messageDeleteHandler,
+        "MESSAGE_DELETE_BULK": messageDeleteBulkHandler,
         "MESSAGE_UPDATE": messageUpdateHandler,
         "MESSAGE_CREATE": messageCreateHandler
     },
