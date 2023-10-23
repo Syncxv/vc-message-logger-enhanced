@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const VERSION = "1.2.1";
+export const VERSION = "1.3.0";
 
 import "./styles.css";
 
@@ -30,8 +30,9 @@ import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, User
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
-import { addMessage, clearLogs, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
-import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
+import { addMessage, clearLogs, hasLogs, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
+import * as LoggedMessageManager from "./LoggedMessageManager";
+import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { checkForUpdates } from "./utils/checkForUpdates";
 import { shouldIgnore } from "./utils/index";
@@ -43,42 +44,64 @@ export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
 
 const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
+const handledMessageIds = new Set();
+
 async function messageDeleteHandler(payload: MessageDeletePayload) {
     if (payload.mlDeleted) return;
 
-    let message: LoggedMessage | LoggedMessageJSON | null =
-        MessageStore.getMessage(payload.channelId, payload.id);
-    if (message == null) {
-        const cachedMessage = cacheSentMessages.get(`${payload.channelId},${payload.id}`);
-        if (!cachedMessage) return; // console.log("no message to save");
-
-        message = { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true } as LoggedMessageJSON;
-    }
-    if (
-        shouldIgnore({
-            channelId: message?.channel_id ?? payload.channelId,
-            guildId: payload.guildId ?? (message as any).guildId ?? (message as any).guild_id,
-            authorId: message?.author?.id,
-            bot: message?.bot,
-            flags: message?.flags,
-            ghostPinged: isGhostPinged(message as any),
-            isCachedByUs: (message as LoggedMessageJSON).ourCache
-        })
-    ) {
-        // console.log("IGNORING", message, payload);
-        return FluxDispatcher.dispatch({
-            type: "MESSAGE_DELETE",
-            channelId: payload.channelId,
-            id: payload.id,
-            mlDeleted: true
-        });
+    if (handledMessageIds.has(payload.id)) {
+        // console.warn("skipping duplicate message", payload.id);
+        return;
     }
 
+    try {
+        handledMessageIds.add(payload.id);
 
-    if (message == null || message.channel_id == null || !message.deleted) return;
+        let message: LoggedMessage | LoggedMessageJSON | null =
+            MessageStore.getMessage(payload.channelId, payload.id);
+        if (message == null) {
+            // most likely an edited message
+            const cachedMessage = cacheSentMessages.get(`${payload.channelId},${payload.id}`);
+            if (!cachedMessage) return; // console.log("no message to save");
 
-    // console.log("ADDING MESSAGE (DELETED)", message);
-    await addMessage(message, "deletedMessages");
+            message = { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true } as LoggedMessageJSON;
+        }
+
+        if (
+            shouldIgnore({
+                channelId: message?.channel_id ?? payload.channelId,
+                guildId: payload.guildId ?? (message as any).guildId ?? (message as any).guild_id,
+                authorId: message?.author?.id,
+                bot: message?.bot,
+                flags: message?.flags,
+                ghostPinged: isGhostPinged(message as any),
+                isCachedByUs: (message as LoggedMessageJSON).ourCache
+            })
+        ) {
+            // console.log("IGNORING", message, payload);
+            return FluxDispatcher.dispatch({
+                type: "MESSAGE_DELETE",
+                channelId: payload.channelId,
+                id: payload.id,
+                mlDeleted: true
+            });
+        }
+
+
+        if (message == null || message.channel_id == null || !message.deleted) return;
+        // console.log("ADDING MESSAGE (DELETED)", message);
+        await addMessage(message, "deletedMessages");
+    }
+    finally {
+        handledMessageIds.delete(payload.id);
+    }
+}
+
+async function messageDeleteBulkHandler({ channelId, guildId, ids }: MessageDeleteBulkPayload) {
+    // is this bad? idk man
+    for (const id of ids) {
+        await messageDeleteHandler({ type: "MESSAGE_DELETE", channelId, guildId, id });
+    }
 }
 
 async function messageUpdateHandler(payload: MessageUpdatePayload) {
@@ -200,7 +223,7 @@ export const settings = definePluginSettings({
     saveMessages: {
         default: true,
         type: OptionType.BOOLEAN,
-        description: "Wether to save the deleted and edited messages",
+        description: "Wether to save the deleted and edited messages.",
     },
 
     sortNewest: {
@@ -212,13 +235,31 @@ export const settings = definePluginSettings({
     cacheMessagesFromServers: {
         default: false,
         type: OptionType.BOOLEAN,
-        description: "Enables caching of messages from servers. Note that this may cause the cache to exceed its limit, resulting in some messages being missed. If you are in a lot of servers, this may significantly increase the chances of messages being logged, which can result in a large message record and the inclusion of irrelevant messages.",
+        description: "Usually message logger only logs from whitelisted ids and dms, enabling this would mean it would log messages from all servers as well. Note that this may cause the cache to exceed its limit, resulting in some messages being missed. If you are in a lot of servers, this may significantly increase the chances of messages being logged, which can result in a large message record and the inclusion of irrelevant messages.",
     },
 
     autoCheckForUpdates: {
         default: true,
         type: OptionType.BOOLEAN,
-        description: "Automatically check for updates on startup",
+        description: "Automatically check for updates on startup.",
+    },
+
+    ignoreMutedGuilds: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "Messages in muted guilds will not be logged. Whitelisted users/channels in muted guilds will still be logged."
+    },
+
+    ignoreMutedCategories: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "Messages in channels belonging to muted categories will not be logged. Whitelisted users/channels in muted guilds will still be logged."
+    },
+
+    ignoreMutedChannels: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "Messages in muted channels will not be logged. Whitelisted users/channels in muted guilds will still be logged."
     },
 
     alwaysLogDirectMessages: {
@@ -232,34 +273,29 @@ export const settings = definePluginSettings({
         type: OptionType.BOOLEAN,
         description: "Always log current selected channel",
     },
-    doNotLogMuted: {
-        default: true,
-        type: OptionType.BOOLEAN,
-        description: "Do not log messages in muted channels/categories/guilds",
-    },
 
     messageLimit: {
         default: 200,
         type: OptionType.NUMBER,
-        description: "Maximum number of messages to save. Older messages are deleted when the limit is reached"
+        description: "Maximum number of messages to save. Older messages are deleted when the limit is reached. 0 means there is no limit"
     },
 
     cacheLimit: {
         default: 1000,
         type: OptionType.NUMBER,
-        description: "Maximum number of messages to store in the cache. Older messages are deleted when the limit is reached. This helps reduce memory usage and improve performance."
+        description: "Maximum number of messages to store in the cache. Older messages are deleted when the limit is reached. This helps reduce memory usage and improve performance. 0 means there is no limit",
     },
 
     whitelistedIds: {
         default: "",
         type: OptionType.STRING,
-        description: "Whitelisted server, channel, or user IDs"
+        description: "Whitelisted server, channel, or user IDs."
     },
 
     blacklistedIds: {
         default: "",
         type: OptionType.STRING,
-        description: "Blacklisted server, channel, or user IDs"
+        description: "Blacklisted server, channel, or user IDs."
     },
 
     importLogs: {
@@ -267,7 +303,7 @@ export const settings = definePluginSettings({
         description: "Import Logs",
         component: () =>
             <Button onClick={async () =>
-                (await isLogEmpty()) ? Alerts.show({
+                (await hasLogs()) ? Alerts.show({
                     title: "Are you sure?",
                     body: "Importing logs will overwrite your current logs.",
                     confirmText: "Import",
@@ -365,6 +401,7 @@ export default definePlugin({
     store: MessageLoggerStore,
     openLogModal,
     doesMatch,
+    LoggedMessageManager,
 
     getDeleted(m1, m2) {
         const deleted = m2?.deleted;
@@ -380,6 +417,7 @@ export default definePlugin({
     },
     flux: {
         "MESSAGE_DELETE": messageDeleteHandler,
+        "MESSAGE_DELETE_BULK": messageDeleteBulkHandler,
         "MESSAGE_UPDATE": messageUpdateHandler,
         "MESSAGE_CREATE": messageCreateHandler
     },

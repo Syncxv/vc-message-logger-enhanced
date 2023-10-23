@@ -37,7 +37,7 @@ export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
 }
 
 export interface LoggedMessage extends Message {
-    deleted?: boolean,
+    deleted?: boolean;
     editHistory?: {
         timestamp: string;
         content: string;
@@ -52,6 +52,14 @@ export interface MessageDeletePayload {
     channelId: string;
     mlDeleted?: boolean;
 }
+
+export interface MessageDeleteBulkPayload {
+    type: string;
+    guildId: string;
+    ids: string[];
+    channelId: string;
+}
+
 
 export interface MessageUpdatePayload {
     type: string;
@@ -79,14 +87,12 @@ export interface LoadMessagePayload {
     limit: number;
     isStale: boolean;
 }
-type LoggedMessageId = {
-    [channel_id: string]: string[];
-};
-
 
 export type LoggedMessageIds = {
-    deletedMessages: LoggedMessageId;
-    editedMessages: LoggedMessageId;
+    deletedMessages: Record<string, string[]>;
+    editedMessages: Record<string, string[]>;
 };
 
 export type LoggedMessages = LoggedMessageIds & { [message_id: string]: { message?: LoggedMessageJSON; }; };
+
+export type MessageRecord = { message: LoggedMessageJSON; };

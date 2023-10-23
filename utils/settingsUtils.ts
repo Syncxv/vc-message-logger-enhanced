@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-
 import { DataStore } from "@api/index";
 import { Toasts } from "@webpack/common";
 

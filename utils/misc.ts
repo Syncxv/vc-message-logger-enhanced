@@ -46,12 +46,22 @@ export const hasPingged = (message?: LoggedMessageJSON | { mention_everyone: boo
 
 export const discordIdToDate = (id: string) => new Date((parseInt(id) / 4194304) + DISCORD_EPOCH);
 
+export const sortMessagesByDate = (timestampA: string, timestampB: string) => {
+    // very expensive
+    // const timestampA = discordIdToDate(a).getTime();
+    // const timestampB = discordIdToDate(b).getTime();
+    // return timestampB - timestampA;
 
-export const sortMessagesByDate = (a: string, b: string) => {
-    const timestampA = discordIdToDate(a).getTime();
-    const timestampB = discordIdToDate(b).getTime();
-    return timestampB - timestampA;
+    // newest first
+    if (timestampA < timestampB) {
+        return 1;
+    } else if (timestampA > timestampB) {
+        return -1;
+    } else {
+        return 0;
+    }
 };
+
 
 
 // stolen from mlv2
@@ -63,7 +73,6 @@ export function findLastIndex<T>(array: T[], predicate: (e: T, t: number, n: T[]
     }
     return -1;
 }
-
 
 export const mapEditHistory = (m: any) => {
     m.timestamp = moment(m.timestamp);
