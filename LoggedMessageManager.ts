@@ -20,8 +20,8 @@ import { createStore, promisifyRequest } from "@api/DataStore";
 import { DataStore } from "@api/index";
 
 import { settings } from ".";
-import { LoggedMessage, LoggedMessageIds, LoggedMessageJSON, LoggedMessages } from "./types";
-import { cleanupMessage } from "./utils";
+import { LoggedMessage, LoggedMessageIds, LoggedMessageJSON, LoggedMessages, MessageRecord } from "./types";
+import { cleanupMessage, sortMessagesByDate } from "./utils";
 
 export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, };
 
@@ -41,6 +41,7 @@ export let loggedMessagesCache: LoggedMessages = defaultLoggedMessages;
     }
 })();
 
+// api
 
 export const getLoggedMessages = async (): Promise<LoggedMessages> => {
     return settings.store.saveMessages
@@ -67,48 +68,43 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key
     if (!loggedMessages[key][message.channel_id])
         loggedMessages[key][message.channel_id] = [];
 
-    if (!loggedMessages[key][message.channel_id].includes(message.id)) {
+    if (!loggedMessages[key][message.channel_id].includes(message.id))
         loggedMessages[key][message.channel_id].push(message.id);
-    }
 
-    if ((Object.keys(loggedMessages).length - 2) > settings.store.messageLimit) {
-        const id = loggedMessages[key][message.channel_id].shift();
-        if (id) {
-            removeLog(id);
-        }
-    }
+    // if limit is negative or 0 there is no limit
+    if (settings.store.messageLimit > 0 && (Object.keys(loggedMessages).length - 2) > settings.store.messageLimit)
+        await deleteOldestMessageWithoutSaving(loggedMessages);
 
-    saveLoggedMessages(loggedMessages);
-
+    await saveLoggedMessages(loggedMessages);
 };
 
 
 export const removeFromKey = (
-    id: string,
+    message_id: string,
     channel_id: string,
     loggedMessages: LoggedMessages,
     key: keyof LoggedMessageIds,
 ) => {
-    if (loggedMessages[key][channel_id!]) {
-        loggedMessages[key][channel_id!] = loggedMessages[key][channel_id!].filter(msgid => msgid !== id);
+    if (loggedMessages[key][channel_id]) {
+        loggedMessages[key][channel_id] = loggedMessages[key][channel_id].filter(msgid => msgid !== message_id);
 
-        if (loggedMessages[key][channel_id!].length === 0) {
-            delete loggedMessages[key][channel_id!];
+        if (loggedMessages[key][channel_id].length === 0) {
+            delete loggedMessages[key][channel_id];
         }
     }
 };
 
-async function removeLogWithoutSaving(id: string, loggedMessages: LoggedMessages) {
-    const record = loggedMessages[id];
+function removeLogWithoutSaving(messageId: string, loggedMessages: LoggedMessages) {
+    const record = loggedMessages[messageId];
     if (record) {
         const channel_id = record.message?.channel_id;
 
         if (channel_id != null) {
-            removeFromKey(id, channel_id, loggedMessages, "editedMessages");
-            removeFromKey(id, channel_id, loggedMessages, "deletedMessages");
+            removeFromKey(messageId, channel_id, loggedMessages, "editedMessages");
+            removeFromKey(messageId, channel_id, loggedMessages, "deletedMessages");
         }
 
-        delete loggedMessages[id];
+        delete loggedMessages[messageId];
     }
 
     return loggedMessages;
@@ -138,7 +134,10 @@ export async function clearLogs() {
     await refreshCache();
 }
 
-export const isLogEmpty = async () => {
+
+// utils
+
+export const hasLogs = async () => {
     const logs = await getLoggedMessages();
     const hasDeletedMessages = Object.keys(logs.deletedMessages).length > 0;
     const hasEditedMessages = Object.keys(logs.editedMessages).length > 0;
@@ -149,3 +148,58 @@ export const isLogEmpty = async () => {
 
     return false;
 };
+
+export function findLoggedChannelByMessageIdSync(messageId: string, loggedMessages: LoggedMessages, key: keyof LoggedMessageIds) {
+    for (const channelId in loggedMessages[key]) {
+        if (loggedMessages[key][channelId].includes(messageId)) return channelId;
+    }
+
+    return null;
+}
+
+export async function findLoggedChannelByMessage(messageId: string, key?: keyof LoggedMessageIds): Promise<[string | null, keyof LoggedMessageIds]> {
+    const loggedMessages = await getLoggedMessages();
+
+    if (!key) {
+        const id1 = findLoggedChannelByMessageIdSync(messageId, loggedMessages, "deletedMessages");
+        if (id1) return [id1, "deletedMessages"];
+        const id2 = findLoggedChannelByMessageIdSync(messageId, loggedMessages, "editedMessages");
+        return [id2, "editedMessages"];
+    }
+
+    return [findLoggedChannelByMessageIdSync(messageId, loggedMessages, key), key];
+}
+
+
+export function getOldestMessage(loggedMessageIds: LoggedMessages) {
+    const messags = Object.values(loggedMessageIds)
+        .filter(m => !Array.isArray(m) && m.message != null) as MessageRecord[];
+
+    const sortedMessages = messags.sort((a, b) => sortMessagesByDate(a.message.timestamp, b.message.timestamp));
+
+    const oldestMessage = sortedMessages[sortedMessages.length - 1];
+
+    return oldestMessage ?? null;
+}
+
+export async function deleteOldestMessageWithoutSaving(loggedMessages: LoggedMessages) {
+    const oldestMessage = getOldestMessage(loggedMessages);
+    if (!oldestMessage || !oldestMessage.message) {
+        console.warn("couldnt find oldest message. oldestMessage == null || oldestMessage.message == null");
+        return loggedMessages;
+    }
+
+    const { message } = oldestMessage;
+
+    const [channelId, key] = await findLoggedChannelByMessage(message.id);
+
+    if (!channelId || !key) {
+        console.warn("couldnt find oldest message. channelId =", channelId, " key =", key);
+        return loggedMessages;
+    }
+
+    removeLogWithoutSaving(message.id, loggedMessages);
+    // console.log("removing", message);
+
+    return loggedMessages;
+}
