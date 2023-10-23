@@ -35,10 +35,10 @@ pnpm build
 
 ## Version 1.3.1
 
--   Added option to always log Direct Messages by @CatGirlDShadow in https://github.com/Syncxv/vc-message-logger-enhanced/pull/1
--   Added option to always log Selected Channel by @CatGirlDShadow in https://github.com/Syncxv/vc-message-logger-enhanced/pull/1
--   Added option to ignore muted Categories by @CatGirlDShadow in https://github.com/Syncxv/vc-message-logger-enhanced/pull/1
--   Added option to ignore muted Channels by @CatGirlDShadow in https://github.com/Syncxv/vc-message-logger-enhanced/pull/1
+-   Added option to always log Direct Messages by [@CatGirlDShadow](https://github.com/CatGirlDShadow) in https://github.com/Syncxv/vc-message-logger-enhanced/pull/1
+-   Added option to always log Selected Channel by [@CatGirlDShadow](https://github.com/CatGirlDShadow) in https://github.com/Syncxv/vc-message-logger-enhanced/pull/1
+-   Added option to ignore muted Categories by [@CatGirlDShadow](https://github.com/CatGirlDShadow) in https://github.com/Syncxv/vc-message-logger-enhanced/pull/1
+-   Added option to ignore muted Channels by [@CatGirlDShadow](https://github.com/CatGirlDShadow) in https://github.com/Syncxv/vc-message-logger-enhanced/pull/1
 
 ## Version 1.3.0
 
