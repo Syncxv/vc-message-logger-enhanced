@@ -127,8 +127,8 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
     if (ignoreSelf && authorId === myId) return true; // ignore
     if (isBlacklisted && (!isUserWhitelisted || !isChannelWhitelisted)) return true; // ignore
     if (guildId != null && shouldIgnoreMutedGuilds && UserGuildSettingsStore.isMuted(guildId)) return true; // ignore
-    if (channelId != null && shouldIgnoreMutedGuilds && UserGuildSettingsStore.isCategoryMuted(channelId)) return true; // ignore
-    if (channelId != null && shouldIgnoreMutedGuilds && UserGuildSettingsStore.isMuted(channelId)) return true; // ignore
+    if (channelId != null && shouldIgnoreMutedCategories && UserGuildSettingsStore.isCategoryMuted(guildId, channelId)) return true; // ignore
+    if (channelId != null && shouldIgnoreMutedChannels && UserGuildSettingsStore.isChannelMuted(guildId, channelId)) return true; // ignore
 
     //if (settings.store.doNotLogMuted && UserGuildSettingsStore.isGuildOrCategoryOrChannelMuted(guildId ?? "-1", channelId ?? "-1")) return true;
     return false;
