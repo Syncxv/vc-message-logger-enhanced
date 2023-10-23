@@ -17,8 +17,9 @@
 */
 
 import { Settings } from "@api/Settings";
-import { UserStore, SelectedChannelStore, ChannelStore, GuildStore } from "@webpack/common";
 import { findStoreLazy } from "@webpack";
+import { ChannelStore, SelectedChannelStore, UserStore } from "@webpack/common";
+
 import { settings } from "../index";
 import { loggedMessagesCache } from "../LoggedMessageManager";
 import { LoggedMessageJSON } from "../types";
@@ -88,8 +89,9 @@ const UserGuildSettingsStore = findStoreLazy("UserGuildSettingsStore");
   * @returns {boolean} - True if the message should be ignored, false if it should be kept.
 */
 export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPinged, isCachedByUs }: ShouldIgnoreArguments): boolean {
-    if (settings.store.alwaysLogCurrentChannel && SelectedChannelStore.getChannelId() == channelId) return false;
-    if (settings.store.alwaysLogDirectMessages && ChannelStore.getChannel(channelId ?? "-1").isDM()) return false;
+    if (settings.store.alwaysLogCurrentChannel && SelectedChannelStore.getChannelId() === channelId) return false; // keep
+    if (settings.store.alwaysLogDirectMessages && ChannelStore.getChannel(channelId ?? "-1").isDM()) return false; // keep
+
     if (channelId && guildId == null)
         guildId = getGuildIdByChannel(channelId);
 
@@ -130,8 +132,7 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
     if (channelId != null && shouldIgnoreMutedCategories && UserGuildSettingsStore.isCategoryMuted(guildId, channelId)) return true; // ignore
     if (channelId != null && shouldIgnoreMutedChannels && UserGuildSettingsStore.isChannelMuted(guildId, channelId)) return true; // ignore
 
-    //if (settings.store.doNotLogMuted && UserGuildSettingsStore.isGuildOrCategoryOrChannelMuted(guildId ?? "-1", channelId ?? "-1")) return true;
-    return false;
+    return false; // keep;
 }
 
 export type ListType = "blacklistedIds" | "whitelistedIds";

@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const VERSION = "1.3.0";
+export const VERSION = "1.3.1";
 
 import "./styles.css";
 
