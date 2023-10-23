@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const VERSION = "1.3.0";
+export const VERSION = "1.3.1";
 
 import "./styles.css";
 
@@ -248,6 +248,30 @@ export const settings = definePluginSettings({
         default: false,
         type: OptionType.BOOLEAN,
         description: "Messages in muted guilds will not be logged. Whitelisted users/channels in muted guilds will still be logged."
+    },
+
+    ignoreMutedCategories: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "Messages in channels belonging to muted categories will not be logged. Whitelisted users/channels in muted guilds will still be logged."
+    },
+
+    ignoreMutedChannels: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "Messages in muted channels will not be logged. Whitelisted users/channels in muted guilds will still be logged."
+    },
+
+    alwaysLogDirectMessages: {
+        default: true,
+        type: OptionType.BOOLEAN,
+        description: "Always log DMs",
+    },
+
+    alwaysLogCurrentChannel: {
+        default: true,
+        type: OptionType.BOOLEAN,
+        description: "Always log current selected channel",
     },
 
     messageLimit: {
