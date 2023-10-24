@@ -68,12 +68,6 @@ export interface MessageDeleteBulkPayload {
     channelId: string;
 }
 
-export interface MessageDeleteBulkPayload {
-    type: string;
-    guildId: string;
-    ids: string[];
-    channelId: string;
-}
 
 export interface MessageUpdatePayload {
     type: string;
@@ -108,5 +102,7 @@ export type LoggedMessageIds = {
 };
 
 export type LoggedMessages = LoggedMessageIds & { [message_id: string]: { message?: LoggedMessageJSON; }; };
+
+export type MessageRecord = { message: LoggedMessageJSON; };
 
 export type MessageRecord = { message: LoggedMessageJSON; };

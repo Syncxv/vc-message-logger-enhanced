@@ -109,7 +109,6 @@ async function messageDeleteBulkHandler({ channelId, guildId, ids }: MessageDele
     }
 }
 
-
 async function messageUpdateHandler(payload: MessageUpdatePayload) {
     const cachedMessage = cacheSentMessages.get(`${payload.message.channel_id},${payload.message.id}`);
     if (
@@ -229,7 +228,7 @@ export const settings = definePluginSettings({
     saveMessages: {
         default: true,
         type: OptionType.BOOLEAN,
-        description: "Wether to save the deleted and edited messages",
+        description: "Wether to save the deleted and edited messages.",
     },
 
     sortNewest: {
@@ -241,37 +240,67 @@ export const settings = definePluginSettings({
     cacheMessagesFromServers: {
         default: false,
         type: OptionType.BOOLEAN,
-        description: "Enables caching of messages from servers. Note that this may cause the cache to exceed its limit, resulting in some messages being missed. If you are in a lot of servers, this may significantly increase the chances of messages being logged, which can result in a large message record and the inclusion of irrelevant messages.",
+        description: "Usually message logger only logs from whitelisted ids and dms, enabling this would mean it would log messages from all servers as well. Note that this may cause the cache to exceed its limit, resulting in some messages being missed. If you are in a lot of servers, this may significantly increase the chances of messages being logged, which can result in a large message record and the inclusion of irrelevant messages.",
     },
 
     autoCheckForUpdates: {
         default: true,
         type: OptionType.BOOLEAN,
-        description: "Automatically check for updates on startup",
+        description: "Automatically check for updates on startup.",
+    },
+
+    ignoreMutedGuilds: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "Messages in muted guilds will not be logged. Whitelisted users/channels in muted guilds will still be logged."
+    },
+
+    ignoreMutedCategories: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "Messages in channels belonging to muted categories will not be logged. Whitelisted users/channels in muted guilds will still be logged."
+    },
+
+    ignoreMutedChannels: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "Messages in muted channels will not be logged. Whitelisted users/channels in muted guilds will still be logged."
+    },
+
+    alwaysLogDirectMessages: {
+        default: true,
+        type: OptionType.BOOLEAN,
+        description: "Always log DMs",
+    },
+
+    alwaysLogCurrentChannel: {
+        default: true,
+        type: OptionType.BOOLEAN,
+        description: "Always log current selected channel",
     },
 
     messageLimit: {
         default: 200,
         type: OptionType.NUMBER,
-        description: "Maximum number of messages to save. Older messages are deleted when the limit is reached"
+        description: "Maximum number of messages to save. Older messages are deleted when the limit is reached. 0 means there is no limit"
     },
 
     cacheLimit: {
         default: 1000,
         type: OptionType.NUMBER,
-        description: "Maximum number of messages to store in the cache. Older messages are deleted when the limit is reached. This helps reduce memory usage and improve performance."
+        description: "Maximum number of messages to store in the cache. Older messages are deleted when the limit is reached. This helps reduce memory usage and improve performance. 0 means there is no limit",
     },
 
     whitelistedIds: {
         default: "",
         type: OptionType.STRING,
-        description: "Whitelisted server, channel, or user IDs"
+        description: "Whitelisted server, channel, or user IDs."
     },
 
     blacklistedIds: {
         default: "",
         type: OptionType.STRING,
-        description: "Blacklisted server, channel, or user IDs"
+        description: "Blacklisted server, channel, or user IDs."
     },
 
     saveImages: {

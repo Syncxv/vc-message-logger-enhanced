@@ -17,13 +17,13 @@
 */
 
 import { Settings } from "@api/Settings";
-import { UserStore } from "@webpack/common";
+import { findStoreLazy } from "@webpack";
+import { ChannelStore, SelectedChannelStore, UserStore } from "@webpack/common";
 
 import { settings } from "../index";
 import { loggedMessagesCache } from "../LoggedMessageManager";
 import { LoggedMessageJSON } from "../types";
 import { findLastIndex, getGuildIdByChannel } from "./misc";
-
 
 export * from "./cleanUp";
 export * from "./misc";
@@ -80,6 +80,7 @@ interface ShouldIgnoreArguments {
 
 const EPHEMERAL = 64;
 
+const UserGuildSettingsStore = findStoreLazy("UserGuildSettingsStore");
 
 /**
   * the function `shouldIgnore` evaluates whether a message should be ignored or kept, based on certain criteria.
@@ -88,11 +89,14 @@ const EPHEMERAL = 64;
   * @returns {boolean} - True if the message should be ignored, false if it should be kept.
 */
 export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPinged, isCachedByUs }: ShouldIgnoreArguments): boolean {
+    if (settings.store.alwaysLogCurrentChannel && SelectedChannelStore.getChannelId() === channelId) return false; // keep
+    if (settings.store.alwaysLogDirectMessages && ChannelStore.getChannel(channelId ?? "-1").isDM()) return false; // keep
+
     if (channelId && guildId == null)
         guildId = getGuildIdByChannel(channelId);
 
     const myId = UserStore.getCurrentUser().id;
-    const { ignoreBots, ignoreSelf, ignoreUsers } = Settings.plugins.MessageLogger;
+    const { ignoreBots, ignoreSelf, ignoreUsers, ignoreChannels, ignoreGuilds } = Settings.plugins.MessageLogger;
 
     const ids = [authorId, channelId, guildId];
 
@@ -101,10 +105,19 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
     const isUserWhitelisted = whitelistedIds.includes(authorId!);
     const isChannelWhitelisted = whitelistedIds.includes(channelId!);
     const isGuildWhitelisted = whitelistedIds.includes(guildId!);
-    const isBlacklisted = [...settings.store.blacklistedIds.split(","), ...ignoreUsers.split(",")].some(e => ids.includes(e));
+    const isBlacklisted = [
+        ...settings.store.blacklistedIds.split(","),
+        ...(ignoreUsers ?? []).split(","),
+        ...(ignoreChannels ?? []).split(","),
+        ...(ignoreGuilds ?? []).split(",")
+    ].some(e => ids.includes(e));
 
     const isEphemeral = ((flags ?? 0) & EPHEMERAL) === EPHEMERAL;
     const isWhitelisted = settings.store.whitelistedIds.split(",").some(e => ids.includes(e));
+
+    const shouldIgnoreMutedGuilds = settings.store.ignoreMutedGuilds;
+    const shouldIgnoreMutedCategories = settings.store.ignoreMutedCategories;
+    const shouldIgnoreMutedChannels = settings.store.ignoreMutedChannels;
 
     if (ghostPinged) return false; // keep
     if (isWhitelisted) return false; // keep
@@ -115,8 +128,11 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
     if ((ignoreBots && bot) && !isWhitelisted) return true; // ignore
     if (ignoreSelf && authorId === myId) return true; // ignore
     if (isBlacklisted && (!isUserWhitelisted || !isChannelWhitelisted)) return true; // ignore
+    if (guildId != null && shouldIgnoreMutedGuilds && UserGuildSettingsStore.isMuted(guildId)) return true; // ignore
+    if (channelId != null && shouldIgnoreMutedCategories && UserGuildSettingsStore.isCategoryMuted(guildId, channelId)) return true; // ignore
+    if (channelId != null && shouldIgnoreMutedChannels && UserGuildSettingsStore.isChannelMuted(guildId, channelId)) return true; // ignore
 
-    return false;
+    return false; // keep;
 }
 
 export type ListType = "blacklistedIds" | "whitelistedIds";
