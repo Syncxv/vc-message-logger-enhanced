@@ -104,5 +104,3 @@ export type LoggedMessageIds = {
 export type LoggedMessages = LoggedMessageIds & { [message_id: string]: { message?: LoggedMessageJSON; }; };
 
 export type MessageRecord = { message: LoggedMessageJSON; };
-
-export type MessageRecord = { message: LoggedMessageJSON; };
