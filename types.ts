@@ -18,8 +18,15 @@
 
 import { Message, MessageAttachment, MessageJSON } from "discord-types/general";
 
+export interface LoggedAttachment extends MessageAttachment {
+    fileExtension?: string | null;
+    path?: string | null;
+    blobUrl?: string;
+    nativefileSystem?: boolean;
+}
+
 export type RefrencedMessage = LoggedMessageJSON & { message_id: string; };
-export interface LoggedMessageJSON extends Omit<LoggedMessage, "timestamp"> {
+export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
     mention_everyone?: string;
     guildId?: string;
     guild_id?: string;
@@ -29,6 +36,7 @@ export interface LoggedMessageJSON extends Omit<LoggedMessage, "timestamp"> {
     referenced_message: RefrencedMessage;
     message_reference: RefrencedMessage;
 
+    attachments: LoggedAttachment[];
     deleted?: boolean;
     editHistory?: {
         timestamp: string;
@@ -36,16 +44,9 @@ export interface LoggedMessageJSON extends Omit<LoggedMessage, "timestamp"> {
     }[];
 }
 
-export interface LoggedAttachment extends MessageAttachment {
-    fileExtension?: string | null;
-    path?: string | null;
-    blobUrl?: string;
-    nativefileSystem?: boolean;
-}
-
 export interface LoggedMessage extends Message {
     attachments: LoggedAttachment[];
-    deleted?: boolean,
+    deleted?: boolean;
     editHistory?: {
         timestamp: string;
         content: string;
@@ -58,6 +59,13 @@ export interface MessageDeletePayload {
     id: string;
     channelId: string;
     mlDeleted?: boolean;
+}
+
+export interface MessageDeleteBulkPayload {
+    type: string;
+    guildId: string;
+    ids: string[];
+    channelId: string;
 }
 
 export interface MessageUpdatePayload {
@@ -87,13 +95,11 @@ export interface LoadMessagePayload {
     isStale: boolean;
 }
 
-type LoggedMessageId = {
-    [channel_id: string]: string[];
-};
-
 export type LoggedMessageIds = {
-    deletedMessages: LoggedMessageId;
-    editedMessages: LoggedMessageId;
+    deletedMessages: Record<string, string[]>;
+    editedMessages: Record<string, string[]>;
 };
 
 export type LoggedMessages = LoggedMessageIds & { [message_id: string]: { message?: LoggedMessageJSON; }; };
+
+export type MessageRecord = { message: LoggedMessageJSON; };

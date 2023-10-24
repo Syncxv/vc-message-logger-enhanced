@@ -26,42 +26,41 @@ import {
     UseStore,
 } from "@api/DataStore";
 
-const defaultStore = createStore("MessageLoggerImageData", "MessageLoggerImageStore");
 
-async function getCustomStore(customStore?: UseStore): Promise<UseStore> {
-    return customStore || defaultStore;
+let defaultGetStoreFunc: UseStore;
+
+function defaultGetStore() {
+    if (!defaultGetStoreFunc) {
+        defaultGetStoreFunc = createStore("MessageLoggerImageData", "MessageLoggerImageStore");
+    }
+    return defaultGetStoreFunc;
 }
+
 
 export const mkdir = async (path: string) => { };
 
-export async function access(filename: string, mode?: number, customStore?: UseStore): Promise<void> {
-    const store = await getCustomStore(customStore);
-    const fileKeys = await keys(store);
+export async function access(filename: string, mode?: number, customStore = defaultGetStore()): Promise<void> {
+    const fileKeys = await keys(customStore);
     if (fileKeys.includes(filename)) return;
     throw Error("doesnt exist eh");
 }
 
-export async function readFile(filename: string, customStore?: UseStore): Promise<any> {
-    const store = await getCustomStore(customStore);
-    return get(filename, store);
+export async function readFile(filename: string, customStore = defaultGetStore()): Promise<any> {
+    return get(filename, customStore);
 }
 
-export async function writeFile(filename: string, content: any, customStore?: UseStore): Promise<void> {
-    const store = await getCustomStore(customStore);
-    await set(filename, content, store);
+export async function writeFile(filename: string, content: any, customStore = defaultGetStore()): Promise<void> {
+    await set(filename, content, customStore);
 }
 
-export async function deleteFile(filename: string, customStore?: UseStore): Promise<void> {
-    const store = await getCustomStore(customStore);
-    await del(filename, store);
+export async function deleteFile(filename: string, customStore = defaultGetStore()): Promise<void> {
+    await del(filename, customStore);
 }
 
-export async function listFiles(customStore?: UseStore): Promise<IDBValidKey[]> {
-    const store = await getCustomStore(customStore);
-    return keys(store);
+export async function listFiles(customStore = defaultGetStore()): Promise<IDBValidKey[]> {
+    return keys(customStore);
 }
 
-export async function listFilesAndContents(customStore?: UseStore): Promise<[IDBValidKey, any][]> {
-    const store = await getCustomStore(customStore);
-    return entries(store);
+export async function listFilesAndContents(customStore = defaultGetStore()): Promise<[IDBValidKey, any][]> {
+    return entries(customStore);
 }

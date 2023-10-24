@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const VERSION = "1.2.1";
+export const VERSION = "1.3.1";
 
 import "./styles.css";
 
@@ -32,7 +32,7 @@ import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, User
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { ImageCacheDir } from "./components/settings/ImageCacheSetting";
-import { addMessage, clearLogs, isLogEmpty, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
+import { addMessage, clearLogs, hasLogs, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, getLocalCacheImageUrl, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
@@ -269,7 +269,7 @@ export const settings = definePluginSettings({
         description: "Import Logs",
         component: () =>
             <Button onClick={async () =>
-                (await isLogEmpty()) ? Alerts.show({
+                (await hasLogs()) ? Alerts.show({
                     title: "Are you sure?",
                     body: "Importing logs will overwrite your current logs.",
                     confirmText: "Import",
