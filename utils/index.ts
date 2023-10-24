@@ -89,6 +89,8 @@ const UserGuildSettingsStore = findStoreLazy("UserGuildSettingsStore");
   * @returns {boolean} - True if the message should be ignored, false if it should be kept.
 */
 export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPinged, isCachedByUs }: ShouldIgnoreArguments): boolean {
+    const isEphemeral = ((flags ?? 0) & EPHEMERAL) === EPHEMERAL;
+    if (isEphemeral) return true; // ignore
     if (settings.store.alwaysLogCurrentChannel && SelectedChannelStore.getChannelId() === channelId) return false; // keep
     if (settings.store.alwaysLogDirectMessages && ChannelStore.getChannel(channelId ?? "-1").isDM()) return false; // keep
 
@@ -112,7 +114,7 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
         ...(ignoreGuilds ?? []).split(",")
     ].some(e => ids.includes(e));
 
-    const isEphemeral = ((flags ?? 0) & EPHEMERAL) === EPHEMERAL;
+
     const isWhitelisted = settings.store.whitelistedIds.split(",").some(e => ids.includes(e));
 
     const shouldIgnoreMutedGuilds = settings.store.ignoreMutedGuilds;
@@ -124,7 +126,7 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
 
     if (isCachedByUs && (!settings.store.cacheMessagesFromServers && guildId != null && !isGuildWhitelisted)) return true; // ignore
 
-    if (isEphemeral) return true; // ignore
+
     if ((ignoreBots && bot) && !isWhitelisted) return true; // ignore
     if (ignoreSelf && authorId === myId) return true; // ignore
     if (isBlacklisted && (!isUserWhitelisted || !isChannelWhitelisted)) return true; // ignore
