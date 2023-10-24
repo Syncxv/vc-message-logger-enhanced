@@ -34,7 +34,7 @@ import { openLogModal } from "./components/LogsModal";
 import { ImageCacheDir } from "./components/settings/ImageCacheSetting";
 import { addMessage, clearLogs, hasLogs, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
-import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
+import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, getLocalCacheImageUrl, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { checkForUpdates } from "./utils/checkForUpdates";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
@@ -49,44 +49,66 @@ export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
 
 const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
+const handledMessageIds = new Set();
+
 async function messageDeleteHandler(payload: MessageDeletePayload) {
     if (payload.mlDeleted) return;
 
-    let message = MessageStore
-        .getMessage(payload.channelId, payload.id) as LoggedMessage | LoggedMessageJSON | null;
-
-    if (message == null) {
-        const cachedMessage = cacheSentMessages.get(`${payload.channelId},${payload.id}`);
-        if (!cachedMessage) return; // console.log("no message to save");
-
-        message = { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true } as LoggedMessageJSON;
-    }
-    if (
-        shouldIgnore({
-            channelId: message?.channel_id ?? payload.channelId,
-            guildId: payload.guildId ?? (message as any).guildId ?? (message as any).guild_id,
-            authorId: message?.author?.id,
-            bot: message?.bot,
-            flags: message?.flags,
-            ghostPinged: isGhostPinged(message as any),
-            isCachedByUs: (message as LoggedMessageJSON).ourCache
-        })
-    ) {
-        // console.log("IGNORING", message, payload);
-        return FluxDispatcher.dispatch({
-            type: "MESSAGE_DELETE",
-            channelId: payload.channelId,
-            id: payload.id,
-            mlDeleted: true
-        });
+    if (handledMessageIds.has(payload.id)) {
+        // console.warn("skipping duplicate message", payload.id);
+        return;
     }
 
+    try {
+        handledMessageIds.add(payload.id);
 
-    if (message == null || message.channel_id == null || !message.deleted) return;
+        let message: LoggedMessage | LoggedMessageJSON | null =
+            MessageStore.getMessage(payload.channelId, payload.id);
+        if (message == null) {
+            // most likely an edited message
+            const cachedMessage = cacheSentMessages.get(`${payload.channelId},${payload.id}`);
+            if (!cachedMessage) return; // console.log("no message to save");
 
-    // console.log("ADDING MESSAGE (DELETED)", message);
-    await addMessage(message, "deletedMessages");
+            message = { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true } as LoggedMessageJSON;
+        }
+
+        if (
+            shouldIgnore({
+                channelId: message?.channel_id ?? payload.channelId,
+                guildId: payload.guildId ?? (message as any).guildId ?? (message as any).guild_id,
+                authorId: message?.author?.id,
+                bot: message?.bot,
+                flags: message?.flags,
+                ghostPinged: isGhostPinged(message as any),
+                isCachedByUs: (message as LoggedMessageJSON).ourCache
+            })
+        ) {
+            // console.log("IGNORING", message, payload);
+            return FluxDispatcher.dispatch({
+                type: "MESSAGE_DELETE",
+                channelId: payload.channelId,
+                id: payload.id,
+                mlDeleted: true
+            });
+        }
+
+
+        if (message == null || message.channel_id == null || !message.deleted) return;
+        // console.log("ADDING MESSAGE (DELETED)", message);
+        await addMessage(message, "deletedMessages");
+    }
+    finally {
+        handledMessageIds.delete(payload.id);
+    }
 }
+
+async function messageDeleteBulkHandler({ channelId, guildId, ids }: MessageDeleteBulkPayload) {
+    // is this bad? idk man
+    for (const id of ids) {
+        await messageDeleteHandler({ type: "MESSAGE_DELETE", channelId, guildId, id });
+    }
+}
+
 
 async function messageUpdateHandler(payload: MessageUpdatePayload) {
     const cachedMessage = cacheSentMessages.get(`${payload.message.channel_id},${payload.message.id}`);
@@ -398,6 +420,7 @@ export default definePlugin({
     },
     flux: {
         "MESSAGE_DELETE": messageDeleteHandler,
+        "MESSAGE_DELETE_BULK": messageDeleteBulkHandler,
         "MESSAGE_UPDATE": messageUpdateHandler,
         "MESSAGE_CREATE": messageCreateHandler
     },
