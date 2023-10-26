@@ -16,17 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { findByCodeLazy, findLazy } from "@webpack";
+import { findByPropsLazy, findLazy } from "@webpack";
 import { ChannelStore, moment, UserStore } from "@webpack/common";
 
 import { LoggedMessage, LoggedMessageJSON } from "../types";
 import { DISCORD_EPOCH } from "./index";
 import { memoize } from "./memoize";
 
-const MessageClass: any = findLazy(m => m?.Z?.prototype?.isEdited);
-const AuthorClass = findLazy(m => m?.Z?.prototype?.getAvatarURL);
-const makeEmbed = findByCodeLazy('("embed_"),');
-
+const MessageClass: any = findLazy(m => m?.prototype?.isEdited);
+const AuthorClass = findLazy(m => m?.prototype?.getAvatarURL);
+const embedModule = findByPropsLazy("sanitizeEmbed");
 
 export function getGuildIdByChannel(channel_id: string) {
     return ChannelStore.getChannel(channel_id)?.guild_id;
@@ -81,7 +80,7 @@ export const mapEditHistory = (m: any) => {
 
 export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJSON; }) => {
     // console.time("message populate");
-    const message: LoggedMessage = new MessageClass.Z(log.message);
+    const message: LoggedMessage = new MessageClass(log.message);
     message.timestamp = moment(message.timestamp);
 
     const editHistory = message.editHistory?.map(mapEditHistory);
@@ -90,10 +89,10 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     }
     if (message.editedTimestamp)
         message.editedTimestamp = moment(message.editedTimestamp);
-    message.author = new AuthorClass.Z(message.author);
+    message.author = new AuthorClass(message.author);
     (message.author as any).nick = (message.author as any).globalName ?? message.author.username;
 
-    message.embeds = message.embeds.map(e => makeEmbed(message.channel_id, message.id, e));
+    message.embeds = message.embeds.map(e => embedModule.sanitizeEmbed(message.channel_id, message.id, e));
     // console.timeEnd("message populate");
     return message;
 });

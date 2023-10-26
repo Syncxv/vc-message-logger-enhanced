@@ -43,9 +43,6 @@ export interface MessagePreviewProps {
     childrenAccessories: any;
 }
 
-const MessagePreview: React.FC<MessagePreviewProps> = LazyComponent(() => find(m => m?.type?.toString().includes("previewLinkTarget:") && !m?.type?.toString().includes("HAS_THREAD")));
-const ChannelClass = findLazy(m => m?.prototype?.addRecipient);
-
 export interface ChildrenAccProops {
     channelMessageProps: {
         compact: boolean;
@@ -62,7 +59,10 @@ export interface ChildrenAccProops {
     isAutomodBlockedMessage: boolean;
     showClydeAiEmbeds: boolean;
 }
-const ChildrenAccessories: React.FC<ChildrenAccProops> = LazyComponent(() => findByCode(".channelMessageProps"));
+
+const ChannelClass = findLazy(m => m?.prototype?.addRecipient);
+const MessagePreview: React.FC<MessagePreviewProps> = LazyComponent(() => find(m => m?.type?.toString().includes("previewLinkTarget:") && !m?.type?.toString().includes("HAS_THREAD")));
+const ChildrenAccessories: React.FC<ChildrenAccProops> = LazyComponent(() => findByCode("channelMessageProps:{message:"));
 
 const cl = classNameFactory("msg-logger-modal-");
 
