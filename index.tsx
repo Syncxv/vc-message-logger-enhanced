@@ -357,9 +357,9 @@ export default definePlugin({
         },
 
         {
-            find: ".mobileToolbar",
+            find: "toolbar:function",
             replacement: {
-                match: /(function \i\(.\){)(.{1,200}toolbar.{1,100}mobileToolbar)/,
+                match: /(function \i\(\i\){)(.{1,200}toolbar.{1,100}mobileToolbar)/,
                 replace: "$1$self.addIconToToolBar(arguments[0]);$2"
             }
         },

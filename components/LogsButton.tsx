@@ -17,10 +17,14 @@
 */
 
 import { LazyComponent } from "@utils/react";
-import { findByCode } from "@webpack";
+import { filters, find } from "@webpack";
 
 import { openLogModal } from "./LogsModal";
-const HeaderBarIcon = LazyComponent(() => findByCode(".HEADER_BAR_BADGE,", ".tooltip"));
+
+const HeaderBarIcon = LazyComponent(() => {
+    const filter = filters.byCode(".HEADER_BAR_BADGE");
+    return find(m => m.Icon && filter(m.Icon)).Icon;
+});
 
 export function OpenLogsIcon() {
     return (
