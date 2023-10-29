@@ -282,6 +282,12 @@ export const settings = definePluginSettings({
         description: "Always log current selected channel",
     },
 
+    saveImages: {
+        type: OptionType.BOOLEAN,
+        description: "Save deleted messages",
+        default: false
+    },
+
     messageLimit: {
         default: 200,
         type: OptionType.NUMBER,
@@ -306,11 +312,6 @@ export const settings = definePluginSettings({
         description: "Blacklisted server, channel, or user IDs."
     },
 
-    saveImages: {
-        type: OptionType.BOOLEAN,
-        description: "Save deleted messages",
-        default: false
-    },
 
     imageCacheDir: {
         type: OptionType.COMPONENT,
@@ -470,8 +471,8 @@ export default definePlugin({
 
         const onComplete = (blobUrl: string | null) => {
             if (!blobUrl) return;
-
             Flogger.log("Got blob url for message.id =", props.message.id);
+
             const finalBlobUrl = blobUrl + "#";
             attachment.blobUrl = finalBlobUrl;
             attachment.url = finalBlobUrl;

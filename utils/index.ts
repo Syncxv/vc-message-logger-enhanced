@@ -83,14 +83,16 @@ const EPHEMERAL = 64;
 const UserGuildSettingsStore = findStoreLazy("UserGuildSettingsStore");
 
 /**
-  * the function `shouldIgnore` evaluates whether a message should be ignored or kept, based on certain criteria.
-  * whitelist takes priority. for example if a server is blacklisted but a whitelisted user deletes soemthing it will be saved
+  * the function `shouldIgnore` evaluates whether a message should be ignored or kept, following a priority hierarchy: User > Channel > Server.
+  * In this hierarchy, whitelisting takes priority; if any element (User, Channel, or Server) is whitelisted, the message is kept.
+  * However, if a higher-priority element, like a User, is blacklisted, it will override the whitelisting status of a lower-priority element, such as a Server, causing the message to be ignored.
   * @param {ShouldIgnoreArguments} args - An object containing the message details.
   * @returns {boolean} - True if the message should be ignored, false if it should be kept.
 */
 export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPinged, isCachedByUs }: ShouldIgnoreArguments): boolean {
     const isEphemeral = ((flags ?? 0) & EPHEMERAL) === EPHEMERAL;
     if (isEphemeral) return true; // ignore
+
     if (settings.store.alwaysLogCurrentChannel && SelectedChannelStore.getChannelId() === channelId) return false; // keep
     if (settings.store.alwaysLogDirectMessages && ChannelStore.getChannel(channelId ?? "-1").isDM()) return false; // keep
 
@@ -104,32 +106,44 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
 
     const whitelistedIds = settings.store.whitelistedIds.split(",");
 
-    const isUserWhitelisted = whitelistedIds.includes(authorId!);
+    const isWhitelisted = settings.store.whitelistedIds.split(",").some(e => ids.includes(e));
+    const isAuthorWhitelisted = whitelistedIds.includes(authorId!);
     const isChannelWhitelisted = whitelistedIds.includes(channelId!);
     const isGuildWhitelisted = whitelistedIds.includes(guildId!);
-    const isBlacklisted = [
+
+    const blacklistedIds = [
         ...settings.store.blacklistedIds.split(","),
         ...(ignoreUsers ?? []).split(","),
         ...(ignoreChannels ?? []).split(","),
         ...(ignoreGuilds ?? []).split(",")
-    ].some(e => ids.includes(e));
+    ];
 
+    const isBlacklisted = blacklistedIds.some(e => ids.includes(e));
+    const isAuthorBlacklisted = blacklistedIds.includes(authorId);
+    const isChannelBlacklisted = blacklistedIds.includes(channelId);
 
-    const isWhitelisted = settings.store.whitelistedIds.split(",").some(e => ids.includes(e));
 
     const shouldIgnoreMutedGuilds = settings.store.ignoreMutedGuilds;
     const shouldIgnoreMutedCategories = settings.store.ignoreMutedCategories;
     const shouldIgnoreMutedChannels = settings.store.ignoreMutedChannels;
 
     if (ghostPinged) return false; // keep
+
+    // author has highest priority
+    if (isAuthorWhitelisted) return false; // keep
+    if (isAuthorBlacklisted) return true; // ignore
+
+    if (!isChannelBlacklisted) return false; // keep
+    if (isChannelBlacklisted) return true; // ignore
+
     if (isWhitelisted) return false; // keep
 
     if (isCachedByUs && (!settings.store.cacheMessagesFromServers && guildId != null && !isGuildWhitelisted)) return true; // ignore
 
-
     if ((ignoreBots && bot) && !isWhitelisted) return true; // ignore
     if (ignoreSelf && authorId === myId) return true; // ignore
-    if (isBlacklisted && (!isUserWhitelisted || !isChannelWhitelisted)) return true; // ignore
+    if (isBlacklisted && (!isAuthorWhitelisted || !isChannelWhitelisted)) return true; // ignore
+
     if (guildId != null && shouldIgnoreMutedGuilds && UserGuildSettingsStore.isMuted(guildId)) return true; // ignore
     if (channelId != null && shouldIgnoreMutedCategories && UserGuildSettingsStore.isCategoryMuted(guildId, channelId)) return true; // ignore
     if (channelId != null && shouldIgnoreMutedChannels && UserGuildSettingsStore.isChannelMuted(guildId, channelId)) return true; // ignore
