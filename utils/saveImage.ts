@@ -19,7 +19,8 @@
 import { settings } from "..";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./constants";
-import { deleteFile, exists, mkdir, nativeFileSystemAccess, writeFile } from "./filesystem";
+import { deleteFile, exists, mkdir, nativeFileSystemAccess, readFile, writeFile } from "./filesystem";
+import { memoize } from "./memoize";
 
 export function getFileExtension(str: string) {
     const matches = str.match(/(\.[a-zA-Z0-9]+)(?:\?.*)?$/);
@@ -85,9 +86,12 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
                 continue;
             }
             // apparently proxy urls last longer
-            const fileExtension = getFileExtension(attachment.filename ?? attachment.url);
             attachment.url = attachment.proxy_url;
+
+            // all these may be pointless but its nice to have just in case
+            const fileExtension = getFileExtension(attachment.filename ?? attachment.url);
             attachment.fileExtension = fileExtension;
+
             const path = await cacheImage(attachment.url, i, attachment.id, message.id, message.channel_id, fileExtension);
             attachment.path = path;
             attachment.nativefileSystem = nativeFileSystemAccess;
@@ -105,3 +109,20 @@ export async function deleteMessageImages(message: LoggedMessage | LoggedMessage
         deleteFile(attachment.path);
     }
 }
+
+
+export const getSavedImageBlobUrl = memoize(async (url: string) => {
+    if (!url.includes("/attachments")) return null;
+
+    const thing = new URL(url);
+    const [_channelId, attachmentId, fileName] = thing.pathname.replace("/attachments/", "").split("/");
+
+    const fileExtension = getFileExtension(fileName);
+    const imageData = await readFile(`${settings.store.imageCacheDir}/${attachmentId}${fileExtension}`);
+    if (!imageData) return null;
+
+    const blob = new Blob([imageData]);
+    const resUrl = URL.createObjectURL(blob);
+
+    return resUrl;
+});

@@ -399,6 +399,17 @@ export default definePlugin({
                 match: /(cozyMessage.{1,50},)childrenHeader:/,
                 replace: "$1childrenAccessories:arguments[0].childrenAccessories || null,childrenHeader:"
             }
+        },
+
+        {
+            find: ".awaitOnline().then(",
+            replacement: [
+                // https://regex101.com/r/GF4ZIx/1
+                {
+                    match: /(function \i\(\i\){)(.{1,20}new Image;.{1,250}\i.src)=/,
+                    replace: "async $1await $self.patchImageLoad(arguments[0]);$2=arguments[0].blobUrl ?? arguments[0].url;"
+                },
+            ]
         }
     ],
     settings,
@@ -447,6 +458,17 @@ export default definePlugin({
             return m1.editHistory.map(mapEditHistory);
         return editHistory;
     },
+
+    async patchImageLoad(props: { url: string; blobUrl?: string; }) {
+        // console.log(props);
+        const blobUrl = await imageUtils.getSavedImageBlobUrl(props.url);
+        if (!blobUrl) return;
+
+        // console.log("GOT saved image", blobUrl);
+
+        props.blobUrl = blobUrl;
+    },
+
     flux: {
         "MESSAGE_DELETE": messageDeleteHandler,
         "MESSAGE_DELETE_BULK": messageDeleteBulkHandler,
