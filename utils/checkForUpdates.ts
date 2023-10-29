@@ -60,12 +60,12 @@ export async function checkForUpdates(delay = 0, showNoUpdateToast = true) {
 
 
     setTimeout(() => showNotification({
-        title: `Message Logger Enhanced Has Updated to ${updateVersion}!`,
-        body: "Click here to view the update",
+        title: `Update available for Message Logger Enhanced. ${updateVersion}`,
+        body: "Click here to update",
         permanent: true,
         noPersist: true,
         onClick() {
-            VencordNative.native.openExternal("https://github.com/Syncxv/vc-message-logger-enhanced");
+            VencordNative.native.openExternal("https://github.com/Syncxv/vc-message-logger-enhanced/#how-to-update");
         }
     }), delay);
 }

@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const VERSION = "1.3.1";
+export const VERSION = "1.3.2";
 
 import "./styles.css";
 
@@ -386,18 +386,18 @@ export default definePlugin({
         },
 
         {
-            find: ".mobileToolbar",
+            find: "toolbar:function",
             replacement: {
-                match: /(function \i\(.\){)(.{1,200}toolbar.{1,100}mobileToolbar)/,
+                match: /(function \i\(\i\){)(.{1,200}toolbar.{1,100}mobileToolbar)/,
                 replace: "$1$self.addIconToToolBar(arguments[0]);$2"
             }
         },
 
         {
-            find: ".content;return(0,",
+            find: ",guildId:void 0}),childrenMessageContent",
             replacement: {
-                match: /function \i\(\i\){var .{1,50}message,.{1,50}isGroupStart(.|\n){1,1000}return\(0,\i\.jsx\)\(\i\.\i.{/,
-                replace: "$&childrenAccessories:arguments[0].childrenAccessories || null,"
+                match: /(cozyMessage.{1,50},)childrenHeader:/,
+                replace: "$1childrenAccessories:arguments[0].childrenAccessories || null,childrenHeader:"
             }
         }
     ],

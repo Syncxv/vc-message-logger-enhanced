@@ -48,6 +48,11 @@ pnpm build
 
 # Changelog
 
+## Version 1.3.2
+
+-   Fixed Modal and Toolbox Icon
+-   Made update message less confusing https://github.com/Syncxv/vc-message-logger-enhanced/issues/2
+
 ## Version 1.3.1
 
 -   Added option to always log Direct Messages by [@CatGirlDShadow](https://github.com/CatGirlDShadow) in https://github.com/Syncxv/vc-message-logger-enhanced/pull/1

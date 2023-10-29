@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { findByCodeLazy, findLazy } from "@webpack";
+import { findByPropsLazy, findLazy } from "@webpack";
 import { ChannelStore, moment, UserStore } from "@webpack/common";
 
 import { settings } from "..";
@@ -26,10 +26,9 @@ import { DISCORD_EPOCH } from "./index";
 import { memoize } from "./memoize";
 import { getFileExtension } from "./saveImage";
 
-const MessageClass = findLazy(m => m?.prototype?.isEdited);
+const MessageClass: any = findLazy(m => m?.prototype?.isEdited);
 const AuthorClass = findLazy(m => m?.prototype?.getAvatarURL);
-const makeEmbed = findByCodeLazy('("embed_"),');
-
+const embedModule = findByPropsLazy("sanitizeEmbed");
 
 export function getGuildIdByChannel(channel_id: string) {
     return ChannelStore.getChannel(channel_id)?.guild_id;
@@ -96,10 +95,7 @@ export const messageJsonToMessageClass = memoize(async (log: { message: LoggedMe
     message.author = new AuthorClass(message.author);
     (message.author as any).nick = (message.author as any).globalName ?? message.author.username;
 
-    message.embeds = message.embeds.map(e => makeEmbed(message.channel_id, message.id, e));
-
-    message.attachments = await Promise.all(message.attachments.map(getLocalCacheImageUrl));
-
+    message.embeds = message.embeds.map(e => embedModule.sanitizeEmbed(message.channel_id, message.id, e));
     // console.timeEnd("message populate");
     return message;
 });
