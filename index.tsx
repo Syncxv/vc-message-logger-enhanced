@@ -24,6 +24,7 @@ import { addContextMenuPatch, NavContextMenuPatchCallback, removeContextMenuPatc
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
+import { Logger } from "@utils/Logger";
 import { showItemInFolder } from "@utils/native";
 import definePlugin, { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
@@ -34,8 +35,8 @@ import { openLogModal } from "./components/LogsModal";
 import { ImageCacheDir } from "./components/settings/ImageCacheSetting";
 import { addMessage, clearLogs, hasLogs, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
-import { LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, getLocalCacheImageUrl, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
+import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
+import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { checkForUpdates } from "./utils/checkForUpdates";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import * as fileSystem from "./utils/filesystem";
@@ -44,6 +45,8 @@ import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
 import * as imageUtils from "./utils/saveImage";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
+
+export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
 
 export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
 
@@ -55,7 +58,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
     if (payload.mlDeleted) return;
 
     if (handledMessageIds.has(payload.id)) {
-        // console.warn("skipping duplicate message", payload.id);
+        // Flogger.warn("skipping duplicate message", payload.id);
         return;
     }
 
@@ -67,7 +70,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
         if (message == null) {
             // most likely an edited message
             const cachedMessage = cacheSentMessages.get(`${payload.channelId},${payload.id}`);
-            if (!cachedMessage) return; // console.log("no message to save");
+            if (!cachedMessage) return; // Flogger.log("no message to save");
 
             message = { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true } as LoggedMessageJSON;
         }
@@ -83,7 +86,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
                 isCachedByUs: (message as LoggedMessageJSON).ourCache
             })
         ) {
-            // console.log("IGNORING", message, payload);
+            // Flogger.log("IGNORING", message, payload);
             return FluxDispatcher.dispatch({
                 type: "MESSAGE_DELETE",
                 channelId: payload.channelId,
@@ -94,7 +97,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
 
 
         if (message == null || message.channel_id == null || !message.deleted) return;
-        // console.log("ADDING MESSAGE (DELETED)", message);
+        // Flogger.log("ADDING MESSAGE (DELETED)", message);
         await addMessage(message, "deletedMessages");
     }
     finally {
@@ -128,7 +131,7 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
             message.editHistory = [];
             cacheThing.commit(cache);
         }
-        return;//  console.log("this message has been ignored", payload);
+        return;//  Flogger.log("this message has been ignored", payload);
     }
 
     let message = MessageStore
@@ -155,7 +158,7 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
 
     if (message == null || message.channel_id == null || message.editHistory == null || message.editHistory.length === 0) return;
 
-    // console.log("ADDING MESSAGE (EDITED)", message, payload);
+    // Flogger.log("ADDING MESSAGE (EDITED)", message, payload);
     await addMessage(message, "editedMessages");
 }
 
@@ -173,7 +176,7 @@ function messageCreateHandler(payload: MessageCreatePayload) {
     }
 
     cacheSentMessages.set(`${payload.message.channel_id},${payload.message.id}`, cleanUpCachedMessage(payload.message));
-    // console.log(`cached\nkey:${payload.message.channel_id},${payload.message.id}\nvalue:`, payload.message);
+    // Flogger.log(`cached\nkey:${payload.message.channel_id},${payload.message.id}\nvalue:`, payload.message);
 }
 
 // also stolen from mlv2
@@ -401,15 +404,58 @@ export default definePlugin({
             }
         },
 
+        // {
+        //     find: ".awaitOnline().then(",
+        //     replacement: [
+        //         // https://regex101.com/r/Gpak7v/1
+        //         // {
+        //         //     match: /(function \i\(\i\){)(.{1,20}new Image;)/,
+        //         //     replace: "async $1await $self.patchImageLoad(arguments[0]);$2"
+        //         // },
+
+        //         // {
+        //         //     match: /function \i\(.{1,10}\){.{1,100}url:\i,loaded:!0,/,
+        //         //     replace: "$&blobUrl: arguments[1].blobUrl,"
+        //         // },
+
+        //         // {
+        //         //     match: /((?<cache>\w)=new .{1,10}\({max:.{1,2000})(function \w\(\w\){)(.{1,250}sourceWidth)/,
+        //         //     replace: "$1$3$self.patchGetSrc(arguments[0], $<cache>);$4"
+        //         // }
+        //     ]
+        // },
+
+        // image messages
+        // {
+        //     find: "handleImageLoad=",
+        //     replacement: [
+        //         {
+        //             match: /\i.loadImage\)\(\i,\(\i,(\i)\)=>{/,
+        //             replace: "$&this.blobUrl = $1.blobUrl;"
+        //         },
+
+        //         {
+        //             match: /getSrc\(\i\){/,
+        //             replace: "$&if(this.blobUrl) return this.blobUrl;"
+        //         }
+        //     ]
+        // },
+
+        // image modal
+        // {
+        //     find: "onCloseImage=",
+        //     replacement: {
+        //         match: /\.onZoom=\(\i,(\i)\)=>{.{1,1000}onClose:this\.onCloseImage,/,
+        //         replace: "$&src:$self.getSrc($1,this.props),"
+        //     }
+        // },
+
         {
-            find: ".awaitOnline().then(",
-            replacement: [
-                // https://regex101.com/r/GF4ZIx/1
-                {
-                    match: /(function \i\(\i\){)(.{1,20}new Image;.{1,250}\i.src)=/,
-                    replace: "async $1await $self.patchImageLoad(arguments[0]);$2=arguments[0].blobUrl ?? arguments[0].url;"
-                },
-            ]
+            find: ".removeAttachmentHoverButton",
+            replacement: {
+                match: /(\i=(\i)=>{)(.{1,250}isSingleMosaicItem)/,
+                replace: "$1 let forceUpdate=Vencord.Util.useForceUpdater();$self.patchAttachments($2,forceUpdate);$3"
+            }
         }
     ],
     settings,
@@ -441,7 +487,6 @@ export default definePlugin({
     store: MessageLoggerStore,
     openLogModal,
     doesMatch,
-    getLocalCacheImageUrl,
     LoggedMessageManager,
     fileSystem,
     imageUtils,
@@ -460,13 +505,42 @@ export default definePlugin({
     },
 
     async patchImageLoad(props: { url: string; blobUrl?: string; }) {
-        // console.log(props);
-        const blobUrl = await imageUtils.getSavedImageBlobUrl(props.url);
+        Flogger.log(props);
+        const blobUrl = await imageUtils.getSavedImageByUrl(props.url);
         if (!blobUrl) return;
 
-        // console.log("GOT saved image", blobUrl);
+        Flogger.log("GOT saved image", blobUrl);
 
-        props.blobUrl = blobUrl;
+        props.blobUrl = blobUrl + "#";
+    },
+
+    getSrc({ zoomThumbnailPlaceholder }: { zoomThumbnailPlaceholder: string; }, src: string) {
+        return zoomThumbnailPlaceholder.startsWith("blob:") ? zoomThumbnailPlaceholder : src;
+    },
+
+    patchAttachments(props: { attachment: LoggedAttachment, message: LoggedMessage; }, forceUpdate: () => void) {
+        if (!props.message.deleted) return;
+
+        const attachment = props.message.attachments.find(m => m.id === props.attachment.id);
+
+        if (!attachment) return;
+
+        if (attachment.blobUrl) return attachment.blobUrl;
+
+        const onComplete = (blobUrl: string | null) => {
+            if (!blobUrl) return;
+
+            Flogger.log("Got blob url for message.id =", props.message.id);
+            const finalBlobUrl = blobUrl + "#";
+            attachment.blobUrl = finalBlobUrl;
+            attachment.url = finalBlobUrl;
+            attachment.proxy_url = finalBlobUrl;
+            forceUpdate();
+        };
+
+        if (!attachment.path) return imageUtils.getSavedImageByUrl(attachment.proxy_url).then(onComplete);
+
+        imageUtils.getSavedImageByAttachmentOrImagePath(attachment).then(onComplete);
     },
 
     flux: {

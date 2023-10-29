@@ -16,10 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { settings } from "..";
-import { LoggedMessage, LoggedMessageJSON } from "../types";
+import { Flogger, settings } from "..";
+import { loggedMessagesCache } from "../LoggedMessageManager";
+import { LoggedAttachment, LoggedMessage, LoggedMessageJSON } from "../types";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./constants";
 import { deleteFile, exists, mkdir, nativeFileSystemAccess, readFile, writeFile } from "./filesystem";
+import { readFile as readFileIndexedDB } from "./filesystem/indexeddb-fs";
 import { memoize } from "./memoize";
 
 export function getFileExtension(str: string) {
@@ -31,6 +33,13 @@ export function getFileExtension(str: string) {
 
 export function isImage(url: string) {
     return /\.(jpe?g|png|gif|bmp)(\?.*)?$/i.test(url);
+}
+
+function transformAttachmentUrl(messageId: string, attachmentUrl: string) {
+    const url = new URL(attachmentUrl);
+    url.searchParams.set("messageId", messageId);
+
+    return url.toString();
 }
 
 async function checkImageCacheDir(cacheDir: string) {
@@ -46,7 +55,7 @@ export async function getDefaultNativePath(): Promise<string | null> {
         const themesDir = await VencordNative.themes.getThemesDir();
         return path.join(themesDir, "../savedImages");
     } catch (err) {
-        console.error("failed to get default native path", err);
+        Flogger.error("failed to get default native path", err);
         return null;
     }
 
@@ -64,7 +73,7 @@ export async function cacheImage(url: string, attachmentIdx: number, attachmentI
     if (res.status !== 200) {
         if (res.status === 404 || res.status === 403) return;
         attempts++;
-        if (attempts > 3) return console.warn(`Failed to get image ${attachmentId} for caching, error code ${res.status}`);
+        if (attempts > 3) return Flogger.warn(`Failed to get image ${attachmentId} for caching, error code ${res.status}`);
         return setTimeout(() => cacheImage(url, attachmentIdx, attachmentId, messageId, channelId, fileExtension, attempts), 1000);
     }
     const ab = await res.arrayBuffer();
@@ -82,13 +91,12 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
         for (let i = 0; i < message.attachments.length; i++) {
             const attachment = message.attachments[i];
             if (!isImage(attachment.filename ?? attachment.url) || !(attachment.content_type?.split("/")[0] === "image")) {
-                console.log("skipping", attachment.filename);
+                Flogger.log("skipping", attachment.filename);
                 continue;
             }
             // apparently proxy urls last longer
-            attachment.url = attachment.proxy_url;
+            attachment.url = transformAttachmentUrl(message.id, attachment.proxy_url);
 
-            // all these may be pointless but its nice to have just in case
             const fileExtension = getFileExtension(attachment.filename ?? attachment.url);
             attachment.fileExtension = fileExtension;
 
@@ -97,7 +105,7 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
             attachment.nativefileSystem = nativeFileSystemAccess;
         }
     } catch (error) {
-        console.error("Error caching message images:", error);
+        Flogger.error("Error caching message images:", error);
     }
 }
 
@@ -111,18 +119,60 @@ export async function deleteMessageImages(message: LoggedMessage | LoggedMessage
 }
 
 
-export const getSavedImageBlobUrl = memoize(async (url: string) => {
-    if (!url.includes("/attachments")) return null;
+function getMessage(url: URL) {
+    const messageId = url.searchParams.get("messageId");
+    if (!messageId) return null;
 
-    const thing = new URL(url);
-    const [_channelId, attachmentId, fileName] = thing.pathname.replace("/attachments/", "").split("/");
+    const record = loggedMessagesCache[messageId];
+    if (!record || !record.message) return null;
+
+    return record.message;
+}
+export const getSavedImageByUrl = memoize(async (attachmentUrl: string) => {
+    if (!attachmentUrl.includes("/attachments")) return null;
+
+    const url = new URL(attachmentUrl);
+
+    const [_channelId, attachmentId, fileName] = url.pathname.replace("/attachments/", "").split("/");
+
+    const message = getMessage(url);
+    const attachment = message?.attachments.find(m => m.id === attachmentId);
+
+    if (attachment) return getSavedImageByAttachmentOrImagePath(attachment);
 
     const fileExtension = getFileExtension(fileName);
-    const imageData = await readFile(`${settings.store.imageCacheDir}/${attachmentId}${fileExtension}`);
+    const imagePath = `${settings.store.imageCacheDir}/${attachmentId}${fileExtension}`;
+
+    return getSavedImageByAttachmentOrImagePath(null, imagePath);
+});
+
+
+// what the fuck is this
+export async function getSavedImageByAttachmentOrImagePath(attachment?: LoggedAttachment | null, imgPath?: string) {
+    const imagePath = attachment?.path ?? imgPath;
+
+    if (!imagePath) return null;
+
+    let imageData;
+    // damn this whole thing is confusing
+    if (attachment) {
+        // let's consider a scenario where native file system access was initially unavailable,
+        // and we saved some images in IndexedDB. Later, native file system access became available.
+        // without this conditional check, 'readFile' would return null because readFile is now the node js readFile
+        // but we saved the image using the IndexedDB file system.
+        if (!attachment.nativefileSystem) {
+            imageData = await readFileIndexedDB(imagePath);
+        } else
+            imageData = await readFile(imagePath);
+    } else {
+        imageData = await readFileIndexedDB(imagePath);
+        if (nativeFileSystemAccess)
+            imageData = readFile(imagePath);
+    }
     if (!imageData) return null;
 
     const blob = new Blob([imageData]);
     const resUrl = URL.createObjectURL(blob);
 
     return resUrl;
-});
+}

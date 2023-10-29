@@ -19,12 +19,9 @@
 import { findByPropsLazy, findLazy } from "@webpack";
 import { ChannelStore, moment, UserStore } from "@webpack/common";
 
-import { settings } from "..";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
-import { readFile } from "./filesystem";
 import { DISCORD_EPOCH } from "./index";
 import { memoize } from "./memoize";
-import { getFileExtension } from "./saveImage";
 
 const MessageClass: any = findLazy(m => m?.prototype?.isEdited);
 const AuthorClass = findLazy(m => m?.prototype?.getAvatarURL);
@@ -99,31 +96,3 @@ export const messageJsonToMessageClass = memoize(async (log: { message: LoggedMe
     // console.timeEnd("message populate");
     return message;
 });
-
-
-export async function getLocalCacheImageUrl(attachment: LoggedMessage["attachments"][0]) {
-    if (attachment.blobUrl && attachment.blobUrl.startsWith("blob:")) {
-        console.log("alreayd created blob for ", attachment.id);
-        attachment.url = attachment.blobUrl;
-        attachment.proxy_url = attachment.blobUrl;
-        return attachment;
-    }
-
-    const extension = attachment.fileExtension ?? getFileExtension(attachment.filename ?? attachment.url);
-
-    try {
-        var data = await readFile(`${settings.store.imageCacheDir}/${attachment.id}${extension?.startsWith(".") ? extension : `.${extension}`}`);
-        if (!data) return attachment;
-    } catch (err) {
-        return attachment;
-    }
-
-    const blob = new Blob([data]);
-    // fix query params
-    const url = URL.createObjectURL(blob) + "#";
-
-    attachment.url = url;
-    attachment.proxy_url = url;
-    attachment.blobUrl = url;
-    return attachment;
-}

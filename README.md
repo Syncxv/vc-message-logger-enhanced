@@ -12,7 +12,7 @@ Problems i need to solve:
     -   Patch Image load
         -   Patch Image Problems
             -   [x] need to figure out how to make async image loading work (woah that was easy)
-            -   [ ] determine which message the image url belongs to
+            -   [x] determine which message the image url belongs to
 
 ## Features
 

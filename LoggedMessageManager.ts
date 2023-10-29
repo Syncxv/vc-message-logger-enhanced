@@ -127,9 +127,10 @@ export async function removeLog(id: string) {
     const loggedMessages = await getLoggedMessages();
     const record = loggedMessages[id];
 
-    removeLogWithoutSaving(id, loggedMessages);
     if (record?.message)
         deleteMessageImages(record.message);
+
+    removeLogWithoutSaving(id, loggedMessages);
 
     saveLoggedMessages(loggedMessages);
 
