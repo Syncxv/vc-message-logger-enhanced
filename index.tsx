@@ -404,52 +404,7 @@ export default definePlugin({
             }
         },
 
-        // {
-        //     find: ".awaitOnline().then(",
-        //     replacement: [
-        //         // https://regex101.com/r/Gpak7v/1
-        //         // {
-        //         //     match: /(function \i\(\i\){)(.{1,20}new Image;)/,
-        //         //     replace: "async $1await $self.patchImageLoad(arguments[0]);$2"
-        //         // },
-
-        //         // {
-        //         //     match: /function \i\(.{1,10}\){.{1,100}url:\i,loaded:!0,/,
-        //         //     replace: "$&blobUrl: arguments[1].blobUrl,"
-        //         // },
-
-        //         // {
-        //         //     match: /((?<cache>\w)=new .{1,10}\({max:.{1,2000})(function \w\(\w\){)(.{1,250}sourceWidth)/,
-        //         //     replace: "$1$3$self.patchGetSrc(arguments[0], $<cache>);$4"
-        //         // }
-        //     ]
-        // },
-
-        // image messages
-        // {
-        //     find: "handleImageLoad=",
-        //     replacement: [
-        //         {
-        //             match: /\i.loadImage\)\(\i,\(\i,(\i)\)=>{/,
-        //             replace: "$&this.blobUrl = $1.blobUrl;"
-        //         },
-
-        //         {
-        //             match: /getSrc\(\i\){/,
-        //             replace: "$&if(this.blobUrl) return this.blobUrl;"
-        //         }
-        //     ]
-        // },
-
-        // image modal
-        // {
-        //     find: "onCloseImage=",
-        //     replacement: {
-        //         match: /\.onZoom=\(\i,(\i)\)=>{.{1,1000}onClose:this\.onCloseImage,/,
-        //         replace: "$&src:$self.getSrc($1,this.props),"
-        //     }
-        // },
-
+        // https://regex101.com/r/TMV1vY/1
         {
             find: ".removeAttachmentHoverButton",
             replacement: {
@@ -502,20 +457,6 @@ export default definePlugin({
         if (editHistory == null && m1?.editHistory != null && m1.editHistory.length > 0)
             return m1.editHistory.map(mapEditHistory);
         return editHistory;
-    },
-
-    async patchImageLoad(props: { url: string; blobUrl?: string; }) {
-        Flogger.log(props);
-        const blobUrl = await imageUtils.getSavedImageByUrl(props.url);
-        if (!blobUrl) return;
-
-        Flogger.log("GOT saved image", blobUrl);
-
-        props.blobUrl = blobUrl + "#";
-    },
-
-    getSrc({ zoomThumbnailPlaceholder }: { zoomThumbnailPlaceholder: string; }, src: string) {
-        return zoomThumbnailPlaceholder.startsWith("blob:") ? zoomThumbnailPlaceholder : src;
     },
 
     patchAttachments(props: { attachment: LoggedAttachment, message: LoggedMessage; }, forceUpdate: () => void) {
