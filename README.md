@@ -1,5 +1,20 @@
 # vc-message-logger-enhanced
 
+# Save Images Feature
+Problems i need to solve:
+- [x] Native filesystem access
+    - Problems
+        - you have to import [utils/freedom/importMeToPreload.ts](https://github.com/Syncxv/vc-message-logger-enhanced/blob/save-images/utils/freedom/importMeToPreload.ts) to src/preload.ts for node js fs to work 
+- [x] IndexedDB fallback
+- [ ] Intercept image requests and return image blob (async issues)
+    - Possible Solutions:
+        - Image Server. (wont work if we dont have access to node js)
+        - Patch Image class
+            - Patch Image Problems
+                - [ ] need to figure out how to make async image loading work
+                - [ ] determine which message the image url belongs to
+
+
 ## Features
 
 -   Restore deleted and edited messages even after reloading Discord (optional).
