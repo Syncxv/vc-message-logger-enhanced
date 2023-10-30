@@ -418,6 +418,14 @@ export default definePlugin({
                 replace: "$1 let forceUpdate=Vencord.Util.useForceUpdater();$self.patchAttachments($2,forceUpdate);$3"
             }
         },
+
+        {
+            find: "handleImageLoad=",
+            replacement: {
+                match: /(render\(\){)(.{1,100}zoomThumbnailPlaceholder)/,
+                replace: "$1$self.checkImage(this);$2"
+            }
+        }
     ],
     settings,
 
@@ -469,18 +477,20 @@ export default definePlugin({
         if (!props.message.deleted) return;
 
         const { attachment } = props;
-
         if (!attachment) return;
 
         if (attachment.blobUrl) return attachment.blobUrl;
 
         const savedImageData = ImageManager.savedImages[attachment.id];
-
         // reduces number of disk reads
         if (!savedImageData) return;
 
         const onComplete = (blobUrl: string | null) => {
-            if (!blobUrl) return;
+            if (!blobUrl) {
+                Flogger.error("image not found. deleteing imageData from savedImages object");
+                delete ImageManager.savedImages[attachment.id];
+                ImageManager.saveSavedImages();
+            }
             Flogger.log("Got blob url for message.id =", props.message.id);
 
             const finalBlobUrl = blobUrl + "#";
@@ -493,6 +503,12 @@ export default definePlugin({
         if (!attachment.path) return imageUtils.getSavedImageByUrl(attachment.proxy_url).then(onComplete);
 
         imageUtils.getSavedImageByAttachmentOrImagePath(attachment).then(onComplete);
+    },
+
+    checkImage(instance: any) {
+        if (instance.state?.readyState !== "READY" && instance.props?.src?.startsWith("blob:")) {
+            instance.loadImage(instance.props.src, instance.handleImageLoad);
+        }
     },
 
     flux: {

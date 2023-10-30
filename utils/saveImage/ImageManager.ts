@@ -81,7 +81,6 @@ export function initNodeFs() {
 
 export const nativeFileSystemAccess = initNodeFs();
 
-
 export async function getImage(imagePath: string, customStore = defaultGetMessageLoggerImageDataStore()): Promise<any> {
     if (!nativeFileSystemAccess || imagePath.startsWith(DEFAULT_IMAGE_CACHE_DIR))
         return get(imagePath, customStore);
@@ -180,3 +179,5 @@ async function checkForSavedImages() {
 
     return numImagesFound;
 }
+
+export const saveSavedImages = async (_savedImages?: SavedImages) => await set(SAVED_IMAGES_KEY, _savedImages ?? savedImages, defaultGetMessageLoggerImageDataStore());

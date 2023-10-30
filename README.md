@@ -14,7 +14,8 @@ Problems i need to solve:
             -   [x] need to figure out how to make async image loading work (woah that was easy)
             -   [x] determine which message the image url belongs to
 -   [x] Reduce disk reads
--   [ ] Fix message image preview thing
+-   [x] Fix message image preview thing
+-   [ ] Implement Message limit
 
 ## Features
 

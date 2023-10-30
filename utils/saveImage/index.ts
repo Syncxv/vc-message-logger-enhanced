@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import * as DataStore from "@api/DataStore";
 import { sleep } from "@utils/misc";
 
 import { Flogger, settings } from "../..";
@@ -24,7 +23,7 @@ import { loggedMessagesCache } from "../../LoggedMessageManager";
 import { LoggedAttachment, LoggedMessage, LoggedMessageJSON } from "../../types";
 import { DEFAULT_IMAGE_CACHE_DIR } from "../constants";
 import { memoize } from "../memoize";
-import { checkImageCacheDir, defaultGetMessageLoggerImageDataStore, deleteImage, getImage, getImageCacheDir, nativeFileSystemAccess, SAVED_IMAGES_KEY, savedImages, writeImage, } from "./ImageManager";
+import { checkImageCacheDir, deleteImage, getImage, getImageCacheDir, nativeFileSystemAccess, savedImages, saveSavedImages, writeImage, } from "./ImageManager";
 
 export function getFileExtension(str: string) {
     const matches = str.match(/(\.[a-zA-Z0-9]+)(?:\?.*)?$/);
@@ -95,7 +94,8 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
                 attachmentId: attachment.id,
             };
         }
-        await DataStore.set(SAVED_IMAGES_KEY, savedImages, defaultGetMessageLoggerImageDataStore());
+        // save sounds weird now
+        saveSavedImages();
     } catch (error) {
         Flogger.error("Error caching message images:", error);
     }
@@ -109,7 +109,7 @@ export async function deleteMessageImages(message: LoggedMessage | LoggedMessage
         await deleteMessageImageByAttachment(attachment);
         delete savedImages[attachment.id];
     }
-    await DataStore.set(SAVED_IMAGES_KEY, savedImages, defaultGetMessageLoggerImageDataStore());
+    saveSavedImages();
 }
 
 export async function deleteMessageImageByAttachment(attachment: LoggedAttachment) {
