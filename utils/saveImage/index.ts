@@ -19,11 +19,12 @@
 import { sleep } from "@utils/misc";
 
 import { Flogger, settings } from "../..";
-import { loggedMessagesCache } from "../../LoggedMessageManager";
+import { getLoggedMessages, loggedMessagesCache } from "../../LoggedMessageManager";
 import { LoggedAttachment, LoggedMessage, LoggedMessageJSON } from "../../types";
 import { DEFAULT_IMAGE_CACHE_DIR } from "../constants";
 import { memoize } from "../memoize";
-import { checkImageCacheDir, deleteImage, getImage, getImageCacheDir, nativeFileSystemAccess, savedImages, saveSavedImages, writeImage, } from "./ImageManager";
+import { sortMessagesByDate } from "../misc";
+import { checkImageCacheDir, deleteImage, getImage, getImageCacheDir, nativeFileSystemAccess, savedImages, saveSavedImages as saveBruhSavedImages, writeImage, } from "./ImageManager";
 
 export function getFileExtension(str: string) {
     const matches = str.match(/(\.[a-zA-Z0-9]+)(?:\?.*)?$/);
@@ -94,8 +95,13 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
                 attachmentId: attachment.id,
             };
         }
+
+        if (settings.store.imagesLimit > 0 && Object.keys(savedImages).length > settings.store.imagesLimit) {
+            await deleteOldestImage();
+        }
+
         // save sounds weird now
-        saveSavedImages();
+        await saveBruhSavedImages();
     } catch (error) {
         Flogger.error("Error caching message images:", error);
     }
@@ -106,19 +112,39 @@ export async function deleteMessageImages(message: LoggedMessage | LoggedMessage
         const attachment = message.attachments[i];
         if (!attachment.path) continue;
 
-        await deleteMessageImageByAttachment(attachment);
+        await deleteImage(attachment.path);
         delete savedImages[attachment.id];
     }
-    saveSavedImages();
+    await saveBruhSavedImages();
 }
 
-export async function deleteMessageImageByAttachment(attachment: LoggedAttachment) {
-    if (!attachment.path)
-        return Flogger.warn("invalid attachment. id =", attachment.id);
+export async function deleteOldestImage() {
+    const sorted = Object.keys(savedImages).sort(sortMessagesByDate);
+    const oldestAttachmentId = sorted[sorted.length - 1];
 
-    deleteImage(attachment.path);
+    if (!oldestAttachmentId) return Flogger.warn("savedImages is likely empty",);
+
+    const loggedMessages = await getLoggedMessages();
+    const { messageId } = savedImages[oldestAttachmentId];
+    const record = loggedMessages[messageId];
+
+    if (!record?.message) {
+        Flogger.warn("message with id %s not found", messageId);
+        delete savedImages[oldestAttachmentId];
+        return;
+    }
+
+    const attachment = record.message.attachments.find(m => m.id === oldestAttachmentId);
+    if (!attachment || !attachment.path) {
+        Flogger.warn("attachment with id %s not found", oldestAttachmentId);
+        delete savedImages[oldestAttachmentId];
+        return;
+    }
+    await deleteImage(attachment.path);
+    delete savedImages[oldestAttachmentId];
+
+    await saveBruhSavedImages();
 }
-
 
 function getMessage(url: URL) {
     const messageId = url.searchParams.get("messageId");

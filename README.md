@@ -15,7 +15,7 @@ Problems i need to solve:
             -   [x] determine which message the image url belongs to
 -   [x] Reduce disk reads
 -   [x] Fix message image preview thing
--   [ ] Implement Message limit
+-   [x] Implement Message limit
 
 ## Features
 

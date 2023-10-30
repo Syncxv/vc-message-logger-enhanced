@@ -486,7 +486,7 @@ export default definePlugin({
         if (!savedImageData) return;
 
         const onComplete = (blobUrl: string | null) => {
-            if (!blobUrl) {
+            if (blobUrl == null) {
                 Flogger.error("image not found. deleteing imageData from savedImages object");
                 delete ImageManager.savedImages[attachment.id];
                 ImageManager.saveSavedImages();

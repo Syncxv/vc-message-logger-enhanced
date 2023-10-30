@@ -156,7 +156,7 @@ async function checkForSavedImages() {
     for (const { message } of messagsWithSavedImags) {
         for (const attachment of message.attachments) {
             const blobUrl = await getSavedImageByAttachmentOrImagePath(attachment);
-            if (!blobUrl) continue;
+            if (blobUrl == null) continue;
 
             savedImages[attachment.id] = {
                 messageId: message.id,
