@@ -346,10 +346,7 @@ interface LMessageProps {
     forceUpdate: () => void;
 }
 function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
-    const [message] = useAwaiter(() => messageJsonToMessageClass(log), {
-        fallbackValue: null,
-        deps: [log.message.id]
-    });
+    const message = useMemo(() => messageJsonToMessageClass(log), [log]);
 
     if (!message) return null;
 

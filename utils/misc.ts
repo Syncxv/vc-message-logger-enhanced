@@ -78,7 +78,7 @@ export const mapEditHistory = (m: any) => {
     return m;
 };
 
-export const messageJsonToMessageClass = memoize(async (log: { message: LoggedMessageJSON; }) => {
+export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJSON; }) => {
     // console.time("message populate");
     const message: LoggedMessage = new MessageClass(log.message);
     message.timestamp = moment(message.timestamp);
