@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+//! import this file into src\preload.ts to save images to a real folder
+
 import { contextBridge } from "electron";
 
 import * as electron from "./electron";

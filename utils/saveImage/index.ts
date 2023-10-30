@@ -16,13 +16,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Flogger, settings } from "..";
-import { loggedMessagesCache } from "../LoggedMessageManager";
-import { LoggedAttachment, LoggedMessage, LoggedMessageJSON } from "../types";
-import { DEFAULT_IMAGE_CACHE_DIR } from "./constants";
-import { deleteFile, exists, mkdir, nativeFileSystemAccess, readFile, writeFile } from "./filesystem";
-import { readFile as readFileIndexedDB } from "./filesystem/indexeddb-fs";
-import { memoize } from "./memoize";
+import * as DataStore from "@api/DataStore";
+import { sleep } from "@utils/misc";
+
+import { Flogger, settings } from "../..";
+import { loggedMessagesCache } from "../../LoggedMessageManager";
+import { LoggedAttachment, LoggedMessage, LoggedMessageJSON } from "../../types";
+import { DEFAULT_IMAGE_CACHE_DIR } from "../constants";
+import { memoize } from "../memoize";
+import { checkImageCacheDir, defaultGetMessageLoggerImageDataStore, deleteImage, getImage, getImageCacheDir, nativeFileSystemAccess, SAVED_IMAGES_KEY, savedImages, writeImage, } from "./ImageManager";
 
 export function getFileExtension(str: string) {
     const matches = str.match(/(\.[a-zA-Z0-9]+)(?:\?.*)?$/);
@@ -42,45 +44,24 @@ function transformAttachmentUrl(messageId: string, attachmentUrl: string) {
     return url.toString();
 }
 
-async function checkImageCacheDir(cacheDir: string) {
-    if (!nativeFileSystemAccess) return;
-
-    if (!await exists(cacheDir))
-        await mkdir(cacheDir);
-}
-
-export async function getDefaultNativePath(): Promise<string | null> {
-    try {
-        const path = window.require("path");
-        const themesDir = await VencordNative.themes.getThemesDir();
-        return path.join(themesDir, "../savedImages");
-    } catch (err) {
-        Flogger.error("failed to get default native path", err);
-        return null;
-    }
-
-}
-
-export async function getImageCacheDir() {
-    if (nativeFileSystemAccess && settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR)
-        return getDefaultNativePath();
-
-    return settings.store.imageCacheDir ?? DEFAULT_IMAGE_CACHE_DIR;
-}
-
 export async function cacheImage(url: string, attachmentIdx: number, attachmentId: string, messageId: string, channelId: string, fileExtension: string | null, attempts = 0) {
     const res = await fetch(url);
     if (res.status !== 200) {
         if (res.status === 404 || res.status === 403) return;
         attempts++;
-        if (attempts > 3) return Flogger.warn(`Failed to get image ${attachmentId} for caching, error code ${res.status}`);
-        return setTimeout(() => cacheImage(url, attachmentIdx, attachmentId, messageId, channelId, fileExtension, attempts), 1000);
+        if (attempts > 3) {
+            Flogger.warn(`Failed to get image ${attachmentId} for caching, error code ${res.status}`);
+            return;
+        }
+
+        await sleep(1000);
+        return cacheImage(url, attachmentIdx, attachmentId, messageId, channelId, fileExtension, attempts);
     }
     const ab = await res.arrayBuffer();
     const imageCacheDir = await getImageCacheDir();
     const path = `${imageCacheDir}/${attachmentId}${fileExtension}`;
     await checkImageCacheDir(imageCacheDir);
-    await writeFile(path, new Uint8Array(ab));
+    await writeImage(path, new Uint8Array(ab));
 
     return path;
 }
@@ -98,12 +79,23 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
             attachment.url = transformAttachmentUrl(message.id, attachment.proxy_url);
 
             const fileExtension = getFileExtension(attachment.filename ?? attachment.url);
-            attachment.fileExtension = fileExtension;
-
             const path = await cacheImage(attachment.url, i, attachment.id, message.id, message.channel_id, fileExtension);
+
+            if (path == null) {
+                Flogger.error("Failed to save image from attachment. id: ", attachment.id);
+                continue;
+            }
+
+            attachment.fileExtension = fileExtension;
             attachment.path = path;
             attachment.nativefileSystem = nativeFileSystemAccess;
+
+            savedImages[attachment.id] = {
+                messageId: message.id,
+                attachmentId: attachment.id,
+            };
         }
+        await DataStore.set(SAVED_IMAGES_KEY, savedImages, defaultGetMessageLoggerImageDataStore());
     } catch (error) {
         Flogger.error("Error caching message images:", error);
     }
@@ -114,8 +106,17 @@ export async function deleteMessageImages(message: LoggedMessage | LoggedMessage
         const attachment = message.attachments[i];
         if (!attachment.path) continue;
 
-        deleteFile(attachment.path);
+        await deleteMessageImageByAttachment(attachment);
+        delete savedImages[attachment.id];
     }
+    await DataStore.set(SAVED_IMAGES_KEY, savedImages, defaultGetMessageLoggerImageDataStore());
+}
+
+export async function deleteMessageImageByAttachment(attachment: LoggedAttachment) {
+    if (!attachment.path)
+        return Flogger.warn("invalid attachment. id =", attachment.id);
+
+    deleteImage(attachment.path);
 }
 
 
@@ -141,9 +142,20 @@ export const getSavedImageByUrl = memoize(async (attachmentUrl: string) => {
     if (attachment) return getSavedImageByAttachmentOrImagePath(attachment);
 
     const fileExtension = getFileExtension(fileName);
-    const imagePath = `${settings.store.imageCacheDir}/${attachmentId}${fileExtension}`;
+    const imageCacheDir = await getImageCacheDir();
 
-    return getSavedImageByAttachmentOrImagePath(null, imagePath);
+    let imagePath = `${imageCacheDir}/${attachmentId}${fileExtension}`;
+
+    const res = await getSavedImageByAttachmentOrImagePath(null, imagePath);
+    if (res) return res;
+
+
+    // if it is a real native path (eg. C:\Monke\Path)
+    if (settings.store.imageCacheDir !== DEFAULT_IMAGE_CACHE_DIR)
+        // search for it in IndexedDB
+        imagePath = `${DEFAULT_IMAGE_CACHE_DIR}/${attachmentId}${fileExtension}`;
+
+    return await getSavedImageByAttachmentOrImagePath(null, imagePath);
 });
 
 
@@ -153,22 +165,7 @@ export async function getSavedImageByAttachmentOrImagePath(attachment?: LoggedAt
 
     if (!imagePath) return null;
 
-    let imageData;
-    // damn this whole thing is confusing
-    if (attachment) {
-        // let's consider a scenario where native file system access was initially unavailable,
-        // and we saved some images in IndexedDB. Later, native file system access became available.
-        // without this conditional check, 'readFile' would return null because readFile is now the node js readFile
-        // but we saved the image using the IndexedDB file system.
-        if (!attachment.nativefileSystem) {
-            imageData = await readFileIndexedDB(imagePath);
-        } else
-            imageData = await readFile(imagePath);
-    } else {
-        imageData = await readFileIndexedDB(imagePath);
-        if (nativeFileSystemAccess)
-            imageData = readFile(imagePath);
-    }
+    const imageData = await getImage(imagePath);
     if (!imageData) return null;
 
     const blob = new Blob([imageData]);

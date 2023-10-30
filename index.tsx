@@ -39,13 +39,12 @@ import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON,
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { checkForUpdates } from "./utils/checkForUpdates";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
-import * as fileSystem from "./utils/filesystem";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
 import * as imageUtils from "./utils/saveImage";
+import * as ImageManager from "./utils/saveImage/ImageManager";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
-
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
 
 export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
@@ -288,6 +287,12 @@ export const settings = definePluginSettings({
         default: false
     },
 
+    imagesLimit: {
+        default: 100,
+        type: OptionType.NUMBER,
+        description: "Maximum number of images to save. Older images are deleted when the limit is reached. 0 means there is no limit"
+    },
+
     messageLimit: {
         default: 200,
         type: OptionType.NUMBER,
@@ -412,7 +417,7 @@ export default definePlugin({
                 match: /(\i=(\i)=>{)(.{1,250}isSingleMosaicItem)/,
                 replace: "$1 let forceUpdate=Vencord.Util.useForceUpdater();$self.patchAttachments($2,forceUpdate);$3"
             }
-        }
+        },
     ],
     settings,
 
@@ -444,7 +449,7 @@ export default definePlugin({
     openLogModal,
     doesMatch,
     LoggedMessageManager,
-    fileSystem,
+    ImageManager,
     imageUtils,
 
     getDeleted(m1, m2) {
@@ -463,11 +468,16 @@ export default definePlugin({
     patchAttachments(props: { attachment: LoggedAttachment, message: LoggedMessage; }, forceUpdate: () => void) {
         if (!props.message.deleted) return;
 
-        const attachment = props.message.attachments.find(m => m.id === props.attachment.id);
+        const { attachment } = props;
 
         if (!attachment) return;
 
         if (attachment.blobUrl) return attachment.blobUrl;
+
+        const savedImageData = ImageManager.savedImages[attachment.id];
+
+        // reduces number of disk reads
+        if (!savedImageData) return;
 
         const onComplete = (blobUrl: string | null) => {
             if (!blobUrl) return;
@@ -499,12 +509,12 @@ export default definePlugin({
         if (settings.store.autoCheckForUpdates)
             checkForUpdates(10_000, false);
 
-        if (!fileSystem.nativeFileSystemAccess) {
+        if (!ImageManager.nativeFileSystemAccess) {
             settings.store.imageCacheDir = DEFAULT_IMAGE_CACHE_DIR;
         }
 
-        if (fileSystem.nativeFileSystemAccess && settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR) {
-            settings.store.imageCacheDir = await imageUtils.getDefaultNativePath();
+        if (ImageManager.nativeFileSystemAccess && settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR) {
+            settings.store.imageCacheDir = await ImageManager.getDefaultNativePath();
         }
 
         addContextMenuPatch("message", contextMenuPath);

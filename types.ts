@@ -96,11 +96,20 @@ export interface LoadMessagePayload {
     isStale: boolean;
 }
 
+export interface AttachmentData {
+    messageId: string;
+    attachmentId: string;
+}
+
+export type SavedImages = Record<string, AttachmentData>;
+
 export type LoggedMessageIds = {
+    // [channel_id: string]: message_id
     deletedMessages: Record<string, string[]>;
     editedMessages: Record<string, string[]>;
 };
 
+export type MessageRecord = { message: LoggedMessageJSON; };
+
 export type LoggedMessages = LoggedMessageIds & { [message_id: string]: { message?: LoggedMessageJSON; }; };
 
-export type MessageRecord = { message: LoggedMessageJSON; };

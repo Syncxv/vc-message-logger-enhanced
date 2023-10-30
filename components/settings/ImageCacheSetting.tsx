@@ -21,7 +21,7 @@ import { Button, Forms, Toasts } from "@webpack/common";
 
 import { settings } from "../..";
 import { DEFAULT_IMAGE_CACHE_DIR } from "../../utils/constants";
-import { nativeFileSystemAccess } from "../../utils/filesystem";
+import { nativeFileSystemAccess } from "../../utils/saveImage/ImageManager";
 
 const cl = classNameFactory("folder-upload");
 
