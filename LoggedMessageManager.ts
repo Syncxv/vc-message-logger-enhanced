@@ -120,7 +120,7 @@ export async function removeLogs(ids: string[]) {
     for (const msgId of ids) {
         removeLogWithoutSaving(msgId, loggedMessages);
     }
-    saveLoggedMessages(loggedMessages);
+    await saveLoggedMessages(loggedMessages);
 }
 
 export async function removeLog(id: string) {
@@ -132,7 +132,7 @@ export async function removeLog(id: string) {
 
     removeLogWithoutSaving(id, loggedMessages);
 
-    saveLoggedMessages(loggedMessages);
+    await saveLoggedMessages(loggedMessages);
 
 }
 

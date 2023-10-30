@@ -287,16 +287,16 @@ export const settings = definePluginSettings({
         default: false
     },
 
-    imagesLimit: {
-        default: 100,
-        type: OptionType.NUMBER,
-        description: "Maximum number of images to save. Older images are deleted when the limit is reached. 0 means there is no limit"
-    },
-
     messageLimit: {
         default: 200,
         type: OptionType.NUMBER,
         description: "Maximum number of messages to save. Older messages are deleted when the limit is reached. 0 means there is no limit"
+    },
+
+    imagesLimit: {
+        default: 100,
+        type: OptionType.NUMBER,
+        description: "Maximum number of images to save. Older images are deleted when the limit is reached. 0 means there is no limit"
     },
 
     cacheLimit: {
