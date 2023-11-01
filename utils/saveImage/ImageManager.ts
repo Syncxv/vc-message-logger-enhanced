@@ -59,7 +59,7 @@ export const HAS_CHECKED_FOR_IMAGES_KEY = "has-checked-for-images";
             await checkForSavedImages();
 
     } catch (error) {
-        console.error("Error loading logged messages from the store:", error);
+        console.error("Error getting saved images", error);
     }
 })();
 
