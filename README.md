@@ -4,6 +4,7 @@
 
 -   Restore deleted and edited messages even after reloading Discord (optional).
 -   Log messages from channels or DMs you haven't opened.
+-   Save deleted images
 -   View logs in a modal that shows your logged messages.
     -   Sort messages based on timestamps.
     -   Search logs by channel ID, user ID, server ID, and message ID.
@@ -32,6 +33,10 @@ pnpm build
 ```
 
 # Changelog
+
+## Version 1.4.0
+
+-   Save Images :D
 
 ## Version 1.3.2
 

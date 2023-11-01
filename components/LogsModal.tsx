@@ -96,9 +96,9 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     }, []);
 
 
-    // console.log(logs, _, pending, contentRef);
+    // Flogger.log(logs, _, pending, contentRef);
 
-    // console.time("hi");
+    // Flogger.time("hi");
     const messages: string[][] = currentTab === LogTabs.DELETED || currentTab === LogTabs.GHOST_PING
         ? Object.values(logs?.deletedMessages ?? {})
         : Object.values(logs?.editedMessages ?? {});
@@ -144,7 +144,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
 
     const canLoadMore = numDisplayedMessages < flattendAndfilteredAndSortedMessages.length;
 
-    // console.timeEnd("hi");
+    // Flogger.timeEnd("hi");
     return (
         <ModalRoot className={cl("root")} {...modalProps} size={ModalSize.LARGE}>
             <ModalHeader className={cl("header")}>
@@ -347,6 +347,9 @@ interface LMessageProps {
 }
 function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
     const message = useMemo(() => messageJsonToMessageClass(log), [log]);
+
+    if (!message) return null;
+
     return (
         <div
             onContextMenu={e => {

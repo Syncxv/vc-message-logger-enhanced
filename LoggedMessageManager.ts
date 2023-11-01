@@ -22,6 +22,7 @@ import { DataStore } from "@api/index";
 import { settings } from ".";
 import { LoggedMessage, LoggedMessageIds, LoggedMessageJSON, LoggedMessages, MessageRecord } from "./types";
 import { cleanupMessage, sortMessagesByDate } from "./utils";
+import { cacheMessageImages, deleteMessageImages } from "./utils/saveImage";
 
 export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, };
 
@@ -61,6 +62,8 @@ export const saveLoggedMessages = async (loggedMessages: LoggedMessages) => {
 };
 
 export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key: keyof LoggedMessageIds) => {
+    if (settings.store.saveImages && key === "deletedMessages")
+        await cacheMessageImages(message);
     const loggedMessages = await getLoggedMessages();
     const finalMessage = cleanupMessage(message);
     loggedMessages[message.id] = { message: finalMessage };
@@ -117,15 +120,19 @@ export async function removeLogs(ids: string[]) {
     for (const msgId of ids) {
         removeLogWithoutSaving(msgId, loggedMessages);
     }
-    saveLoggedMessages(loggedMessages);
+    await saveLoggedMessages(loggedMessages);
 }
 
 export async function removeLog(id: string) {
     const loggedMessages = await getLoggedMessages();
+    const record = loggedMessages[id];
+
+    if (record?.message)
+        deleteMessageImages(record.message);
 
     removeLogWithoutSaving(id, loggedMessages);
 
-    saveLoggedMessages(loggedMessages);
+    await saveLoggedMessages(loggedMessages);
 
 }
 

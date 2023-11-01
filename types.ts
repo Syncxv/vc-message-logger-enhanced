@@ -16,7 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Message, MessageJSON } from "discord-types/general";
+import { Message, MessageAttachment, MessageJSON } from "discord-types/general";
+
+export interface LoggedAttachment extends MessageAttachment {
+    fileExtension?: string | null;
+    path?: string | null;
+    blobUrl?: string;
+    nativefileSystem?: boolean;
+}
 
 export type RefrencedMessage = LoggedMessageJSON & { message_id: string; };
 export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
@@ -29,6 +36,7 @@ export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
     referenced_message: RefrencedMessage;
     message_reference: RefrencedMessage;
 
+    attachments: LoggedAttachment[];
     deleted?: boolean;
     editHistory?: {
         timestamp: string;
@@ -37,13 +45,13 @@ export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
 }
 
 export interface LoggedMessage extends Message {
+    attachments: LoggedAttachment[];
     deleted?: boolean;
     editHistory?: {
         timestamp: string;
         content: string;
     }[];
 }
-
 
 export interface MessageDeletePayload {
     type: string;
@@ -88,11 +96,20 @@ export interface LoadMessagePayload {
     isStale: boolean;
 }
 
+export interface AttachmentData {
+    messageId: string;
+    attachmentId: string;
+}
+
+export type SavedImages = Record<string, AttachmentData>;
+
 export type LoggedMessageIds = {
+    // [channel_id: string]: message_id
     deletedMessages: Record<string, string[]>;
     editedMessages: Record<string, string[]>;
 };
 
+export type MessageRecord = { message: LoggedMessageJSON; };
+
 export type LoggedMessages = LoggedMessageIds & { [message_id: string]: { message?: LoggedMessageJSON; }; };
 
-export type MessageRecord = { message: LoggedMessageJSON; };
