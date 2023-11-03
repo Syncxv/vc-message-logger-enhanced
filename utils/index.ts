@@ -127,21 +127,22 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
     const shouldIgnoreMutedCategories = settings.store.ignoreMutedCategories;
     const shouldIgnoreMutedChannels = settings.store.ignoreMutedChannels;
 
+    if ((ignoreBots && bot) && !isAuthorWhitelisted) return true; // ignore
+    if (ignoreSelf && authorId === myId) return true; // ignore
+
     if (ghostPinged) return false; // keep
 
     // author has highest priority
     if (isAuthorWhitelisted) return false; // keep
     if (isAuthorBlacklisted) return true; // ignore
 
-    if (!isChannelBlacklisted) return false; // keep
+    if (isChannelWhitelisted) return false; // keep
     if (isChannelBlacklisted) return true; // ignore
 
     if (isWhitelisted) return false; // keep
 
     if (isCachedByUs && (!settings.store.cacheMessagesFromServers && guildId != null && !isGuildWhitelisted)) return true; // ignore
 
-    if ((ignoreBots && bot) && !isWhitelisted) return true; // ignore
-    if (ignoreSelf && authorId === myId) return true; // ignore
     if (isBlacklisted && (!isAuthorWhitelisted || !isChannelWhitelisted)) return true; // ignore
 
     if (guildId != null && shouldIgnoreMutedGuilds && UserGuildSettingsStore.isMuted(guildId)) return true; // ignore

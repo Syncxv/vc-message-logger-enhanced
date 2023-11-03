@@ -31,7 +31,9 @@ cd src/userplugins/vc-message-logger-enhanced
 git pull
 pnpm build
 ```
-# Save images to  real folder
+
+# Save images to real folder
+
 add this line `import "./userplugins/vc-message-logger-enhanced/utils/freedom/importMeToPreload";` to src/preload.ts
 
 <details>
