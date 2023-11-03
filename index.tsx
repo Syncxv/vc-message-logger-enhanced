@@ -21,7 +21,7 @@ export const VERSION = "1.4.0";
 import "./styles.css";
 
 import { addContextMenuPatch, NavContextMenuPatchCallback, removeContextMenuPatch } from "@api/ContextMenu";
-import { definePluginSettings } from "@api/Settings";
+import { definePluginSettings, Settings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
@@ -79,7 +79,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
                 channelId: message?.channel_id ?? payload.channelId,
                 guildId: payload.guildId ?? (message as any).guildId ?? (message as any).guild_id,
                 authorId: message?.author?.id,
-                bot: message?.bot,
+                bot: message?.bot || message?.author?.bot,
                 flags: message?.flags,
                 ghostPinged: isGhostPinged(message as any),
                 isCachedByUs: (message as LoggedMessageJSON).ourCache
@@ -249,6 +249,25 @@ export const settings = definePluginSettings({
         default: true,
         type: OptionType.BOOLEAN,
         description: "Automatically check for updates on startup.",
+    },
+
+    ignoreBots: {
+        type: OptionType.BOOLEAN,
+        description: "Whether to ignore messages by bots",
+        default: false,
+        onChange() {
+            // we will be handling the ignoreBots now (enabled or not) so the original messageLogger shouldnt
+            Settings.plugins.MessageLogger.ignoreBots = false;
+        }
+    },
+
+    ignoreSelf: {
+        type: OptionType.BOOLEAN,
+        description: "Whether to ignore messages by yourself",
+        default: false,
+        onChange() {
+            Settings.plugins.MessageLogger.ignoreSelf = false;
+        }
     },
 
     ignoreMutedGuilds: {

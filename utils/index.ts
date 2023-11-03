@@ -100,7 +100,8 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
         guildId = getGuildIdByChannel(channelId);
 
     const myId = UserStore.getCurrentUser().id;
-    const { ignoreBots, ignoreSelf, ignoreUsers, ignoreChannels, ignoreGuilds } = Settings.plugins.MessageLogger;
+    const { ignoreUsers, ignoreChannels, ignoreGuilds } = Settings.plugins.MessageLogger;
+    const { ignoreBots, ignoreSelf } = settings.store;
 
     const ids = [authorId, channelId, guildId];
 
