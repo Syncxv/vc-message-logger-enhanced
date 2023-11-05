@@ -20,12 +20,11 @@
 
 import { contextBridge } from "electron";
 
-import * as electron from "./electron";
 
 function _require(mod: string) {
     switch (mod) {
-        case "electron":
-            return electron;
+        // case "electron":
+        // return electron;
         default:
             return require(mod);
     }
