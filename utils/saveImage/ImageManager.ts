@@ -66,7 +66,7 @@ export const HAS_CHECKED_FOR_IMAGES_KEY = "has-checked-for-images";
 export function initNodeFs() {
     try {
 
-        const req = window.require;
+        const req = window.coolRequire;
         if (!req) return false;
 
         fs = req("node:fs/promises");
