@@ -28,7 +28,7 @@ export async function downloadLoggedMessages() {
     const exportData = await exportLogs();
     const data = new TextEncoder().encode(exportData);
 
-    if (IS_WEB) {
+    if (IS_WEB || IS_VESKTOP) {
         const file = new File([data], filename, { type: "application/json" });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(file);
@@ -69,7 +69,7 @@ export async function importLogs(data: string) {
 
 
 export async function uploadLogs(showToast = true): Promise<void> {
-    if (IS_WEB) {
+    if (IS_WEB || IS_VESKTOP) {
         const input = document.createElement("input");
         input.type = "file";
         input.style.display = "none";
