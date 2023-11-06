@@ -106,7 +106,7 @@ export async function deleteImage(imagePath: string, customStore = defaultGetMes
 
 export async function getDefaultNativePath(): Promise<string | null> {
     try {
-        const path = window.require("path");
+        const path = window.coolRequire("path");
         const themesDir = await VencordNative.themes.getThemesDir();
         return path.join(themesDir, "../savedImages");
     } catch (err) {
