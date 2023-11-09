@@ -18,10 +18,10 @@ export const getNativeSavedImages = () => nativeSavedImages;
 export async function init(_event: IpcMainInvokeEvent, imageCacheDir?: string) {
     if (!imageCacheDir) imageCacheDir = await getDefaultNativePath();
 
-    await checkImageCacheDir(imageCacheDir);
+    await ensureDirectoryExists(imageCacheDir);
     const files = await readdir(imageCacheDir);
     for (const filename of files) {
-        const attachmentId = path.parse(filename).name;
+        const attachmentId = getAttachmentIdFromFilename(filename);
         nativeSavedImages.set(attachmentId, path.join(imageCacheDir, filename));
     }
 }
@@ -32,13 +32,15 @@ export async function getImageNative(_event: IpcMainInvokeEvent, attachmentId: s
     return await readFile(imagePath);
 }
 
-export async function writeImageNative(_event: IpcMainInvokeEvent, attachmentId: string, imagePath: string, content: Uint8Array) {
-    if (!attachmentId || !imagePath || !content) return;
+export async function writeImageNative(_event: IpcMainInvokeEvent, imageCacheDir: string, filename: string, content: Uint8Array) {
+    if (!filename || !content) return;
+
+    const attachmentId = getAttachmentIdFromFilename(filename);
 
     const existingImage = nativeSavedImages.get(attachmentId);
     if (existingImage) return;
 
-    await checkImageCacheDir(imagePath);
+    const imagePath = path.join(imageCacheDir, filename);
     await writeFile(imagePath, content);
 
     nativeSavedImages.set(attachmentId, imagePath);
@@ -64,8 +66,11 @@ async function exists(filename: string) {
     }
 }
 
-async function checkImageCacheDir(cacheDir: string) {
+async function ensureDirectoryExists(cacheDir: string) {
     if (!await exists(cacheDir))
         await mkdir(cacheDir);
 }
 
+function getAttachmentIdFromFilename(filename: string) {
+    return path.parse(filename).name;
+}

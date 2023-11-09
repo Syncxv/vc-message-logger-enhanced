@@ -144,6 +144,13 @@ export async function clearLogs() {
 
 // utils
 
+export const hasMessageInLogs = (messageId: string) => {
+    const bruh = Object.values(loggedMessagesCache)
+        .filter(m => !Array.isArray(m)) as MessageRecord[];
+
+    return bruh.find(m => m.message?.id === messageId);
+};
+
 export const hasLogs = async () => {
     const logs = await getLoggedMessages();
     const hasDeletedMessages = Object.keys(logs.deletedMessages).length > 0;

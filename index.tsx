@@ -500,18 +500,18 @@ export default definePlugin({
         return editHistory;
     },
 
-    patchAttachments(props: { attachment: LoggedAttachment, message: LoggedMessage; }, forceUpdate: () => void) {
-        if (!props.message.deleted) return;
+    patchAttachments({ attachment, message }: { attachment: LoggedAttachment, message: LoggedMessage; }, forceUpdate: () => void) {
+        if (!message.deleted || !LoggedMessageManager.hasMessageInLogs(message.id))
+            return; // Flogger.log("ignoring", message.id);
 
-        const { attachment } = props;
-        if (attachment.blobUrl) return;
+        if (attachment.blobUrl) return; // Flogger.log("blobUrl already exists");
 
         imageUtils.getAttachmentBlobUrl(attachment.id).then((blobUrl: string | null) => {
             if (blobUrl == null) {
-                Flogger.error("image not found. ");
+                Flogger.error("image not found. for message.id =", message.id, blobUrl);
                 return;
             }
-            Flogger.log("Got blob url for message.id =", props.message.id);
+            Flogger.log("Got blob url for message.id =", message.id, blobUrl);
 
             const finalBlobUrl = blobUrl + "#";
             attachment.blobUrl = finalBlobUrl;

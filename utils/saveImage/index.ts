@@ -62,7 +62,8 @@ export async function cacheImage(url: string, attachmentIdx: number, attachmentI
     const ab = await res.arrayBuffer();
     const imageCacheDir = settings.store.imageCacheDir ?? await Native.getDefaultNativePath();
     const path = `${imageCacheDir}/${attachmentId}${fileExtension}`;
-    await writeImage(attachmentId, path, new Uint8Array(ab));
+
+    await writeImage(imageCacheDir, `${attachmentId}${fileExtension}`, new Uint8Array(ab));
 
     return path;
 }
@@ -79,7 +80,7 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
             // apparently proxy urls last longer
             attachment.url = transformAttachmentUrl(message.id, attachment.proxy_url);
 
-            const fileExtension = getFileExtension(attachment.filename ?? attachment.url);
+            const fileExtension = getFileExtension(attachment.filename ?? attachment.url) ?? attachment.content_type?.split("/")?.[1] ?? ".png";
             const path = await cacheImage(attachment.url, i, attachment.id, message.id, message.channel_id, fileExtension);
 
             if (path == null) {
@@ -99,14 +100,14 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
 export async function deleteMessageImages(message: LoggedMessage | LoggedMessageJSON) {
     for (let i = 0; i < message.attachments.length; i++) {
         const attachment = message.attachments[i];
-        if (!attachment.path) continue;
-
-        await deleteImage(attachment.path);
+        await deleteImage(attachment.id);
     }
 }
 
 export const getAttachmentBlobUrl = memoize(async (attachmentId: string) => {
     const imageData = await getImage(attachmentId);
+    if (!imageData) return null;
+
     const blob = new Blob([imageData]);
     const resUrl = URL.createObjectURL(blob);
 

@@ -44,7 +44,6 @@ let idbSavedImages: IDBSavedImages[] = [];
     }
 })();
 
-// attachmentId.(png|jpg|jpeg|ect..)
 export async function getImage(attachmentId: string): Promise<any> {
     const idbPath = idbSavedImages.find(m => m.attachmentId === attachmentId)?.path;
     if (idbPath)
@@ -53,11 +52,11 @@ export async function getImage(attachmentId: string): Promise<any> {
     return await Native.getImageNative(attachmentId);
 }
 
-export async function writeImage(attachmentId: string, imagePath: string, content: any,): Promise<void> {
-    Native.writeImageNative(attachmentId, imagePath, content);
+export async function writeImage(imageCacheDir: string, filename: string, content: Uint8Array): Promise<void> {
+    Native.writeImageNative(imageCacheDir, filename, content);
 }
 
-export async function deleteImage(attachmentId: string,): Promise<void> {
+export async function deleteImage(attachmentId: string): Promise<void> {
     const idbPath = idbSavedImages.find(m => m.attachmentId === attachmentId)?.path;
     if (idbPath)
         return await del(idbPath, ImageStore);
