@@ -72,7 +72,7 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
     try {
         for (let i = 0; i < message.attachments.length; i++) {
             const attachment = message.attachments[i];
-            if (isAttachmentImage(attachment)) {
+            if (!isAttachmentImage(attachment)) {
                 Flogger.log("skipping", attachment.filename);
                 continue;
             }
