@@ -548,7 +548,7 @@ export default definePlugin({
             settings.store.imageCacheDir = await Native.getDefaultNativePath();
         }
 
-        Native.init(imageCacheDir);
+        Native.init(settings.store.imageCacheDir);
 
         addContextMenuPatch("message", contextMenuPath);
         addContextMenuPatch("channel-context", contextMenuPath);
