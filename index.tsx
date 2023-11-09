@@ -26,7 +26,7 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import { showItemInFolder } from "@utils/native";
-import definePlugin, { OptionType } from "@utils/types";
+import definePlugin, { OptionType, PluginNative } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
 import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
 
@@ -45,14 +45,18 @@ import { doesMatch } from "./utils/parseQuery";
 import * as imageUtils from "./utils/saveImage";
 import * as ImageManager from "./utils/saveImage/ImageManager";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
+
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
 
 export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
 
+
+export const Native = VencordNative.pluginHelpers["Vc-message-logger-enhanced"] as PluginNative<typeof import("./native")>;
+
 const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
-const handledMessageIds = new Set();
 
+const handledMessageIds = new Set();
 async function messageDeleteHandler(payload: MessageDeletePayload) {
     if (payload.mlDeleted) return;
 
@@ -377,12 +381,16 @@ export const settings = definePluginSettings({
             </Button>
     },
     openImageCacheFolder: {
-        type: OptionType.COMPONENT,
+        type: OptionType.STRING,
         description: "Opens the image cache directory",
         component: () =>
             <Button
-                disabled={settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR}
-                onClick={() => showItemInFolder(settings.store.imageCacheDir)}
+                disabled={settings.store.imageCacheDir == null || settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR}
+                onClick={
+                    () => IS_VESKTOP ?
+                        window?.MessageLoggerNative?.fileManager?.showItemInFolder(settings.store.imageCacheDir)
+                        : showItemInFolder(settings.store.imageCacheDir)
+                }
             >
                 Open Image Cache Folder
             </Button>
@@ -496,19 +504,12 @@ export default definePlugin({
         if (!props.message.deleted) return;
 
         const { attachment } = props;
-        if (!attachment) return;
+        if (attachment.blobUrl) return;
 
-        if (attachment.blobUrl) return attachment.blobUrl;
-
-        const savedImageData = ImageManager.savedImages[attachment.id];
-        // reduces number of disk reads
-        if (!savedImageData) return;
-
-        const onComplete = (blobUrl: string | null) => {
+        imageUtils.getAttachmentBlobUrl(attachment.id).then((blobUrl: string | null) => {
             if (blobUrl == null) {
-                Flogger.error("image not found. deleteing imageData from savedImages object");
-                delete ImageManager.savedImages[attachment.id];
-                ImageManager.saveSavedImages();
+                Flogger.error("image not found. ");
+                return;
             }
             Flogger.log("Got blob url for message.id =", props.message.id);
 
@@ -517,11 +518,8 @@ export default definePlugin({
             attachment.url = finalBlobUrl;
             attachment.proxy_url = finalBlobUrl;
             forceUpdate();
-        };
+        });
 
-        if (!attachment.path) return imageUtils.getSavedImageByUrl(attachment.proxy_url).then(onComplete);
-
-        imageUtils.getSavedImageByAttachmentOrImagePath(attachment).then(onComplete);
     },
 
     checkImage(instance: any) {
@@ -544,13 +542,13 @@ export default definePlugin({
         if (settings.store.autoCheckForUpdates)
             checkForUpdates(10_000, false);
 
-        if (!ImageManager.nativeFileSystemAccess) {
-            settings.store.imageCacheDir = DEFAULT_IMAGE_CACHE_DIR;
+
+        const { imageCacheDir } = settings.store;
+        if (imageCacheDir == null || imageCacheDir === DEFAULT_IMAGE_CACHE_DIR) {
+            settings.store.imageCacheDir = await Native.getDefaultNativePath();
         }
 
-        if (ImageManager.nativeFileSystemAccess && settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR) {
-            settings.store.imageCacheDir = await ImageManager.getDefaultNativePath();
-        }
+        Native.init(imageCacheDir);
 
         addContextMenuPatch("message", contextMenuPath);
         addContextMenuPatch("channel-context", contextMenuPath);

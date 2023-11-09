@@ -18,17 +18,27 @@
 
 //! import this file into src\preload.ts to save images to a real folder
 
-import { contextBridge } from "electron";
+import { contextBridge, dialog, shell } from "electron";
 
-import * as electron from "./electron";
+import * as _electron from "./electron";
 
 function _require(mod: string) {
     switch (mod) {
         case "electron":
-            return electron;
+            return _electron;
         default:
             return require(mod);
     }
 }
 
 contextBridge.exposeInMainWorld("coolRequire", _require);
+
+const MessageLoggerNative = {
+    fileManager: {
+        showItemInFolder: (path: string) => shell.showItemInFolder(path),
+        showOpenDialog: async (options: Electron.OpenDialogOptions) => (await dialog.showOpenDialog(options))?.filePaths
+    }
+};
+
+
+contextBridge.exposeInMainWorld("MessageLoggerNative", MessageLoggerNative);

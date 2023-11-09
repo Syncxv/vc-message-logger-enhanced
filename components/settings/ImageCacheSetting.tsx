@@ -21,13 +21,10 @@ import { Button, Forms, Toasts } from "@webpack/common";
 
 import { settings } from "../..";
 import { DEFAULT_IMAGE_CACHE_DIR } from "../../utils/constants";
-import { nativeFileSystemAccess } from "../../utils/saveImage/ImageManager";
 
 const cl = classNameFactory("folder-upload");
 
 export function ImageCacheDir() {
-    if (!nativeFileSystemAccess) return null;
-
     function onFolderSelect(path: string) {
         settings.store.imageCacheDir = path;
 
@@ -47,20 +44,18 @@ export function ImageCacheDir() {
 
 }
 
-
-// you Can only select folders in desktop version
-// so i can use DiscorNative RIGHT?
 function SelectFolderInput({ onFolderSelect }: { onFolderSelect: (path: string) => void; }) {
+    const { imageCacheDir } = settings.store;
     return (
         <div className={cl("-container")}>
             <div className={cl("-input")}>
-                {settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR ? "Choose Folder" : settings.store.imageCacheDir}
+                {imageCacheDir == null || imageCacheDir === DEFAULT_IMAGE_CACHE_DIR ? "Choose Folder" : imageCacheDir}
             </div>
             <Button
                 className={cl("-button")}
                 size={Button.Sizes.SMALL}
                 onClick={async () => {
-                    const [path] = await DiscordNative.fileManager.showOpenDialog({ properties: ["openDirectory", "single"] });
+                    const [path] = await showOpenDialog();
                     if (!path) return;
 
                     onFolderSelect(path);
@@ -71,4 +66,12 @@ function SelectFolderInput({ onFolderSelect }: { onFolderSelect: (path: string) 
         </div>
     );
 
+}
+
+
+async function showOpenDialog() {
+    if (IS_VESKTOP)
+        return window.MessageLoggerNative.fileManager.showOpenDialog({ properties: ["openDirectory", "single"] });
+
+    return await DiscordNative.fileManager.showOpenDialog({ properties: ["openDirectory", "single"] });
 }
