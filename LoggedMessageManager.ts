@@ -16,10 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { createStore, promisifyRequest } from "@api/DataStore";
+import { createStore } from "@api/DataStore";
 import { DataStore } from "@api/index";
+import { Settings } from "@api/Settings";
 
-import { settings } from ".";
+import { Flogger, Native, settings } from ".";
 import { LoggedMessage, LoggedMessageIds, LoggedMessageJSON, LoggedMessages, MessageRecord } from "./types";
 import { cleanupMessage, sortMessagesByDate } from "./utils";
 import { cacheMessageImages, deleteMessageImages } from "./utils/saveImage";
@@ -29,14 +30,23 @@ export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, 
 export const LOGGED_MESSAGES_KEY = "logged-messages-hi";
 export const MessageLoggerStore = createStore("MessageLoggerData", "MessageLoggerStore");
 
-export let loggedMessagesCache: LoggedMessages = defaultLoggedMessages;
-
+export let loggedMessages: LoggedMessages = defaultLoggedMessages;
 
 (async () => {
     try {
-        const res = await MessageLoggerStore("readonly", store => promisifyRequest<LoggedMessages>(store.get(LOGGED_MESSAGES_KEY)));
-        if (res != null)
-            loggedMessagesCache = res;
+        const Native = VencordNative.pluginHelpers["Vc-message-logger-enhanced"];
+        const res = await Native.getLogsFromFs(Settings.plugins.MessageLoggerEnhanced.logsDir);
+        if (res != null) {
+            Flogger.log("Got logged messages from native wont be checking DataStore");
+            loggedMessages = res;
+            return;
+        }
+
+        Flogger.log("Loading logged messages from DataStore and writing to native");
+        const data = await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore);
+        Native.writeLogs(Settings.plugins.MessageLoggerEnhanced.logsDir, JSON.stringify(data));
+
+        loggedMessages = data;
     } catch (error) {
         console.error("Error loading logged messages from the store:", error);
     }
@@ -44,27 +54,15 @@ export let loggedMessagesCache: LoggedMessages = defaultLoggedMessages;
 
 // api
 
-export const getLoggedMessages = async (): Promise<LoggedMessages> => {
-    return settings.store.saveMessages
-        ? (await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore)) ?? defaultLoggedMessages
-        : loggedMessagesCache;
-};
-export const refreshCache = async () => loggedMessagesCache = await getLoggedMessages();
-
-
 export const saveLoggedMessages = async (loggedMessages: LoggedMessages) => {
     if (settings.store.saveMessages) {
-        await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
-        await refreshCache();
-    } else {
-        loggedMessagesCache = loggedMessages;
+        await Native.writeLogs(settings.store.logsDir, JSON.stringify(loggedMessages));
     }
 };
 
 export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key: keyof LoggedMessageIds) => {
     if (settings.store.saveImages && key === "deletedMessages")
         await cacheMessageImages(message);
-    const loggedMessages = await getLoggedMessages();
     const finalMessage = cleanupMessage(message);
     loggedMessages[message.id] = { message: finalMessage };
 
@@ -116,7 +114,6 @@ function removeLogWithoutSaving(messageId: string, loggedMessages: LoggedMessage
 
 
 export async function removeLogs(ids: string[]) {
-    const loggedMessages = await getLoggedMessages();
     for (const msgId of ids) {
         removeLogWithoutSaving(msgId, loggedMessages);
     }
@@ -124,7 +121,6 @@ export async function removeLogs(ids: string[]) {
 }
 
 export async function removeLog(id: string) {
-    const loggedMessages = await getLoggedMessages();
     const record = loggedMessages[id];
 
     if (record?.message)
@@ -137,26 +133,24 @@ export async function removeLog(id: string) {
 }
 
 export async function clearLogs() {
-    await DataStore.set(LOGGED_MESSAGES_KEY, defaultLoggedMessages, MessageLoggerStore);
-    await refreshCache();
+    Native.writeLogs(settings.store.logsDir, JSON.stringify(defaultLoggedMessages));
 }
 
 
 // utils
 
 export const hasMessageInLogs = (messageId: string) => {
-    const bruh = Object.values(loggedMessagesCache)
+    const bruh = Object.values(loggedMessages)
         .filter(m => !Array.isArray(m)) as MessageRecord[];
 
     return bruh.find(m => m.message?.id === messageId);
 };
 
 export const hasLogs = async () => {
-    const logs = await getLoggedMessages();
-    const hasDeletedMessages = Object.keys(logs.deletedMessages).length > 0;
-    const hasEditedMessages = Object.keys(logs.editedMessages).length > 0;
+    const hasDeletedMessages = Object.keys(loggedMessages.deletedMessages).length > 0;
+    const hasEditedMessages = Object.keys(loggedMessages.editedMessages).length > 0;
 
-    const hasMessages = Object.keys(logs).filter(m => m !== "editedMessages" && m !== "deletedMessages").length > 0;
+    const hasMessages = Object.keys(loggedMessages).filter(m => m !== "editedMessages" && m !== "deletedMessages").length > 0;
 
     if (hasDeletedMessages && hasEditedMessages && hasMessages) return true;
 
@@ -172,7 +166,6 @@ export function findLoggedChannelByMessageIdSync(messageId: string, loggedMessag
 }
 
 export async function findLoggedChannelByMessage(messageId: string, key?: keyof LoggedMessageIds): Promise<[string | null, keyof LoggedMessageIds]> {
-    const loggedMessages = await getLoggedMessages();
 
     if (!key) {
         const id1 = findLoggedChannelByMessageIdSync(messageId, loggedMessages, "deletedMessages");

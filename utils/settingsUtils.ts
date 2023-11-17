@@ -19,36 +19,36 @@
 import { DataStore } from "@api/index";
 import { Toasts } from "@webpack/common";
 
-import { getLoggedMessages, LOGGED_MESSAGES_KEY, MessageLoggerStore, refreshCache } from "../LoggedMessageManager";
+import { LOGGED_MESSAGES_KEY, MessageLoggerStore } from "../LoggedMessageManager";
 
 // 99% of this is coppied from src\utils\settingsSync.ts
 
 export async function downloadLoggedMessages() {
-    const filename = "message-logger-logs.json";
-    const exportData = await exportLogs();
-    const data = new TextEncoder().encode(exportData);
+    // const filename = "message-logger-logs.json";
+    // const exportData = await exportLogs();
+    // const data = new TextEncoder().encode(exportData);
 
-    if (IS_WEB || IS_VESKTOP) {
-        const file = new File([data], filename, { type: "application/json" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(file);
-        a.download = filename;
+    // if (IS_WEB || IS_VESKTOP) {
+    //     const file = new File([data], filename, { type: "application/json" });
+    //     const a = document.createElement("a");
+    //     a.href = URL.createObjectURL(file);
+    //     a.download = filename;
 
-        document.body.appendChild(a);
-        a.click();
-        setImmediate(() => {
-            URL.revokeObjectURL(a.href);
-            document.body.removeChild(a);
-        });
-    } else {
-        DiscordNative.fileManager.saveWithDialog(data, filename);
-    }
+    //     document.body.appendChild(a);
+    //     a.click();
+    //     setImmediate(() => {
+    //         URL.revokeObjectURL(a.href);
+    //         document.body.removeChild(a);
+    //     });
+    // } else {
+    //     DiscordNative.fileManager.saveWithDialog(data, filename);
+    // }
 
 }
 
 export async function exportLogs() {
-    const logger_data = await getLoggedMessages();
-    return JSON.stringify({ logger_data }, null, 4);
+    // const logger_data = await getLoggedMessages();
+    // return JSON.stringify({ logger_data }, null, 4);
 }
 
 
@@ -62,7 +62,7 @@ export async function importLogs(data: string) {
 
     if ("logger_data" in parsed) {
         await DataStore.set(LOGGED_MESSAGES_KEY, parsed.logger_data, MessageLoggerStore);
-        await refreshCache();
+        // await refreshCache();
     } else
         throw new Error("Invalid Logs");
 }

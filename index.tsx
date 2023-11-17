@@ -18,6 +18,8 @@
 
 export const VERSION = "1.4.0";
 
+export const Native = VencordNative.pluginHelpers["Vc-message-logger-enhanced"] as PluginNative<typeof import("./native")>;
+
 import "./styles.css";
 
 import { addContextMenuPatch, NavContextMenuPatchCallback, removeContextMenuPatch } from "@api/ContextMenu";
@@ -32,8 +34,8 @@ import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, User
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
-import { ImageCacheDir } from "./components/settings/ImageCacheSetting";
-import { addMessage, clearLogs, hasLogs, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
+import { ImageCacheDir, LogsDir } from "./components/settings/FolderSelectInput";
+import { addMessage, hasLogs, loggedMessages, MessageLoggerStore, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
@@ -45,19 +47,17 @@ import { doesMatch } from "./utils/parseQuery";
 import * as imageUtils from "./utils/saveImage";
 import * as ImageManager from "./utils/saveImage/ImageManager";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
-
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
 
 export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
 
 
-export const Native = VencordNative.pluginHelpers["Vc-message-logger-enhanced"] as PluginNative<typeof import("./native")>;
 
 const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
 
 const handledMessageIds = new Set();
-async function messageDeleteHandler(payload: MessageDeletePayload) {
+async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
     if (payload.mlDeleted) return;
 
     if (handledMessageIds.has(payload.id)) {
@@ -111,8 +111,9 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
 async function messageDeleteBulkHandler({ channelId, guildId, ids }: MessageDeleteBulkPayload) {
     // is this bad? idk man
     for (const id of ids) {
-        await messageDeleteHandler({ type: "MESSAGE_DELETE", channelId, guildId, id });
+        await messageDeleteHandler({ type: "MESSAGE_DELETE", channelId, guildId, id, isBulk: true });
     }
+    // await saveLoggedMessages();
 }
 
 async function messageUpdateHandler(payload: MessageUpdatePayload) {
@@ -184,14 +185,14 @@ function messageCreateHandler(payload: MessageCreatePayload) {
 
 // also stolen from mlv2
 function messageLoadSuccess(payload: LoadMessagePayload) {
-    const deletedMessages = loggedMessagesCache.deletedMessages[payload.channelId];
-    const editedMessages = loggedMessagesCache.editedMessages[payload.channelId];
+    const deletedMessages = loggedMessages.deletedMessages[payload.channelId];
+    const editedMessages = loggedMessages.editedMessages[payload.channelId];
     const recordIDs: string[] = [...(deletedMessages || []), ...(editedMessages || [])];
 
 
     for (let i = 0; i < payload.messages.length; ++i) {
         const recievedMessage = payload.messages[i];
-        const record = loggedMessagesCache[recievedMessage.id];
+        const record = loggedMessages[recievedMessage.id];
 
         if (record == null || record.message == null) continue;
 
@@ -205,8 +206,8 @@ function messageLoadSuccess(payload: LoadMessagePayload) {
 
     for (let i = 0, len = recordIDs.length; i < len; i++) {
         const id = recordIDs[i];
-        if (!loggedMessagesCache[id]) continue;
-        const { message } = loggedMessagesCache[id] as { message: LoggedMessageJSON; };
+        if (!loggedMessages[id]) continue;
+        const { message } = loggedMessages[id] as { message: LoggedMessageJSON; };
 
         for (let j = 0, len2 = message.mentions.length; j < len2; j++) {
             const user = message.mentions[j];
@@ -235,6 +236,12 @@ export const settings = definePluginSettings({
         default: true,
         type: OptionType.BOOLEAN,
         description: "Wether to save the deleted and edited messages.",
+    },
+
+    saveImages: {
+        type: OptionType.BOOLEAN,
+        description: "Save deleted messages",
+        default: false
     },
 
     sortNewest: {
@@ -304,12 +311,6 @@ export const settings = definePluginSettings({
         description: "Always log current selected channel",
     },
 
-    saveImages: {
-        type: OptionType.BOOLEAN,
-        description: "Save deleted messages",
-        default: false
-    },
-
     messageLimit: {
         default: 200,
         type: OptionType.NUMBER,
@@ -340,11 +341,16 @@ export const settings = definePluginSettings({
         description: "Blacklisted server, channel, or user IDs."
     },
 
-
     imageCacheDir: {
         type: OptionType.COMPONENT,
-        description: "Where you want the images to be stored",
+        description: "Select saved images directory",
         component: ErrorBoundary.wrap(ImageCacheDir) as any
+    },
+
+    logsDir: {
+        type: OptionType.COMPONENT,
+        description: "Select logs directory",
+        component: ErrorBoundary.wrap(LogsDir) as any
     },
 
     importLogs: {
@@ -381,7 +387,7 @@ export const settings = definePluginSettings({
             </Button>
     },
     openImageCacheFolder: {
-        type: OptionType.STRING,
+        type: OptionType.COMPONENT,
         description: "Opens the image cache directory",
         component: () =>
             <Button
@@ -478,7 +484,6 @@ export default definePlugin({
         ];
     },
 
-    refreshCache,
     messageLoadSuccess,
     store: MessageLoggerStore,
     openLogModal,
@@ -536,16 +541,20 @@ export default definePlugin({
     },
 
     async start() {
-        if (!settings.store.saveMessages)
-            clearLogs();
+        // if (!settings.store.saveMessages)
+        //     clearLogs();
 
         if (settings.store.autoCheckForUpdates)
             checkForUpdates(10_000, false);
 
 
-        const { imageCacheDir } = settings.store;
+        const { imageCacheDir, logsDir } = settings.store;
         if (imageCacheDir == null || imageCacheDir === DEFAULT_IMAGE_CACHE_DIR) {
-            settings.store.imageCacheDir = await Native.getDefaultNativePath();
+            settings.store.imageCacheDir = await Native.getDefaultNativeImageDir();
+        }
+
+        if (logsDir == null) {
+            settings.store.logsDir = await Native.getDefaultNativeLogsDir();
         }
 
         Native.init(settings.store.imageCacheDir);
@@ -558,8 +567,8 @@ export default definePlugin({
     },
 
     stop() {
-        if (!settings.store.saveMessages)
-            clearLogs();
+        // if (!settings.store.saveMessages)
+        //     clearLogs();
 
         removeContextMenuPatch("message", contextMenuPath);
         removeContextMenuPatch("channel-context", contextMenuPath);

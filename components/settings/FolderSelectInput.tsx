@@ -19,12 +19,12 @@
 import { classNameFactory } from "@api/Styles";
 import { Button, Forms, Toasts } from "@webpack/common";
 
-import { settings } from "../..";
+import { Native, settings } from "../..";
 import { DEFAULT_IMAGE_CACHE_DIR } from "../../utils/constants";
 
 const cl = classNameFactory("folder-upload");
 
-export function ImageCacheDir() {
+export function ImageCacheDir({ option }) {
     function onFolderSelect(path: string) {
         settings.store.imageCacheDir = path;
 
@@ -37,25 +37,42 @@ export function ImageCacheDir() {
 
     return (
         <Forms.FormSection>
-            <Forms.FormTitle>Select Image Cache Directory</Forms.FormTitle>
-            <SelectFolderInput onFolderSelect={onFolderSelect} />
+            <Forms.FormTitle>{option.description}</Forms.FormTitle>
+            <SelectFolderInput path={settings.store.imageCacheDir} onFolderSelect={onFolderSelect} />
         </Forms.FormSection>
     );
-
 }
 
-function SelectFolderInput({ onFolderSelect }: { onFolderSelect: (path: string) => void; }) {
-    const { imageCacheDir } = settings.store;
+export function LogsDir({ option }) {
+    function onFolderSelect(path: string) {
+        settings.store.logsDir = path;
+
+        Toasts.show({
+            id: Toasts.genId(),
+            type: Toasts.Type.SUCCESS,
+            message: "Successfuly updated Logs Dir"
+        });
+    }
+
+    return (
+        <Forms.FormSection>
+            <Forms.FormTitle>{option.description}</Forms.FormTitle>
+            <SelectFolderInput path={settings.store.logsDir} onFolderSelect={onFolderSelect} />
+        </Forms.FormSection>
+    );
+}
+
+export function SelectFolderInput({ path, onFolderSelect }: { path: string, onFolderSelect: (path: string) => void; }) {
     return (
         <div className={cl("-container")}>
             <div className={cl("-input")}>
-                {imageCacheDir == null || imageCacheDir === DEFAULT_IMAGE_CACHE_DIR ? "Choose Folder" : imageCacheDir}
+                {path == null || path === DEFAULT_IMAGE_CACHE_DIR ? "Choose Folder" : path}
             </div>
             <Button
                 className={cl("-button")}
                 size={Button.Sizes.SMALL}
                 onClick={async () => {
-                    const [path] = await showOpenDialog();
+                    const [path] = await Native.showDirDialog();
                     if (!path) return;
 
                     onFolderSelect(path);
@@ -66,12 +83,4 @@ function SelectFolderInput({ onFolderSelect }: { onFolderSelect: (path: string) 
         </div>
     );
 
-}
-
-
-async function showOpenDialog() {
-    if (IS_VESKTOP)
-        return window.MessageLoggerNative.fileManager.showOpenDialog({ properties: ["openDirectory", "single"] });
-
-    return await DiscordNative.fileManager.showOpenDialog({ properties: ["openDirectory", "single"] });
 }

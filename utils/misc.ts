@@ -96,3 +96,12 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     // console.timeEnd("message populate");
     return message;
 });
+
+
+export function parseJSON(json?: string | null) {
+    try {
+        return JSON.parse(json!);
+    } finally {
+        return null;
+    }
+}

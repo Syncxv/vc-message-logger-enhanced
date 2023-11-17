@@ -19,13 +19,13 @@
 import { classNameFactory } from "@api/Styles";
 import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
-import { LazyComponent, useAwaiter } from "@utils/react";
+import { LazyComponent } from "@utils/react";
 import { find, findByCode, findByPropsLazy } from "@webpack";
 import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { settings } from "../index";
-import { clearLogs, defaultLoggedMessages, getLoggedMessages, removeLog, removeLogs } from "../LoggedMessageManager";
+import { clearLogs, loggedMessages, removeLog, removeLogs } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
 import { isGhostPinged, messageJsonToMessageClass, sortMessagesByDate } from "../utils";
 import { doesMatch, parseQuery } from "../utils/parseQuery";
@@ -81,10 +81,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const [x, setX] = useState(0);
     const forceUpdate = () => setX(e => e + 1);
 
-    const [logs, _, pending] = useAwaiter(getLoggedMessages, {
-        fallbackValue: defaultLoggedMessages as LoggedMessages,
-        deps: [x]
-    });
+    const logs = loggedMessages;
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
     const [queryEh, setQuery] = useState(initalQuery ?? "");
     const [sortNewest, setSortNewest] = useState(settings.store.sortNewest);
@@ -188,7 +185,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                         className={cl("content")}
                     >
                         {
-                            !pending && logs == null || messages.length === 0
+                            logs == null || messages.length === 0
                                 ? <EmptyLogs />
                                 : (
                                     <LogsContentMemo

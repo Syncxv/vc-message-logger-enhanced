@@ -60,7 +60,7 @@ export async function cacheImage(url: string, attachmentIdx: number, attachmentI
         return cacheImage(url, attachmentIdx, attachmentId, messageId, channelId, fileExtension, attempts);
     }
     const ab = await res.arrayBuffer();
-    const imageCacheDir = settings.store.imageCacheDir ?? await Native.getDefaultNativePath();
+    const imageCacheDir = settings.store.imageCacheDir ?? await Native.getDefaultNativeImageDir();
     const path = `${imageCacheDir}/${attachmentId}${fileExtension}`;
 
     await writeImage(imageCacheDir, `${attachmentId}${fileExtension}`, new Uint8Array(ab));
