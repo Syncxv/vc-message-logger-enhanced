@@ -47,11 +47,11 @@ import { doesMatch } from "./utils/parseQuery";
 import * as imageUtils from "./utils/saveImage";
 import * as ImageManager from "./utils/saveImage/ImageManager";
 import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
+
+
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
 
 export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
-
-
 
 const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
@@ -101,7 +101,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
 
         if (message == null || message.channel_id == null || !message.deleted) return;
         // Flogger.log("ADDING MESSAGE (DELETED)", message);
-        await addMessage(message, "deletedMessages");
+        await addMessage(message, "deletedMessages", payload.isBulk ?? false);
     }
     finally {
         handledMessageIds.delete(payload.id);
@@ -113,7 +113,7 @@ async function messageDeleteBulkHandler({ channelId, guildId, ids }: MessageDele
     for (const id of ids) {
         await messageDeleteHandler({ type: "MESSAGE_DELETE", channelId, guildId, id, isBulk: true });
     }
-    // await saveLoggedMessages();
+    await LoggedMessageManager.saveLoggedMessages();
 }
 
 async function messageUpdateHandler(payload: MessageUpdatePayload) {
@@ -509,14 +509,17 @@ export default definePlugin({
         if (!message.deleted || !LoggedMessageManager.hasMessageInLogs(message.id))
             return; // Flogger.log("ignoring", message.id);
 
-        if (attachment.blobUrl) return; // Flogger.log("blobUrl already exists");
+        // if (attachment.blobUrl) return; // Flogger.log("blobUrl already exists");
 
+        // its memoized dont worry :P
         imageUtils.getAttachmentBlobUrl(attachment.id).then((blobUrl: string | null) => {
             if (blobUrl == null) {
                 Flogger.error("image not found. for message.id =", message.id, blobUrl);
                 return;
             }
             Flogger.log("Got blob url for message.id =", message.id, blobUrl);
+
+            attachment.oldUrl = attachment.url;
 
             const finalBlobUrl = blobUrl + "#";
             attachment.blobUrl = finalBlobUrl;
@@ -554,7 +557,7 @@ export default definePlugin({
         }
 
         if (logsDir == null) {
-            settings.store.logsDir = await Native.getDefaultNativeLogsDir();
+            settings.store.logsDir = await Native.getDefaultNativeDataDir();
         }
 
         Native.init(settings.store.imageCacheDir);

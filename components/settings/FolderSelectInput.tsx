@@ -24,43 +24,30 @@ import { DEFAULT_IMAGE_CACHE_DIR } from "../../utils/constants";
 
 const cl = classNameFactory("folder-upload");
 
-export function ImageCacheDir({ option }) {
-    function onFolderSelect(path: string) {
-        settings.store.imageCacheDir = path;
+function createDirSelector(settingKey: "logsDir" | "imageCacheDir", successMessage: string) {
+    return function DirSelector({ option }) {
+        function onFolderSelect(path: string) {
+            settings.store[settingKey] = path;
 
-        Toasts.show({
-            id: Toasts.genId(),
-            type: Toasts.Type.SUCCESS,
-            message: "Successfuly updated Image Cache Dir"
-        });
-    }
+            Toasts.show({
+                id: Toasts.genId(),
+                type: Toasts.Type.SUCCESS,
+                message: successMessage
+            });
+        }
 
-    return (
-        <Forms.FormSection>
-            <Forms.FormTitle>{option.description}</Forms.FormTitle>
-            <SelectFolderInput path={settings.store.imageCacheDir} onFolderSelect={onFolderSelect} />
-        </Forms.FormSection>
-    );
+        return (
+            <Forms.FormSection>
+                <Forms.FormTitle>{option.description}</Forms.FormTitle>
+                <SelectFolderInput path={settings.store[settingKey]} onFolderSelect={onFolderSelect} />
+            </Forms.FormSection>
+        );
+    };
 }
 
-export function LogsDir({ option }) {
-    function onFolderSelect(path: string) {
-        settings.store.logsDir = path;
+export const ImageCacheDir = createDirSelector("imageCacheDir", "Successfully updated Image Cache Dir");
+export const LogsDir = createDirSelector("logsDir", "Successfully updated Logs Dir");
 
-        Toasts.show({
-            id: Toasts.genId(),
-            type: Toasts.Type.SUCCESS,
-            message: "Successfuly updated Logs Dir"
-        });
-    }
-
-    return (
-        <Forms.FormSection>
-            <Forms.FormTitle>{option.description}</Forms.FormTitle>
-            <SelectFolderInput path={settings.store.logsDir} onFolderSelect={onFolderSelect} />
-        </Forms.FormSection>
-    );
-}
 
 export function SelectFolderInput({ path, onFolderSelect }: { path: string, onFolderSelect: (path: string) => void; }) {
     return (

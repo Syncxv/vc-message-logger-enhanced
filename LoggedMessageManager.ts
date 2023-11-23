@@ -54,13 +54,13 @@ export let loggedMessages: LoggedMessages = defaultLoggedMessages;
 
 // api
 
-export const saveLoggedMessages = async (loggedMessages: LoggedMessages) => {
+export const saveLoggedMessages = async () => {
     if (settings.store.saveMessages) {
         await Native.writeLogs(settings.store.logsDir, JSON.stringify(loggedMessages));
     }
 };
 
-export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key: keyof LoggedMessageIds) => {
+export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key: keyof LoggedMessageIds, isBulk = false) => {
     if (settings.store.saveImages && key === "deletedMessages")
         await cacheMessageImages(message);
     const finalMessage = cleanupMessage(message);
@@ -76,7 +76,8 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key
     if (settings.store.messageLimit > 0 && (Object.keys(loggedMessages).length - 2) > settings.store.messageLimit)
         await deleteOldestMessageWithoutSaving(loggedMessages);
 
-    await saveLoggedMessages(loggedMessages);
+    if (!isBulk)
+        await saveLoggedMessages();
 };
 
 
@@ -117,7 +118,7 @@ export async function removeLogs(ids: string[]) {
     for (const msgId of ids) {
         removeLogWithoutSaving(msgId, loggedMessages);
     }
-    await saveLoggedMessages(loggedMessages);
+    await saveLoggedMessages();
 }
 
 export async function removeLog(id: string) {
@@ -128,7 +129,7 @@ export async function removeLog(id: string) {
 
     removeLogWithoutSaving(id, loggedMessages);
 
-    await saveLoggedMessages(loggedMessages);
+    await saveLoggedMessages();
 
 }
 

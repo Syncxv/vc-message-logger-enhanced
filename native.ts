@@ -58,7 +58,7 @@ const LOGS_DATA_FILENAME = "message-logger-logs.json";
 const dataWriteQueue = new Queue();
 
 export async function getLogsFromFs(_event: IpcMainInvokeEvent, logsDir: string) {
-    if (!logsDir) logsDir = await getDefaultNativeLogsDir();
+    if (!logsDir) logsDir = await getDefaultNativeDataDir();
 
     await ensureDirectoryExists(logsDir);
     try {
@@ -69,17 +69,17 @@ export async function getLogsFromFs(_event: IpcMainInvokeEvent, logsDir: string)
 }
 
 export async function writeLogs(_event: IpcMainInvokeEvent, logsDir: string, contents: string) {
-    if (!logsDir) logsDir = await getDefaultNativeLogsDir();
+    if (!logsDir) logsDir = await getDefaultNativeDataDir();
 
     dataWriteQueue.push(() => writeFile(path.join(logsDir, LOGS_DATA_FILENAME), contents));
 }
 
 
 export async function getDefaultNativeImageDir(): Promise<string> {
-    return path.join(DATA_DIR, "savedImages");
+    return path.join(await getDefaultNativeDataDir(), "savedImages");
 }
 
-export async function getDefaultNativeLogsDir(): Promise<string> {
+export async function getDefaultNativeDataDir(): Promise<string> {
     return path.join(DATA_DIR, "MessageLoggerData");
 }
 
@@ -87,6 +87,9 @@ export async function showDirDialog() {
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
     return res.filePaths;
 }
+
+
+// utils
 
 async function exists(filename: string) {
     try {
