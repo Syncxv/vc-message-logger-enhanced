@@ -19,13 +19,13 @@
 import { classNameFactory } from "@api/Styles";
 import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
-import { LazyComponent } from "@utils/react";
+import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findByCode, findByPropsLazy } from "@webpack";
 import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { settings } from "../index";
-import { clearLogs, loggedMessages, removeLog, removeLogs } from "../LoggedMessageManager";
+import { clearLogs, defaultLoggedMessages, removeLog, removeLogs, savedLoggedMessages } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
 import { isGhostPinged, messageJsonToMessageClass, sortMessagesByDate } from "../utils";
 import { doesMatch, parseQuery } from "../utils/parseQuery";
@@ -81,7 +81,10 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const [x, setX] = useState(0);
     const forceUpdate = () => setX(e => e + 1);
 
-    const logs = loggedMessages;
+    const [logs, _, pending] = useAwaiter(async () => savedLoggedMessages, {
+        fallbackValue: defaultLoggedMessages as LoggedMessages,
+        deps: [x]
+    });
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
     const [queryEh, setQuery] = useState(initalQuery ?? "");
     const [sortNewest, setSortNewest] = useState(settings.store.sortNewest);
@@ -185,7 +188,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                         className={cl("content")}
                     >
                         {
-                            logs == null || messages.length === 0
+                            pending || logs == null || messages.length === 0
                                 ? <EmptyLogs />
                                 : (
                                     <LogsContentMemo
@@ -279,7 +282,7 @@ function LogsContent({ logs, visibleMessages, canLoadMore, sortNewest, tab, forc
                         key={id}
                         log={logs[id] as { message: LoggedMessageJSON; }}
                         forceUpdate={forceUpdate}
-                        isGroupStart={isGroupStart(logs[id].message, logs[visibleMessages[i - 1]]?.message, sortNewest)}
+                        isGroupStart={isGroupStart(logs[id]?.message, logs[visibleMessages[i - 1]]?.message, sortNewest)}
                     />
                 ))}
             {

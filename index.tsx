@@ -30,12 +30,12 @@ import { Logger } from "@utils/Logger";
 import { showItemInFolder } from "@utils/native";
 import definePlugin, { OptionType, PluginNative } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
-import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
+import { Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { ImageCacheDir, LogsDir } from "./components/settings/FolderSelectInput";
-import { addMessage, hasLogs, loggedMessages, MessageLoggerStore, removeLog } from "./LoggedMessageManager";
+import { addMessage, loggedMessages, MessageLoggerStore, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
@@ -46,7 +46,7 @@ import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
 import * as imageUtils from "./utils/saveImage";
 import * as ImageManager from "./utils/saveImage/ImageManager";
-import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
+import { downloadLoggedMessages } from "./utils/settingsUtils";
 
 
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
@@ -353,26 +353,9 @@ export const settings = definePluginSettings({
         component: ErrorBoundary.wrap(LogsDir) as any
     },
 
-    importLogs: {
-        type: OptionType.COMPONENT,
-        description: "Import Logs",
-        component: () =>
-            <Button onClick={async () =>
-                (await hasLogs()) ? Alerts.show({
-                    title: "Are you sure?",
-                    body: "Importing logs will overwrite your current logs.",
-                    confirmText: "Import",
-                    confirmColor: Button.Colors.RED,
-                    cancelText: "Nevermind",
-                    onConfirm: async () => uploadLogs()
-
-                }) : uploadLogs()}>
-                Import Logs
-            </Button>,
-    },
     exportLogs: {
         type: OptionType.COMPONENT,
-        description: "Export Logs",
+        description: "Export Logs From IndexedDB",
         component: () =>
             <Button onClick={downloadLoggedMessages}>
                 Export Logs
@@ -509,9 +492,8 @@ export default definePlugin({
         if (!message.deleted || !LoggedMessageManager.hasMessageInLogs(message.id))
             return; // Flogger.log("ignoring", message.id);
 
-        // if (attachment.blobUrl) return; // Flogger.log("blobUrl already exists");
+        if (attachment.blobUrl) return; // Flogger.log("blobUrl already exists");
 
-        // its memoized dont worry :P
         imageUtils.getAttachmentBlobUrl(attachment.id).then((blobUrl: string | null) => {
             if (blobUrl == null) {
                 Flogger.error("image not found. for message.id =", message.id, blobUrl);

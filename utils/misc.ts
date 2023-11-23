@@ -80,6 +80,8 @@ export const mapEditHistory = (m: any) => {
 
 export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJSON; }) => {
     // console.time("message populate");
+    if (!log?.message) return null;
+
     const message: LoggedMessage = new MessageClass(log.message);
     message.timestamp = moment(message.timestamp);
 
