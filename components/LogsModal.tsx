@@ -21,7 +21,7 @@ import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findByCode, findByPropsLazy } from "@webpack";
-import { Alerts, Button, ChannelStore, ContextMenu, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
+import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { settings } from "../index";
@@ -353,7 +353,7 @@ function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
     return (
         <div
             onContextMenu={e => {
-                ContextMenu.open(e, () =>
+                ContextMenuApi.openContextMenu(e, () =>
                     <Menu.Menu
                         navId="message-logger"
                         onClose={() => FluxDispatcher.dispatch({ type: "CONTEXT_MENU_CLOSE" })}
