@@ -494,7 +494,7 @@ export default definePlugin({
 
         if (attachment.blobUrl) return; // Flogger.log("blobUrl already exists");
 
-        imageUtils.getAttachmentBlobUrl(attachment.id).then((blobUrl: string | null) => {
+        imageUtils.getAttachmentBlobUrl(attachment).then((blobUrl: string | null) => {
             if (blobUrl == null) {
                 Flogger.error("image not found. for message.id =", message.id, blobUrl);
                 return;

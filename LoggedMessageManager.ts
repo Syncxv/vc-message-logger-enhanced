@@ -39,7 +39,7 @@ export let loggedMessages: LoggedMessages = defaultLoggedMessages;
 (async () => {
     try {
         const Native = getNative();
-        const res = await Native.getLogsFromFs(Settings.plugins.MessageLoggerEnhanced.logsDir);
+        const res = await Native.getLogsFromFs(IS_WEB ? "" : Settings.plugins?.MessageLoggerEnhanced?.logsDir);
         if (res != null) {
             Flogger.log("Got logged messages from native wont be checking DataStore");
             const cleaned = await cleanMessages(res, Native);
@@ -48,8 +48,14 @@ export let loggedMessages: LoggedMessages = defaultLoggedMessages;
             return;
         }
 
-        Flogger.log("Loading logged messages from DataStore and writing to native");
         const data = await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore);
+
+        if (data == null) {
+            Flogger.log("No logged messages in DataStore");
+            return;
+        }
+
+        Flogger.log("Loading logged messages from DataStore and writing to native");
         Native.writeLogs(Settings.plugins.MessageLoggerEnhanced.logsDir, JSON.stringify(data));
 
         loggedMessages = data;
@@ -222,6 +228,8 @@ export async function deleteOldestMessageWithoutSaving(loggedMessages: LoggedMes
 
 async function cleanMessages(loggedMessages: LoggedMessages, _Native: any = Native) {
     const cleaned = { ...loggedMessages };
+
+    if (IS_WEB) return cleaned;
 
     const messageRecords = Object.values(cleaned)
         .filter(m => !Array.isArray(m)) as MessageRecord[];

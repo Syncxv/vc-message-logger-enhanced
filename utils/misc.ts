@@ -16,11 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import type { PluginNative } from "@utils/types";
+import { get, set } from "@api/DataStore";
+import { PluginNative } from "@utils/types";
 import { findByPropsLazy, findLazy } from "@webpack";
 import { ChannelStore, moment, UserStore } from "@webpack/common";
 
+import { LOGGED_MESSAGES_KEY, MessageLoggerStore } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
+import { DEFAULT_IMAGE_CACHE_DIR } from "./constants";
 import { DISCORD_EPOCH } from "./index";
 import { memoize } from "./memoize";
 
@@ -109,7 +112,18 @@ export function parseJSON(json?: string | null) {
     }
 }
 
-export function getNative() {
+export function getNative(): PluginNative<typeof import("../native")> {
+    if (IS_WEB) {
+        return {
+            getLogsFromFs: async () => get(LOGGED_MESSAGES_KEY, MessageLoggerStore),
+            writeLogs: async (_, logs: string) => set(LOGGED_MESSAGES_KEY, JSON.parse(logs), MessageLoggerStore),
+            getDefaultNativeImageDir: async () => DEFAULT_IMAGE_CACHE_DIR,
+            getDefaultNativeDataDir: async () => "",
+        } as any;
+
+    }
+
     return Object.values(VencordNative.pluginHelpers)
         .find(m => m.messageLoggerEnhancedUniqueIdThingyIdkMan) as PluginNative<typeof import("../native")>;
+
 }

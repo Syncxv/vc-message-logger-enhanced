@@ -26,6 +26,8 @@ const cl = classNameFactory("folder-upload");
 
 function createDirSelector(settingKey: "logsDir" | "imageCacheDir", successMessage: string) {
     return function DirSelector({ option }) {
+        if (IS_WEB) return null;
+
         function onFolderSelect(path: string) {
             settings.store[settingKey] = path;
 

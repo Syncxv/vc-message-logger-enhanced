@@ -20,7 +20,7 @@ import { sleep } from "@utils/misc";
 import { MessageAttachment } from "discord-types/general";
 
 import { Flogger, Native, settings } from "../..";
-import { LoggedMessage, LoggedMessageJSON } from "../../types";
+import { LoggedAttachment, LoggedMessage, LoggedMessageJSON } from "../../types";
 import { memoize } from "../memoize";
 import { deleteImage, getImage, writeImage, } from "./ImageManager";
 
@@ -104,8 +104,8 @@ export async function deleteMessageImages(message: LoggedMessage | LoggedMessage
     }
 }
 
-export const getAttachmentBlobUrl = memoize(async (attachmentId: string) => {
-    const imageData = await getImage(attachmentId);
+export const getAttachmentBlobUrl = memoize(async (attachment: LoggedAttachment) => {
+    const imageData = await getImage(attachment.id, attachment.fileExtension);
     if (!imageData) return null;
 
     const blob = new Blob([imageData]);

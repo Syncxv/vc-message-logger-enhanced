@@ -21,6 +21,7 @@ import {
     del,
     get,
     keys,
+    set,
 } from "@api/DataStore";
 
 import { Flogger, Native } from "../..";
@@ -44,15 +45,24 @@ let idbSavedImages: IDBSavedImages[] = [];
     }
 })();
 
-export async function getImage(attachmentId: string): Promise<any> {
+export async function getImage(attachmentId: string, fileExt?: string | null): Promise<any> {
     const idbPath = idbSavedImages.find(m => m.attachmentId === attachmentId)?.path;
     if (idbPath)
         return get(idbPath, ImageStore);
 
+    if (IS_WEB) return null;
+
     return await Native.getImageNative(attachmentId);
 }
 
+// file name shouldnt have any query param shinanigans
 export async function writeImage(imageCacheDir: string, filename: string, content: Uint8Array): Promise<void> {
+    if (IS_WEB) {
+        const path = `${imageCacheDir}/${filename}`;
+        idbSavedImages.push({ attachmentId: filename.split(".")?.[0], path });
+        return set(path, content, ImageStore);
+    }
+
     Native.writeImageNative(imageCacheDir, filename, content);
 }
 
