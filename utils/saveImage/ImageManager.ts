@@ -46,6 +46,8 @@ let idbSavedImages: IDBSavedImages[] = [];
 })();
 
 export async function getImage(attachmentId: string, fileExt?: string | null): Promise<any> {
+    // for people who have access to native api but some images are still in idb
+    // also for people who dont have native api
     const idbPath = idbSavedImages.find(m => m.attachmentId === attachmentId)?.path;
     if (idbPath)
         return get(idbPath, ImageStore);
@@ -70,6 +72,9 @@ export async function deleteImage(attachmentId: string): Promise<void> {
     const idbPath = idbSavedImages.find(m => m.attachmentId === attachmentId)?.path;
     if (idbPath)
         return await del(idbPath, ImageStore);
+
+
+    if (IS_WEB) return;
 
     await Native.deleteFileNative(attachmentId);
 }

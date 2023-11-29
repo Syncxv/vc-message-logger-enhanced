@@ -374,7 +374,11 @@ export const settings = definePluginSettings({
         description: "Opens the image cache directory",
         component: () =>
             <Button
-                disabled={settings.store.imageCacheDir == null || settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR}
+                disabled={
+                    IS_WEB
+                    || settings.store.imageCacheDir == null
+                    || settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR
+                }
                 onClick={
                     () => IS_VESKTOP ?
                         window?.MessageLoggerNative?.fileManager?.showItemInFolder(settings.store.imageCacheDir)
