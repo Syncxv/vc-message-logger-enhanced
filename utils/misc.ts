@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import type { PluginNative } from "@utils/types";
 import { findByPropsLazy, findLazy } from "@webpack";
 import { ChannelStore, moment, UserStore } from "@webpack/common";
 
@@ -106,4 +107,9 @@ export function parseJSON(json?: string | null) {
     } finally {
         return null;
     }
+}
+
+export function getNative() {
+    return Object.values(VencordNative.pluginHelpers)
+        .find(m => m.messageLoggerEnhancedUniqueIdThingyIdkMan) as PluginNative<typeof import("../native")>;
 }

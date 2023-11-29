@@ -22,7 +22,7 @@ import { Settings } from "@api/Settings";
 
 import { Flogger, Native, settings } from ".";
 import { LoggedMessage, LoggedMessageIds, LoggedMessageJSON, LoggedMessages, MessageRecord } from "./types";
-import { cleanupMessage, sortMessagesByDate } from "./utils";
+import { cleanupMessage, getNative, sortMessagesByDate } from "./utils";
 import { cacheMessageImages, deleteMessageImages } from "./utils/saveImage";
 
 export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, };
@@ -38,7 +38,7 @@ export let loggedMessages: LoggedMessages = defaultLoggedMessages;
 
 (async () => {
     try {
-        const Native = VencordNative.pluginHelpers["Vc-message-logger-enhanced"];
+        const Native = getNative();
         const res = await Native.getLogsFromFs(Settings.plugins.MessageLoggerEnhanced.logsDir);
         if (res != null) {
             Flogger.log("Got logged messages from native wont be checking DataStore");

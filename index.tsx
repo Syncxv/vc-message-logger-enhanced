@@ -18,7 +18,7 @@
 
 export const VERSION = "1.4.0";
 
-export const Native = VencordNative.pluginHelpers["Vc-message-logger-enhanced"] as PluginNative<typeof import("./native")>;
+export const Native = getNative();
 
 import "./styles.css";
 
@@ -28,7 +28,7 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import { showItemInFolder } from "@utils/native";
-import definePlugin, { OptionType, PluginNative } from "@utils/types";
+import definePlugin, { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
 import { Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
 
@@ -38,7 +38,7 @@ import { ImageCacheDir, LogsDir } from "./components/settings/FolderSelectInput"
 import { addMessage, loggedMessages, MessageLoggerStore, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
+import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, getNative, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { checkForUpdates } from "./utils/checkForUpdates";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import { shouldIgnore } from "./utils/index";

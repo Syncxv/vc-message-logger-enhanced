@@ -12,6 +12,9 @@ import { dialog, IpcMainInvokeEvent } from "electron";
 
 import { DATA_DIR } from "../../main/utils/constants";
 
+// so we can filter the native helpers by this key
+export function messageLoggerEnhancedUniqueIdThingyIdkMan() { }
+
 // Map<attachmetId, path>()
 const nativeSavedImages = new Map<string, string>();
 export const getNativeSavedImages = () => nativeSavedImages;
