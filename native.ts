@@ -4,12 +4,15 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { execFile as cpExecFile } from "node:child_process";
 import { access, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
-import path from "node:path";
+import path, { join } from "node:path";
+import { promisify } from "node:util";
 
 import { Queue } from "@utils/Queue";
 import { dialog, IpcMainInvokeEvent } from "electron";
 
+import { serializeErrors } from "../../main/updater/common";
 import { DATA_DIR } from "../../main/utils/constants";
 
 // so we can filter the native helpers by this key
@@ -21,6 +24,8 @@ export const getNativeSavedImages = () => nativeSavedImages;
 
 export async function init(_event: IpcMainInvokeEvent, imageCacheDir?: string) {
     if (!imageCacheDir) imageCacheDir = await getDefaultNativeImageDir();
+
+    if (nativeSavedImages.size > 0) nativeSavedImages.clear();
 
     await ensureDirectoryExists(imageCacheDir);
     const files = await readdir(imageCacheDir);
@@ -111,3 +116,110 @@ async function ensureDirectoryExists(cacheDir: string) {
 function getAttachmentIdFromFilename(filename: string) {
     return path.parse(filename).name;
 }
+
+let cwd: string | null = null;
+
+async function getCwd() {
+    if (cwd) return cwd;
+
+    const VENCORD_USER_PLUGIN_DIR = join(__dirname, "..", "src", "userplugins");
+    const dirs = await readdir(VENCORD_USER_PLUGIN_DIR, { withFileTypes: true });
+
+    for (const dir of dirs) {
+        if (!dir.isDirectory()) continue;
+
+        const pluginDir = join(VENCORD_USER_PLUGIN_DIR, dir.name);
+        const files = await readdir(pluginDir);
+
+        if (files.includes("LoggedMessageManager.ts")) return cwd = join(VENCORD_USER_PLUGIN_DIR, dir.name);
+    }
+
+
+    // how did we get here
+    throw new Error("Couldn't find plugin directory");
+}
+
+// its messy but none of these are exported so i gotta just copy paste it :pensive:
+
+const execFile = promisify(cpExecFile);
+
+const isFlatpak = process.platform === "linux" && Boolean(process.env.FLATPAK_ID?.includes("discordapp") || process.env.FLATPAK_ID?.includes("Discord"));
+
+if (process.platform === "darwin") process.env.PATH = `/usr/local/bin:${process.env.PATH}`;
+
+
+async function git(...args: string[]) {
+    const opts = { cwd: await getCwd() };
+
+    if (isFlatpak) return execFile("flatpak-spawn", ["--host", "git", ...args], opts);
+    else return execFile("git", args, opts);
+}
+
+
+export const pull = serializeErrors(async () => {
+    const res = await git("pull");
+    return res.stdout.includes("Fast-forward");
+});
+
+
+export const build = serializeErrors(async () => {
+    const opts = { cwd: await getCwd() };
+
+    const command = isFlatpak ? "flatpak-spawn" : "node";
+    const args = isFlatpak ? ["--host", "node", "scripts/build/build.mjs"] : ["scripts/build/build.mjs"];
+
+    const res = await execFile(command, args, opts);
+
+    return !res.stderr.includes("Build failed");
+});
+
+
+
+export const calculateGitChanges = serializeErrors(async () => {
+    await git("fetch");
+
+    const branch = await git("branch", "--show-current");
+
+    const res = await git("log", `HEAD...origin/${branch.stdout.trim()}`, "--pretty=format:%an/%h/%s");
+
+    const commits = res.stdout.trim();
+    return commits ? commits.split("\n").map(line => {
+        const [author, hash, ...rest] = line.split("/");
+        return {
+            hash, author, message: rest.join("/")
+        };
+    }) : [];
+});
+
+
+export const getRepo = serializeErrors(async () => {
+    const opts = { cwd: await getCwd() };
+
+    const res = await execFile("git", ["remote", "get-url", "origin"], opts);
+
+    return res.stdout.trim()
+        .replace(/git@(.+):/, "https://$1/")
+        .replace(/\.git$/, "");
+});
+
+
+export const getCurrentHash = serializeErrors(async () => {
+    const opts = { cwd: await getCwd() };
+
+    const res = await execFile("git", ["rev-parse", "HEAD"], opts);
+
+    return res.stdout.trim();
+});
+
+
+export const testError = serializeErrors(async () => {
+    const opts = { cwd: await getCwd() };
+
+    const res = await execFile("git", ["remotezzz", "get-url", "origin"], opts);
+
+    return res.stdout.trim()
+        .replace(/git@(.+):/, "https://$1/")
+        .replace(/\.git$/, "");
+});
+
+

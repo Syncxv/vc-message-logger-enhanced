@@ -26,8 +26,12 @@ const cl = classNameFactory("folder-upload");
 
 function createDirSelector(settingKey: "logsDir" | "imageCacheDir", successMessage: string) {
     return function DirSelector({ option }) {
-        function onFolderSelect(path: string) {
+        async function onFolderSelect(path: string) {
             settings.store[settingKey] = path;
+
+            // reload savedNativeImage map yk
+            if (settingKey === "imageCacheDir")
+                await Native.init(path);
 
             Toasts.show({
                 id: Toasts.genId(),

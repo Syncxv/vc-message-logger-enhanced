@@ -19,33 +19,54 @@
 import { showNotification } from "@api/Notifications";
 import { Toasts } from "@webpack/common";
 
-import { VERSION } from "../index";
+import { openUpdaterModal } from "../components/UpdaterModal";
+import { Native } from "../index";
 
 
 export const repoName = "vc-message-logger-enhanced";
 export const user = "Syncxv";
 export const branch = "master";
 
-export async function getUpdateVersion() {
-    const indexTsx = await (await fetch(`https://raw.githubusercontent.com/${user}/${repoName}/${branch}/index.tsx`, { cache: "no-cache" })).text();
-    const res = indexTsx.match(/export const VERSION = "(.+)";/);
-    if (!res) return false;
+type IPCReturn<T> = {
+    ok: boolean;
+    value: T;
+    error?: undefined;
+} | {
+    ok: boolean;
+    error: any;
+    value?: T;
+};
 
-    const [_, version] = res;
-    const [major, minor, patch] = version.split(".").map(m => parseInt(m));
-    if (Number.isNaN(major) || Number.isNaN(minor) || Number.isNaN(patch)) return false;
+export async function Unwrap<T>(p: Promise<IPCReturn<T>>) {
+    const res = await p;
 
-    const [currentMajor, currentMinor, currentPatch] = VERSION.split(".").map(m => parseInt(m));
+    if (res.ok) return res.value;
 
-    if (major > currentMajor || minor > currentMinor || patch > currentPatch) return version;
-
-    return false;
+    updateError = res.error;
+    throw res.error;
 }
 
 
-export async function checkForUpdates(delay = 0, showNoUpdateToast = true) {
-    const updateVersion = await getUpdateVersion();
-    if (!updateVersion) {
+type Changes = Record<"hash" | "author" | "message", string>[];
+export let changes: Changes;
+export let updateError: any | null | undefined = null;
+export let isOutdated = false;
+
+export async function checkForUpdatesReal() {
+    changes = (await Unwrap<Changes>(Native.calculateGitChanges())) ?? [];
+
+    return isOutdated = changes.length > 0;
+}
+
+export const getRepo = () => Unwrap<string>(Native.getRepo());
+export const getHash = () => Unwrap<string>(Native.getCurrentHash());
+
+
+export async function promptForUpdate(delay = 0, showNoUpdateToast = true) {
+    if (IS_WEB) return;
+
+    const hasUpdate = await checkForUpdatesReal();
+    if (!hasUpdate) {
         if (showNoUpdateToast)
             Toasts.show({
                 message: "No updates found!",
@@ -60,12 +81,12 @@ export async function checkForUpdates(delay = 0, showNoUpdateToast = true) {
 
 
     setTimeout(() => showNotification({
-        title: `Update available for Message Logger Enhanced. ${updateVersion}`,
+        title: "Update available for Message Logger Enhanced",
         body: "Click here to update",
         permanent: true,
         noPersist: true,
         onClick() {
-            VencordNative.native.openExternal("https://github.com/Syncxv/vc-message-logger-enhanced/#how-to-update");
+            openUpdaterModal();
         }
     }), delay);
 }

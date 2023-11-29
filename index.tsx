@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const VERSION = "1.4.0";
+export const VERSION = "2.0.0";
 
 export const Native = getNative();
 
@@ -35,11 +35,11 @@ import { Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { ImageCacheDir, LogsDir } from "./components/settings/FolderSelectInput";
+import { openUpdaterModal } from "./components/UpdaterModal";
 import { addMessage, loggedMessages, MessageLoggerStore, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, getNative, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
-import { checkForUpdates } from "./utils/checkForUpdates";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
@@ -47,6 +47,7 @@ import { doesMatch } from "./utils/parseQuery";
 import * as imageUtils from "./utils/saveImage";
 import * as ImageManager from "./utils/saveImage/ImageManager";
 import { downloadLoggedMessages } from "./utils/settingsUtils";
+import { promptForUpdate } from "./utils/updater";
 
 
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
@@ -228,8 +229,8 @@ export const settings = definePluginSettings({
         type: OptionType.COMPONENT,
         description: "Check for update",
         component: () =>
-            <Button onClick={() => checkForUpdates()}>
-                Check For Updates
+            <Button onClick={() => openUpdaterModal()}>
+                Open Updater Modal
             </Button>
     },
     saveMessages: {
@@ -530,7 +531,7 @@ export default definePlugin({
         //     clearLogs();
 
         if (settings.store.autoCheckForUpdates)
-            checkForUpdates(10_000, false);
+            promptForUpdate(10_000, false);
 
 
         const { imageCacheDir, logsDir } = settings.store;
