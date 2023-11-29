@@ -61,8 +61,8 @@ export interface ChildrenAccProops {
 }
 
 const ChannelRecords = findByPropsLazy("PrivateChannelRecord");
-const MessagePreview: React.FC<MessagePreviewProps> = LazyComponent(() => find(m => m?.type?.toString().includes("previewLinkTarget:") && !m?.type?.toString().includes("HAS_THREAD")));
-const ChildrenAccessories: React.FC<ChildrenAccProops> = LazyComponent(() => findByCode("channelMessageProps:{message:"));
+const MessagePreview = LazyComponent<MessagePreviewProps>(() => find(m => m?.type?.toString().includes("previewLinkTarget:") && !m?.type?.toString().includes("HAS_THREAD")));
+const ChildrenAccessories = LazyComponent<ChildrenAccProops>(() => findByCode("channelMessageProps:{message:"));
 
 const cl = classNameFactory("msg-logger-modal-");
 
