@@ -27,7 +27,6 @@ import { definePluginSettings, Settings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
-import { showItemInFolder } from "@utils/native";
 import definePlugin, { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
 import { Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
@@ -379,11 +378,7 @@ export const settings = definePluginSettings({
                     || settings.store.imageCacheDir == null
                     || settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR
                 }
-                onClick={
-                    () => IS_VESKTOP ?
-                        window?.MessageLoggerNative?.fileManager?.showItemInFolder(settings.store.imageCacheDir)
-                        : showItemInFolder(settings.store.imageCacheDir)
-                }
+                onClick={() => Native.showItemInFolder(settings.store.imageCacheDir)}
             >
                 Open Image Cache Folder
             </Button>

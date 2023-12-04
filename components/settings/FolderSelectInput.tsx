@@ -17,6 +17,7 @@
 */
 
 import { classNameFactory } from "@api/Styles";
+import { copyWithToast } from "@utils/misc";
 import { Button, Forms, Toasts } from "@webpack/common";
 
 import { Native, settings } from "../..";
@@ -52,19 +53,24 @@ export const LogsDir = createDirSelector("logsDir", "Successfully updated Logs D
 
 
 export function SelectFolderInput({ path, onFolderSelect }: { path: string, onFolderSelect: (path: string) => void; }) {
+    function getDirName(path: string) {
+        const parts = path.split("\\").length > 1 ? path.split("\\") : path.split("/");
+
+        return parts.slice(parts.length - 2, parts.length).join("\\");
+    }
     return (
         <div className={cl("-container")}>
-            <div className={cl("-input")}>
-                {path == null || path === DEFAULT_IMAGE_CACHE_DIR ? "Choose Folder" : path}
+            <div onClick={() => copyWithToast(path)} className={cl("-input")}>
+                {path == null || path === DEFAULT_IMAGE_CACHE_DIR ? "Choose Folder" : getDirName(path)}
             </div>
             <Button
                 className={cl("-button")}
                 size={Button.Sizes.SMALL}
                 onClick={async () => {
-                    const [path] = await Native.showDirDialog();
-                    if (!path) return;
+                    const [resPath] = await Native.showDirDialog(path);
+                    if (!resPath) return;
 
-                    onFolderSelect(path);
+                    onFolderSelect(resPath);
                 }}
             >
                 Browse

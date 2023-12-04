@@ -8,7 +8,7 @@ import { access, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/pro
 import path from "node:path";
 
 import { Queue } from "@utils/Queue";
-import { dialog, IpcMainInvokeEvent } from "electron";
+import { dialog, IpcMainInvokeEvent, shell } from "electron";
 
 import { DATA_DIR } from "../../main/utils/constants";
 
@@ -86,9 +86,13 @@ export async function getDefaultNativeDataDir(): Promise<string> {
     return path.join(DATA_DIR, "MessageLoggerData");
 }
 
-export async function showDirDialog() {
-    const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+export async function showDirDialog(_event: IpcMainInvokeEvent, defaultPath: string) {
+    const res = await dialog.showOpenDialog({ properties: ["openDirectory"], defaultPath: defaultPath });
     return res.filePaths;
+}
+
+export async function showItemInFolder(_event: IpcMainInvokeEvent, filePath: string) {
+    shell.showItemInFolder(filePath);
 }
 
 
