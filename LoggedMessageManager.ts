@@ -48,6 +48,11 @@ export let loggedMessages: LoggedMessages = defaultLoggedMessages;
             return;
         }
 
+        if (IS_WEB) {
+            Flogger.log("hii. no point in checking DataStore if. we already did up there ^");
+            return;
+        }
+
         const data = await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore);
 
         if (data == null) {
@@ -227,29 +232,35 @@ export async function deleteOldestMessageWithoutSaving(loggedMessages: LoggedMes
 }
 
 async function cleanMessages(loggedMessages: LoggedMessages, _Native: any = Native) {
-    const cleaned = { ...loggedMessages };
+    try {
+        const cleaned = { ...loggedMessages };
 
-    if (IS_WEB) return cleaned;
+        if (IS_WEB) return cleaned;
 
-    const messageRecords = Object.values(cleaned)
-        .filter(m => !Array.isArray(m)) as MessageRecord[];
+        const messageRecords = Object.values(cleaned)
+            .filter(m => !Array.isArray(m)) as MessageRecord[];
 
-    let hasChanged = false;
-    for (const messageRecord of messageRecords) {
-        const { message } = messageRecord;
+        let hasChanged = false;
+        for (const messageRecord of messageRecords) {
+            const { message } = messageRecord;
 
-        if (message?.attachments) {
-            for (const attachment of message.attachments) {
-                if (attachment.blobUrl) {
-                    hasChanged = true;
-                    delete attachment.blobUrl;
+            if (message?.attachments) {
+                for (const attachment of message.attachments) {
+                    if (attachment.blobUrl) {
+                        hasChanged = true;
+                        delete attachment.blobUrl;
+                    }
                 }
             }
         }
+
+        if (hasChanged)
+            await _Native.writeLogs(Settings.plugins.MessageLoggerEnhanced.logsDir, JSON.stringify(cleaned));
+
+        return cleaned;
+
+    } catch (err) {
+        Flogger.error("Error cleaning messages:", err);
+        return loggedMessages;
     }
-
-    if (hasChanged)
-        await _Native.writeLogs(Settings.plugins.MessageLoggerEnhanced.logsDir, JSON.stringify(cleaned));
-
-    return cleaned;
 }
