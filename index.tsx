@@ -492,11 +492,14 @@ export default definePlugin({
         return editHistory;
     },
 
-    patchAttachments({ attachment, message }: { attachment: LoggedAttachment, message: LoggedMessage; }, forceUpdate: () => void) {
+    attachments: new Map<string, LoggedAttachment>(),
+    patchAttachments(props: { attachment: LoggedAttachment, message: LoggedMessage; }, forceUpdate: () => void) {
+        const { attachment, message } = props;
         if (!message.deleted || !LoggedMessageManager.hasMessageInLogs(message.id))
             return; // Flogger.log("ignoring", message.id);
 
-        if (attachment.blobUrl) return; // Flogger.log("blobUrl already exists");
+        if (this.attachments.has(attachment.id))
+            return props.attachment = this.attachments.get(attachment.id)!; // Flogger.log("blobUrl already exists");
 
         imageUtils.getAttachmentBlobUrl(attachment).then((blobUrl: string | null) => {
             if (blobUrl == null) {
@@ -504,13 +507,16 @@ export default definePlugin({
                 return;
             }
             Flogger.log("Got blob url for message.id =", message.id, blobUrl);
+            // we need to copy because changing this will change the attachment for the message in the logs
+            const attachmentCopy = { ...attachment };
 
-            attachment.oldUrl = attachment.url;
+            attachmentCopy.oldUrl = attachment.url;
 
             const finalBlobUrl = blobUrl + "#";
-            attachment.blobUrl = finalBlobUrl;
-            attachment.url = finalBlobUrl;
-            attachment.proxy_url = finalBlobUrl;
+            attachmentCopy.blobUrl = finalBlobUrl;
+            attachmentCopy.url = finalBlobUrl;
+            attachmentCopy.proxy_url = finalBlobUrl;
+            this.attachments.set(attachment.id, attachmentCopy);
             forceUpdate();
         });
 
