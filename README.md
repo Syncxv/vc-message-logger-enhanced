@@ -32,49 +32,13 @@ git pull
 pnpm build
 ```
 
-# Save images to real folder
-
-add this line `import "./userplugins/vc-message-logger-enhanced/utils/freedom/importMeToPreload";` to src/preload.ts
-
-<details>
-<summary>Diff</summary>
-
-```diff
-/*
- * Vencord, a modification for Discord's desktop app
- * Copyright (c) 2022 Vendicated and contributors
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
-
-+ import "./userplugins/vc-message-logger-enhanced/utils/freedom/importMeToPreload";
-
-import { debounce } from "@utils/debounce";
-import { contextBridge, webFrame } from "electron";
-import { readFileSync, watch } from "fs";
-import { join } from "path";
-
-import VencordNative from "./VencordNative";
-```
-
-</details>
-
-after that run `pnpm build` and completely restart discord (or go to Settings -> Vencord -> Restart Client)
-
-you should see an option to select the image cache folder. by default the folder is here: `%appdata%\Vencord\savedImages`
-
 # Changelog
+
+## 2.0.0
+
+-   Use native api
+-   save logs to a real file
+-   fix some image bugs
 
 ## Version 1.4.0
 

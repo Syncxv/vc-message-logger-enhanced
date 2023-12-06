@@ -16,12 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { createStore, promisifyRequest } from "@api/DataStore";
+import { createStore } from "@api/DataStore";
 import { DataStore } from "@api/index";
+import { Settings } from "@api/Settings";
 
-import { settings } from ".";
+import { Flogger, Native, settings } from ".";
 import { LoggedMessage, LoggedMessageIds, LoggedMessageJSON, LoggedMessages, MessageRecord } from "./types";
-import { cleanupMessage, sortMessagesByDate } from "./utils";
+import { cleanupMessage, getNative, sortMessagesByDate } from "./utils";
 import { cacheMessageImages, deleteMessageImages } from "./utils/saveImage";
 
 export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, };
@@ -29,14 +30,41 @@ export const defaultLoggedMessages = { deletedMessages: {}, editedMessages: {}, 
 export const LOGGED_MESSAGES_KEY = "logged-messages-hi";
 export const MessageLoggerStore = createStore("MessageLoggerData", "MessageLoggerStore");
 
-export let loggedMessagesCache: LoggedMessages = defaultLoggedMessages;
+// this gets used by the logs modal. logs modal should only use saved messages not messages that are being processed
+// also hasMessageInLogs should only check saved messages not the ones that are being processed
+export let savedLoggedMessages: LoggedMessages = defaultLoggedMessages;
 
+export let loggedMessages: LoggedMessages = defaultLoggedMessages;
 
 (async () => {
     try {
-        const res = await MessageLoggerStore("readonly", store => promisifyRequest<LoggedMessages>(store.get(LOGGED_MESSAGES_KEY)));
-        if (res != null)
-            loggedMessagesCache = res;
+        const Native = getNative();
+        const res = await Native.getLogsFromFs(IS_WEB ? "" : Settings.plugins?.MessageLoggerEnhanced?.logsDir);
+        if (res != null) {
+            Flogger.log("Got logged messages from native wont be checking DataStore");
+            const cleaned = await cleanMessages(res, Native);
+            loggedMessages = cleaned;
+            savedLoggedMessages = cleaned;
+            return;
+        }
+
+        if (IS_WEB) {
+            Flogger.log("hii. no point in checking DataStore if. we already did up there ^");
+            return;
+        }
+
+        const data = await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore);
+
+        if (data == null) {
+            Flogger.log("No logged messages in DataStore");
+            return;
+        }
+
+        Flogger.log("Loading logged messages from DataStore and writing to native");
+        Native.writeLogs(Settings.plugins.MessageLoggerEnhanced.logsDir, JSON.stringify(data));
+
+        loggedMessages = data;
+        savedLoggedMessages = res;
     } catch (error) {
         console.error("Error loading logged messages from the store:", error);
     }
@@ -44,27 +72,16 @@ export let loggedMessagesCache: LoggedMessages = defaultLoggedMessages;
 
 // api
 
-export const getLoggedMessages = async (): Promise<LoggedMessages> => {
-    return settings.store.saveMessages
-        ? (await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore)) ?? defaultLoggedMessages
-        : loggedMessagesCache;
-};
-export const refreshCache = async () => loggedMessagesCache = await getLoggedMessages();
-
-
-export const saveLoggedMessages = async (loggedMessages: LoggedMessages) => {
+export const saveLoggedMessages = async () => {
     if (settings.store.saveMessages) {
-        await DataStore.set(LOGGED_MESSAGES_KEY, loggedMessages, MessageLoggerStore);
-        await refreshCache();
-    } else {
-        loggedMessagesCache = loggedMessages;
+        await Native.writeLogs(settings.store.logsDir, JSON.stringify(loggedMessages));
     }
+    savedLoggedMessages = loggedMessages;
 };
 
-export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key: keyof LoggedMessageIds) => {
+export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key: keyof LoggedMessageIds, isBulk = false) => {
     if (settings.store.saveImages && key === "deletedMessages")
         await cacheMessageImages(message);
-    const loggedMessages = await getLoggedMessages();
     const finalMessage = cleanupMessage(message);
     loggedMessages[message.id] = { message: finalMessage };
 
@@ -78,7 +95,8 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, key
     if (settings.store.messageLimit > 0 && (Object.keys(loggedMessages).length - 2) > settings.store.messageLimit)
         await deleteOldestMessageWithoutSaving(loggedMessages);
 
-    await saveLoggedMessages(loggedMessages);
+    if (!isBulk)
+        await saveLoggedMessages();
 };
 
 
@@ -116,15 +134,13 @@ function removeLogWithoutSaving(messageId: string, loggedMessages: LoggedMessage
 
 
 export async function removeLogs(ids: string[]) {
-    const loggedMessages = await getLoggedMessages();
     for (const msgId of ids) {
         removeLogWithoutSaving(msgId, loggedMessages);
     }
-    await saveLoggedMessages(loggedMessages);
+    await saveLoggedMessages();
 }
 
 export async function removeLog(id: string) {
-    const loggedMessages = await getLoggedMessages();
     const record = loggedMessages[id];
 
     if (record?.message)
@@ -132,24 +148,29 @@ export async function removeLog(id: string) {
 
     removeLogWithoutSaving(id, loggedMessages);
 
-    await saveLoggedMessages(loggedMessages);
+    await saveLoggedMessages();
 
 }
 
 export async function clearLogs() {
-    await DataStore.set(LOGGED_MESSAGES_KEY, defaultLoggedMessages, MessageLoggerStore);
-    await refreshCache();
+    Native.writeLogs(settings.store.logsDir, JSON.stringify(defaultLoggedMessages));
 }
 
 
 // utils
 
-export const hasLogs = async () => {
-    const logs = await getLoggedMessages();
-    const hasDeletedMessages = Object.keys(logs.deletedMessages).length > 0;
-    const hasEditedMessages = Object.keys(logs.editedMessages).length > 0;
+export const hasMessageInLogs = (messageId: string) => {
+    const bruh = Object.values(savedLoggedMessages)
+        .filter(m => !Array.isArray(m)) as MessageRecord[];
 
-    const hasMessages = Object.keys(logs).filter(m => m !== "editedMessages" && m !== "deletedMessages").length > 0;
+    return bruh.find(m => m.message?.id === messageId);
+};
+
+export const hasLogs = async () => {
+    const hasDeletedMessages = Object.keys(loggedMessages.deletedMessages).length > 0;
+    const hasEditedMessages = Object.keys(loggedMessages.editedMessages).length > 0;
+
+    const hasMessages = Object.keys(loggedMessages).filter(m => m !== "editedMessages" && m !== "deletedMessages").length > 0;
 
     if (hasDeletedMessages && hasEditedMessages && hasMessages) return true;
 
@@ -165,7 +186,6 @@ export function findLoggedChannelByMessageIdSync(messageId: string, loggedMessag
 }
 
 export async function findLoggedChannelByMessage(messageId: string, key?: keyof LoggedMessageIds): Promise<[string | null, keyof LoggedMessageIds]> {
-    const loggedMessages = await getLoggedMessages();
 
     if (!key) {
         const id1 = findLoggedChannelByMessageIdSync(messageId, loggedMessages, "deletedMessages");
@@ -209,4 +229,38 @@ export async function deleteOldestMessageWithoutSaving(loggedMessages: LoggedMes
     // console.log("removing", message);
 
     return loggedMessages;
+}
+
+async function cleanMessages(loggedMessages: LoggedMessages, _Native: any = Native) {
+    try {
+        const cleaned = { ...loggedMessages };
+
+        if (IS_WEB) return cleaned;
+
+        const messageRecords = Object.values(cleaned)
+            .filter(m => !Array.isArray(m)) as MessageRecord[];
+
+        let hasChanged = false;
+        for (const messageRecord of messageRecords) {
+            const { message } = messageRecord;
+
+            if (message?.attachments) {
+                for (const attachment of message.attachments) {
+                    if (attachment.blobUrl) {
+                        hasChanged = true;
+                        delete attachment.blobUrl;
+                    }
+                }
+            }
+        }
+
+        if (hasChanged)
+            await _Native.writeLogs(Settings.plugins.MessageLoggerEnhanced.logsDir, JSON.stringify(cleaned));
+
+        return cleaned;
+
+    } catch (err) {
+        Flogger.error("Error cleaning messages:", err);
+        return loggedMessages;
+    }
 }

@@ -21,7 +21,7 @@ import { findStoreLazy } from "@webpack";
 import { ChannelStore, SelectedChannelStore, UserStore } from "@webpack/common";
 
 import { settings } from "../index";
-import { loggedMessagesCache } from "../LoggedMessageManager";
+import { loggedMessages } from "../LoggedMessageManager";
 import { LoggedMessageJSON } from "../types";
 import { findLastIndex, getGuildIdByChannel } from "./misc";
 
@@ -44,7 +44,7 @@ export function reAddDeletedMessages(messages: LoggedMessageJSON[], deletedMessa
     }
     for (let i = 0, len = deletedMessages.length; i < len; i++) {
         const id = deletedMessages[i];
-        const record = loggedMessagesCache[id];
+        const record = loggedMessages[id];
         if (!record) continue;
         savedIDs.push({ id: id, time: (parseInt(id) / 4194304) + DISCORD_EPOCH });
     }
@@ -62,7 +62,7 @@ export function reAddDeletedMessages(messages: LoggedMessageJSON[], deletedMessa
     for (let i = 0, len = reAddIDs.length; i < len; i++) {
         const { id } = reAddIDs[i];
         if (messages.findIndex(e => e.id === id) !== -1) continue;
-        const record = loggedMessagesCache[id];
+        const record = loggedMessages[id];
         if (!record.message) continue;
         messages.splice(i, 0, record.message);
     }

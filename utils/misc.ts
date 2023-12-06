@@ -16,10 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { get, set } from "@api/DataStore";
+import { PluginNative } from "@utils/types";
 import { findByPropsLazy, findLazy } from "@webpack";
 import { ChannelStore, moment, UserStore } from "@webpack/common";
 
+import { LOGGED_MESSAGES_KEY, MessageLoggerStore } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
+import { DEFAULT_IMAGE_CACHE_DIR } from "./constants";
 import { DISCORD_EPOCH } from "./index";
 import { memoize } from "./memoize";
 
@@ -80,6 +84,8 @@ export const mapEditHistory = (m: any) => {
 
 export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJSON; }) => {
     // console.time("message populate");
+    if (!log?.message) return null;
+
     const message: LoggedMessage = new MessageClass(log.message);
     message.timestamp = moment(message.timestamp);
 
@@ -96,3 +102,28 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     // console.timeEnd("message populate");
     return message;
 });
+
+
+export function parseJSON(json?: string | null) {
+    try {
+        return JSON.parse(json!);
+    } finally {
+        return null;
+    }
+}
+
+export function getNative(): PluginNative<typeof import("../native")> {
+    if (IS_WEB) {
+        return {
+            getLogsFromFs: async () => get(LOGGED_MESSAGES_KEY, MessageLoggerStore),
+            writeLogs: async (_, logs: string) => set(LOGGED_MESSAGES_KEY, JSON.parse(logs), MessageLoggerStore),
+            getDefaultNativeImageDir: async () => DEFAULT_IMAGE_CACHE_DIR,
+            getDefaultNativeDataDir: async () => "",
+        } as any;
+
+    }
+
+    return Object.values(VencordNative.pluginHelpers)
+        .find(m => m.messageLoggerEnhancedUniqueIdThingyIdkMan) as PluginNative<typeof import("../native")>;
+
+}

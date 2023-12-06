@@ -16,19 +16,4 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-//! import this file into src\preload.ts to save images to a real folder
-
-import { contextBridge } from "electron";
-
-import * as electron from "./electron";
-
-function _require(mod: string) {
-    switch (mod) {
-        case "electron":
-            return electron;
-        default:
-            return require(mod);
-    }
-}
-
-contextBridge.exposeInMainWorld("coolRequire", _require);
+//! hi this file is now usless. but ill keep it here just in case some people forgot to remove it from the preload.ts

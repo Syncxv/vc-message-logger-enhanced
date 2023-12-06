@@ -20,164 +20,61 @@ import {
     createStore,
     del,
     get,
-    promisifyRequest,
+    keys,
     set,
-    UseStore,
 } from "@api/DataStore";
 
-import { Flogger, settings } from "../..";
-import { getLoggedMessages } from "../../LoggedMessageManager";
-import { MessageRecord, SavedImages } from "../../types";
+import { Flogger, Native } from "../..";
 import { DEFAULT_IMAGE_CACHE_DIR } from "../constants";
-import { getSavedImageByAttachmentOrImagePath } from ".";
 
+const ImageStore = createStore("MessageLoggerImageData", "MessageLoggerImageStore");
 
-let defaultGetStoreFunc: UseStore;
-
-export function defaultGetMessageLoggerImageDataStore() {
-    if (!defaultGetStoreFunc) {
-        defaultGetStoreFunc = createStore("MessageLoggerImageData", "MessageLoggerImageStore");
-    }
-    return defaultGetStoreFunc;
-}
-
-let fs: typeof import("node:fs/promises");
-
-export let savedImages: SavedImages = {};
-export const SAVED_IMAGES_KEY = "saved-images-gang";
-export const HAS_CHECKED_FOR_IMAGES_KEY = "has-checked-for-images";
-
+interface IDBSavedImages { attachmentId: string, path: string; }
+let idbSavedImages: IDBSavedImages[] = [];
 (async () => {
     try {
-        const res = await defaultGetMessageLoggerImageDataStore()("readonly", store => promisifyRequest<SavedImages>(store.get(SAVED_IMAGES_KEY)));
-        if (res != null) {
-            savedImages = res;
-        }
-
-        const hasChckedSavedImages = await get(HAS_CHECKED_FOR_IMAGES_KEY, defaultGetMessageLoggerImageDataStore());
-        if (!hasChckedSavedImages)
-            await checkForSavedImages();
-
-    } catch (error) {
-        console.error("Error getting saved images", error);
+        idbSavedImages = (await keys(ImageStore))
+            .map(m => {
+                const str = m.toString();
+                if (!str.startsWith(DEFAULT_IMAGE_CACHE_DIR)) return null;
+                return { attachmentId: str.split("/")?.[1]?.split(".")?.[0], path: str };
+            })
+            .filter(Boolean) as IDBSavedImages[];
+    } catch (err) {
+        Flogger.error("Failed to get idb images", err);
     }
 })();
 
-export function initNodeFs() {
-    try {
+export async function getImage(attachmentId: string, fileExt?: string | null): Promise<any> {
+    // for people who have access to native api but some images are still in idb
+    // also for people who dont have native api
+    const idbPath = idbSavedImages.find(m => m.attachmentId === attachmentId)?.path;
+    if (idbPath)
+        return get(idbPath, ImageStore);
 
-        const req = window.coolRequire;
-        if (!req) return false;
+    if (IS_WEB) return null;
 
-        fs = req("node:fs/promises");
-        if (fs == null || fs.readFile == null || fs.writeFile == null) return false;
-        return true;
-    } catch (err) {
-        Flogger.error("initNodeFs errored", err);
+    return await Native.getImageNative(attachmentId);
+}
+
+// file name shouldnt have any query param shinanigans
+export async function writeImage(imageCacheDir: string, filename: string, content: Uint8Array): Promise<void> {
+    if (IS_WEB) {
+        const path = `${imageCacheDir}/${filename}`;
+        idbSavedImages.push({ attachmentId: filename.split(".")?.[0], path });
+        return set(path, content, ImageStore);
     }
 
-    return false;
+    Native.writeImageNative(imageCacheDir, filename, content);
 }
 
-export const nativeFileSystemAccess = initNodeFs();
+export async function deleteImage(attachmentId: string): Promise<void> {
+    const idbPath = idbSavedImages.find(m => m.attachmentId === attachmentId)?.path;
+    if (idbPath)
+        return await del(idbPath, ImageStore);
 
-export async function getImage(imagePath: string, customStore = defaultGetMessageLoggerImageDataStore()): Promise<any> {
-    if (!nativeFileSystemAccess || imagePath.startsWith(DEFAULT_IMAGE_CACHE_DIR))
-        return get(imagePath, customStore);
 
-    return await fs.readFile(imagePath);
+    if (IS_WEB) return;
+
+    await Native.deleteFileNative(attachmentId);
 }
-
-export async function writeImage(imagePath: string, content: any, customStore = defaultGetMessageLoggerImageDataStore()): Promise<void> {
-    if (!nativeFileSystemAccess || imagePath.startsWith(DEFAULT_IMAGE_CACHE_DIR))
-        return await set(imagePath, content, customStore);
-
-    fs.writeFile(imagePath, content);
-}
-
-export async function deleteImage(imagePath: string, customStore = defaultGetMessageLoggerImageDataStore()): Promise<void> {
-    if (!nativeFileSystemAccess || imagePath.startsWith(DEFAULT_IMAGE_CACHE_DIR))
-        return await del(imagePath, customStore);
-
-    await fs.rm(imagePath);
-}
-
-
-
-export async function getDefaultNativePath(): Promise<string | null> {
-    try {
-        const path = window.coolRequire("path");
-        const themesDir = await VencordNative.themes.getThemesDir();
-        return path.join(themesDir, "../savedImages");
-    } catch (err) {
-        Flogger.error("failed to get default native path", err);
-        return null;
-    }
-}
-
-export async function getImageCacheDir() {
-    if (nativeFileSystemAccess && settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR)
-        return getDefaultNativePath();
-
-    return settings.store.imageCacheDir ?? DEFAULT_IMAGE_CACHE_DIR;
-}
-
-
-async function exists(filename: string) {
-    try {
-        await fs.access(filename);
-        return true;
-    } catch (error) {
-        return false;
-    }
-}
-
-
-export async function checkImageCacheDir(cacheDir: string) {
-    if (!nativeFileSystemAccess) return;
-
-    if (!await exists(cacheDir))
-        await fs.mkdir(cacheDir);
-}
-
-
-// this only runs once for each client you use.
-async function checkForSavedImages() {
-    await set(HAS_CHECKED_FOR_IMAGES_KEY, true, defaultGetMessageLoggerImageDataStore());
-
-    const loggedMessagIds = await getLoggedMessages();
-    const messags = Object.values(loggedMessagIds)
-        .filter(m => !Array.isArray(m) && m.message != null) as MessageRecord[];
-
-    const messagsWithSavedImags = messags.filter(m => m.message.attachments.some(a => a.path != null));
-
-    let numImagesFound = 0;
-
-    for (const { message } of messagsWithSavedImags) {
-        for (const attachment of message.attachments) {
-            const blobUrl = await getSavedImageByAttachmentOrImagePath(attachment);
-            if (blobUrl == null) continue;
-
-            savedImages[attachment.id] = {
-                messageId: message.id,
-                attachmentId: attachment.id,
-            };
-
-            const finalUrl = blobUrl + "#";
-
-            attachment.blobUrl = finalUrl;
-            attachment.url = finalUrl;
-            attachment.proxy_url = finalUrl;
-
-            numImagesFound++;
-
-        }
-    }
-
-    if (numImagesFound)
-        await set(SAVED_IMAGES_KEY, savedImages, defaultGetMessageLoggerImageDataStore());
-
-    return numImagesFound;
-}
-
-export const saveSavedImages = async (_savedImages?: SavedImages) => await set(SAVED_IMAGES_KEY, _savedImages ?? savedImages, defaultGetMessageLoggerImageDataStore());

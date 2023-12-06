@@ -25,7 +25,7 @@ import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, Nav
 import { User } from "discord-types/general";
 
 import { settings } from "../index";
-import { clearLogs, defaultLoggedMessages, getLoggedMessages, removeLog, removeLogs } from "../LoggedMessageManager";
+import { clearLogs, defaultLoggedMessages, removeLog, removeLogs, savedLoggedMessages } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
 import { isGhostPinged, messageJsonToMessageClass, sortMessagesByDate } from "../utils";
 import { doesMatch, parseQuery } from "../utils/parseQuery";
@@ -61,8 +61,8 @@ export interface ChildrenAccProops {
 }
 
 const ChannelRecords = findByPropsLazy("PrivateChannelRecord");
-const MessagePreview: React.FC<MessagePreviewProps> = LazyComponent(() => find(m => m?.type?.toString().includes("previewLinkTarget:") && !m?.type?.toString().includes("HAS_THREAD")));
-const ChildrenAccessories: React.FC<ChildrenAccProops> = LazyComponent(() => findByCode("channelMessageProps:{message:"));
+const MessagePreview = LazyComponent<MessagePreviewProps>(() => find(m => m?.type?.toString().includes("previewLinkTarget:") && !m?.type?.toString().includes("HAS_THREAD")));
+const ChildrenAccessories = LazyComponent<ChildrenAccProops>(() => findByCode("channelMessageProps:{message:"));
 
 const cl = classNameFactory("msg-logger-modal-");
 
@@ -81,7 +81,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const [x, setX] = useState(0);
     const forceUpdate = () => setX(e => e + 1);
 
-    const [logs, _, pending] = useAwaiter(getLoggedMessages, {
+    const [logs, _, pending] = useAwaiter(async () => savedLoggedMessages, {
         fallbackValue: defaultLoggedMessages as LoggedMessages,
         deps: [x]
     });
@@ -188,7 +188,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                         className={cl("content")}
                     >
                         {
-                            !pending && logs == null || messages.length === 0
+                            pending || logs == null || messages.length === 0
                                 ? <EmptyLogs />
                                 : (
                                     <LogsContentMemo
@@ -282,7 +282,7 @@ function LogsContent({ logs, visibleMessages, canLoadMore, sortNewest, tab, forc
                         key={id}
                         log={logs[id] as { message: LoggedMessageJSON; }}
                         forceUpdate={forceUpdate}
-                        isGroupStart={isGroupStart(logs[id].message, logs[visibleMessages[i - 1]]?.message, sortNewest)}
+                        isGroupStart={isGroupStart(logs[id]?.message, logs[visibleMessages[i - 1]]?.message, sortNewest)}
                     />
                 ))}
             {

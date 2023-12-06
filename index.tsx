@@ -16,7 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const VERSION = "1.4.0";
+export const VERSION = "2.0.0";
+
+export const Native = getNative();
 
 import "./styles.css";
 
@@ -25,18 +27,17 @@ import { definePluginSettings, Settings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
-import { showItemInFolder } from "@utils/native";
 import definePlugin, { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
-import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
+import { Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
-import { ImageCacheDir } from "./components/settings/ImageCacheSetting";
-import { addMessage, clearLogs, hasLogs, loggedMessagesCache, MessageLoggerStore, refreshCache, removeLog } from "./LoggedMessageManager";
+import { ImageCacheDir, LogsDir } from "./components/settings/FolderSelectInput";
+import { addMessage, loggedMessages, MessageLoggerStore, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
+import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, getNative, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { checkForUpdates } from "./utils/checkForUpdates";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import { shouldIgnore } from "./utils/index";
@@ -44,16 +45,18 @@ import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
 import * as imageUtils from "./utils/saveImage";
 import * as ImageManager from "./utils/saveImage/ImageManager";
-import { downloadLoggedMessages, uploadLogs } from "./utils/settingsUtils";
+import { downloadLoggedMessages } from "./utils/settingsUtils";
+
+
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
 
 export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
 
 const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
-const handledMessageIds = new Set();
 
-async function messageDeleteHandler(payload: MessageDeletePayload) {
+const handledMessageIds = new Set();
+async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
     if (payload.mlDeleted) return;
 
     if (handledMessageIds.has(payload.id)) {
@@ -97,7 +100,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
 
         if (message == null || message.channel_id == null || !message.deleted) return;
         // Flogger.log("ADDING MESSAGE (DELETED)", message);
-        await addMessage(message, "deletedMessages");
+        await addMessage(message, "deletedMessages", payload.isBulk ?? false);
     }
     finally {
         handledMessageIds.delete(payload.id);
@@ -107,8 +110,9 @@ async function messageDeleteHandler(payload: MessageDeletePayload) {
 async function messageDeleteBulkHandler({ channelId, guildId, ids }: MessageDeleteBulkPayload) {
     // is this bad? idk man
     for (const id of ids) {
-        await messageDeleteHandler({ type: "MESSAGE_DELETE", channelId, guildId, id });
+        await messageDeleteHandler({ type: "MESSAGE_DELETE", channelId, guildId, id, isBulk: true });
     }
+    await LoggedMessageManager.saveLoggedMessages();
 }
 
 async function messageUpdateHandler(payload: MessageUpdatePayload) {
@@ -180,14 +184,14 @@ function messageCreateHandler(payload: MessageCreatePayload) {
 
 // also stolen from mlv2
 function messageLoadSuccess(payload: LoadMessagePayload) {
-    const deletedMessages = loggedMessagesCache.deletedMessages[payload.channelId];
-    const editedMessages = loggedMessagesCache.editedMessages[payload.channelId];
+    const deletedMessages = loggedMessages.deletedMessages[payload.channelId];
+    const editedMessages = loggedMessages.editedMessages[payload.channelId];
     const recordIDs: string[] = [...(deletedMessages || []), ...(editedMessages || [])];
 
 
     for (let i = 0; i < payload.messages.length; ++i) {
         const recievedMessage = payload.messages[i];
-        const record = loggedMessagesCache[recievedMessage.id];
+        const record = loggedMessages[recievedMessage.id];
 
         if (record == null || record.message == null) continue;
 
@@ -201,8 +205,8 @@ function messageLoadSuccess(payload: LoadMessagePayload) {
 
     for (let i = 0, len = recordIDs.length; i < len; i++) {
         const id = recordIDs[i];
-        if (!loggedMessagesCache[id]) continue;
-        const { message } = loggedMessagesCache[id] as { message: LoggedMessageJSON; };
+        if (!loggedMessages[id]) continue;
+        const { message } = loggedMessages[id] as { message: LoggedMessageJSON; };
 
         for (let j = 0, len2 = message.mentions.length; j < len2; j++) {
             const user = message.mentions[j];
@@ -231,6 +235,12 @@ export const settings = definePluginSettings({
         default: true,
         type: OptionType.BOOLEAN,
         description: "Wether to save the deleted and edited messages.",
+    },
+
+    saveImages: {
+        type: OptionType.BOOLEAN,
+        description: "Save deleted messages",
+        default: false
     },
 
     sortNewest: {
@@ -300,12 +310,6 @@ export const settings = definePluginSettings({
         description: "Always log current selected channel",
     },
 
-    saveImages: {
-        type: OptionType.BOOLEAN,
-        description: "Save deleted messages",
-        default: false
-    },
-
     messageLimit: {
         default: 200,
         type: OptionType.NUMBER,
@@ -336,33 +340,21 @@ export const settings = definePluginSettings({
         description: "Blacklisted server, channel, or user IDs."
     },
 
-
     imageCacheDir: {
         type: OptionType.COMPONENT,
-        description: "Where you want the images to be stored",
+        description: "Select saved images directory",
         component: ErrorBoundary.wrap(ImageCacheDir) as any
     },
 
-    importLogs: {
+    logsDir: {
         type: OptionType.COMPONENT,
-        description: "Import Logs",
-        component: () =>
-            <Button onClick={async () =>
-                (await hasLogs()) ? Alerts.show({
-                    title: "Are you sure?",
-                    body: "Importing logs will overwrite your current logs.",
-                    confirmText: "Import",
-                    confirmColor: Button.Colors.RED,
-                    cancelText: "Nevermind",
-                    onConfirm: async () => uploadLogs()
-
-                }) : uploadLogs()}>
-                Import Logs
-            </Button>,
+        description: "Select logs directory",
+        component: ErrorBoundary.wrap(LogsDir) as any
     },
+
     exportLogs: {
         type: OptionType.COMPONENT,
-        description: "Export Logs",
+        description: "Export Logs From IndexedDB",
         component: () =>
             <Button onClick={downloadLoggedMessages}>
                 Export Logs
@@ -381,8 +373,12 @@ export const settings = definePluginSettings({
         description: "Opens the image cache directory",
         component: () =>
             <Button
-                disabled={settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR}
-                onClick={() => showItemInFolder(settings.store.imageCacheDir)}
+                disabled={
+                    IS_WEB
+                    || settings.store.imageCacheDir == null
+                    || settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR
+                }
+                onClick={() => Native.showItemInFolder(settings.store.imageCacheDir)}
             >
                 Open Image Cache Folder
             </Button>
@@ -470,7 +466,6 @@ export default definePlugin({
         ];
     },
 
-    refreshCache,
     messageLoadSuccess,
     store: MessageLoggerStore,
     openLogModal,
@@ -492,36 +487,34 @@ export default definePlugin({
         return editHistory;
     },
 
+    attachments: new Map<string, LoggedAttachment>(),
     patchAttachments(props: { attachment: LoggedAttachment, message: LoggedMessage; }, forceUpdate: () => void) {
-        if (!props.message.deleted) return;
+        const { attachment, message } = props;
+        if (!message.deleted || !LoggedMessageManager.hasMessageInLogs(message.id))
+            return; // Flogger.log("ignoring", message.id);
 
-        const { attachment } = props;
-        if (!attachment) return;
+        if (this.attachments.has(attachment.id))
+            return props.attachment = this.attachments.get(attachment.id)!; // Flogger.log("blobUrl already exists");
 
-        if (attachment.blobUrl) return attachment.blobUrl;
-
-        const savedImageData = ImageManager.savedImages[attachment.id];
-        // reduces number of disk reads
-        if (!savedImageData) return;
-
-        const onComplete = (blobUrl: string | null) => {
+        imageUtils.getAttachmentBlobUrl(attachment).then((blobUrl: string | null) => {
             if (blobUrl == null) {
-                Flogger.error("image not found. deleteing imageData from savedImages object");
-                delete ImageManager.savedImages[attachment.id];
-                ImageManager.saveSavedImages();
+                Flogger.error("image not found. for message.id =", message.id, blobUrl);
+                return;
             }
-            Flogger.log("Got blob url for message.id =", props.message.id);
+            Flogger.log("Got blob url for message.id =", message.id, blobUrl);
+            // we need to copy because changing this will change the attachment for the message in the logs
+            const attachmentCopy = { ...attachment };
+
+            attachmentCopy.oldUrl = attachment.url;
 
             const finalBlobUrl = blobUrl + "#";
-            attachment.blobUrl = finalBlobUrl;
-            attachment.url = finalBlobUrl;
-            attachment.proxy_url = finalBlobUrl;
+            attachmentCopy.blobUrl = finalBlobUrl;
+            attachmentCopy.url = finalBlobUrl;
+            attachmentCopy.proxy_url = finalBlobUrl;
+            this.attachments.set(attachment.id, attachmentCopy);
             forceUpdate();
-        };
+        });
 
-        if (!attachment.path) return imageUtils.getSavedImageByUrl(attachment.proxy_url).then(onComplete);
-
-        imageUtils.getSavedImageByAttachmentOrImagePath(attachment).then(onComplete);
     },
 
     checkImage(instance: any) {
@@ -538,19 +531,23 @@ export default definePlugin({
     },
 
     async start() {
-        if (!settings.store.saveMessages)
-            clearLogs();
+        // if (!settings.store.saveMessages)
+        //     clearLogs();
 
         if (settings.store.autoCheckForUpdates)
             checkForUpdates(10_000, false);
 
-        if (!ImageManager.nativeFileSystemAccess) {
-            settings.store.imageCacheDir = DEFAULT_IMAGE_CACHE_DIR;
+
+        const { imageCacheDir, logsDir } = settings.store;
+        if (imageCacheDir == null || imageCacheDir === DEFAULT_IMAGE_CACHE_DIR) {
+            settings.store.imageCacheDir = await Native.getDefaultNativeImageDir();
         }
 
-        if (ImageManager.nativeFileSystemAccess && settings.store.imageCacheDir === DEFAULT_IMAGE_CACHE_DIR) {
-            settings.store.imageCacheDir = await ImageManager.getDefaultNativePath();
+        if (logsDir == null) {
+            settings.store.logsDir = await Native.getDefaultNativeDataDir();
         }
+
+        Native.init(settings.store.imageCacheDir);
 
         addContextMenuPatch("message", contextMenuPath);
         addContextMenuPatch("channel-context", contextMenuPath);
@@ -560,8 +557,8 @@ export default definePlugin({
     },
 
     stop() {
-        if (!settings.store.saveMessages)
-            clearLogs();
+        // if (!settings.store.saveMessages)
+        //     clearLogs();
 
         removeContextMenuPatch("message", contextMenuPath);
         removeContextMenuPatch("channel-context", contextMenuPath);
