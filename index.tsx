@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const VERSION = "2.0.1";
+export const VERSION = "2.0.2";
 
 export const Native = getNative();
 
@@ -537,17 +537,11 @@ export default definePlugin({
         if (settings.store.autoCheckForUpdates)
             checkForUpdates(10_000, false);
 
+        Native.init();
 
-        const { imageCacheDir, logsDir } = settings.store;
-        if (imageCacheDir == null || imageCacheDir === DEFAULT_IMAGE_CACHE_DIR) {
-            settings.store.imageCacheDir = await Native.getDefaultNativeImageDir();
-        }
-
-        if (logsDir == null) {
-            settings.store.logsDir = await Native.getDefaultNativeDataDir();
-        }
-
-        Native.init(settings.store.imageCacheDir);
+        const { imageCacheDir, logsDir } = await Native.getSettings();
+        settings.store.imageCacheDir = imageCacheDir;
+        settings.store.logsDir = logsDir;
 
         addContextMenuPatch("message", contextMenuPath);
         addContextMenuPatch("channel-context", contextMenuPath);

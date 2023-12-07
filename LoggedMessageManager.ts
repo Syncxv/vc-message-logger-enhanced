@@ -39,7 +39,7 @@ export let loggedMessages: LoggedMessages = defaultLoggedMessages;
 (async () => {
     try {
         const Native = getNative();
-        const res = await Native.getLogsFromFs(IS_WEB ? "" : Settings.plugins?.MessageLoggerEnhanced?.logsDir);
+        const res = await Native.getLogsFromFs();
         if (res != null) {
             Flogger.log("Got logged messages from native wont be checking DataStore");
             const cleaned = await cleanMessages(res, Native);
@@ -61,7 +61,7 @@ export let loggedMessages: LoggedMessages = defaultLoggedMessages;
         }
 
         Flogger.log("Loading logged messages from DataStore and writing to native");
-        Native.writeLogs(Settings.plugins.MessageLoggerEnhanced.logsDir, JSON.stringify(data));
+        Native.writeLogs(JSON.stringify(data));
 
         loggedMessages = data;
         savedLoggedMessages = res;
@@ -74,7 +74,7 @@ export let loggedMessages: LoggedMessages = defaultLoggedMessages;
 
 export const saveLoggedMessages = async () => {
     if (settings.store.saveMessages) {
-        await Native.writeLogs(settings.store.logsDir, JSON.stringify(loggedMessages));
+        await Native.writeLogs(JSON.stringify(loggedMessages));
     }
     savedLoggedMessages = loggedMessages;
 };
@@ -153,7 +153,7 @@ export async function removeLog(id: string) {
 }
 
 export async function clearLogs() {
-    Native.writeLogs(settings.store.logsDir, JSON.stringify(defaultLoggedMessages));
+    Native.writeLogs(settings.store.logsDir);
 }
 
 
