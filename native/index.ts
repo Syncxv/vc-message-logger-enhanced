@@ -110,7 +110,7 @@ export async function getDefaultNativeDataDir(): Promise<string> {
     return path.join(DATA_DIR, "MessageLoggerData");
 }
 
-export async function chooseDir(_event: IpcMainInvokeEvent, logKey: "logsDir" | "imageCacheDir") {
+export async function chooseDir(event: IpcMainInvokeEvent, logKey: "logsDir" | "imageCacheDir") {
     const settings = await getSettings();
     const defaultPath = settings[logKey] || await getDefaultNativeDataDir();
 
@@ -127,6 +127,9 @@ export async function chooseDir(_event: IpcMainInvokeEvent, logKey: "logsDir" | 
         case "logsDir": logsDir = dir; break;
         case "imageCacheDir": imageCacheDir = dir; break;
     }
+
+    if (logKey === "imageCacheDir")
+        await init(event);
 
     return dir;
 }
