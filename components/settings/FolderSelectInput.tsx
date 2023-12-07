@@ -29,20 +29,14 @@ function createDirSelector(settingKey: "logsDir" | "imageCacheDir", successMessa
     return function DirSelector({ option }) {
         if (IS_WEB) return null;
 
-        function onFolderSelect(path: string) {
-            settings.store[settingKey] = path;
-
-            Toasts.show({
-                id: Toasts.genId(),
-                type: Toasts.Type.SUCCESS,
-                message: successMessage
-            });
-        }
-
         return (
             <Forms.FormSection>
                 <Forms.FormTitle>{option.description}</Forms.FormTitle>
-                <SelectFolderInput path={settings.store[settingKey]} onFolderSelect={onFolderSelect} />
+                <SelectFolderInput
+                    settingsKey={settingKey}
+                    successMessage={successMessage}
+                    path={settings.store[settingKey]}
+                />
             </Forms.FormSection>
         );
     };
@@ -51,13 +45,33 @@ function createDirSelector(settingKey: "logsDir" | "imageCacheDir", successMessa
 export const ImageCacheDir = createDirSelector("imageCacheDir", "Successfully updated Image Cache Dir");
 export const LogsDir = createDirSelector("logsDir", "Successfully updated Logs Dir");
 
+interface Props {
+    settingsKey: "imageCacheDir" | "logsDir",
+    successMessage: string,
+    path: string,
+}
 
-export function SelectFolderInput({ path, onFolderSelect }: { path: string, onFolderSelect: (path: string) => void; }) {
+export function SelectFolderInput({ settingsKey, successMessage, path }: Props) {
     function getDirName(path: string) {
         const parts = path.split("\\").length > 1 ? path.split("\\") : path.split("/");
 
         return parts.slice(parts.length - 2, parts.length).join("\\");
     }
+
+    async function onFolderSelect() {
+        const res = await Native.chooseDir(settingsKey, path);
+
+        res ? Toasts.show({
+            id: Toasts.genId(),
+            type: Toasts.Type.SUCCESS,
+            message: successMessage
+        }) : Toasts.show({
+            id: Toasts.genId(),
+            type: Toasts.Type.FAILURE,
+            message: "Failed to update directory"
+        });
+    }
+
     return (
         <div className={cl("-container")}>
             <div onClick={() => copyWithToast(path)} className={cl("-input")}>
@@ -66,12 +80,7 @@ export function SelectFolderInput({ path, onFolderSelect }: { path: string, onFo
             <Button
                 className={cl("-button")}
                 size={Button.Sizes.SMALL}
-                onClick={async () => {
-                    const [resPath] = await Native.showDirDialog(path);
-                    if (!resPath) return;
-
-                    onFolderSelect(resPath);
-                }}
+                onClick={onFolderSelect}
             >
                 Browse
             </Button>

@@ -65,7 +65,7 @@ export async function writeImage(imageCacheDir: string, filename: string, conten
         return set(path, content, ImageStore);
     }
 
-    Native.writeImageNative(imageCacheDir, filename, content);
+    Native.writeImageNative(imageCacheDir, content);
 }
 
 export async function deleteImage(attachmentId: string): Promise<void> {
