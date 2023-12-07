@@ -67,7 +67,8 @@ export async function writeImageNative(_event: IpcMainInvokeEvent, filename: str
     const existingImage = nativeSavedImages.get(attachmentId);
     if (existingImage) return;
 
-    const imagePath = path.join(imageDir, filename);
+    const imagePath = path.join(imageCacheDir, filename);
+    await ensureDirectoryExists(imageCacheDir);
     await writeFile(imagePath, content);
 
     nativeSavedImages.set(attachmentId, imagePath);
