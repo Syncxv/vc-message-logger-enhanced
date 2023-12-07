@@ -4,15 +4,17 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { access, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { IpcEvents } from "@utils/IpcEvents";
 import { Queue } from "@utils/Queue";
-import { dialog, IpcMainInvokeEvent, ipcRenderer, shell } from "electron";
+import { dialog, IpcMainInvokeEvent, shell } from "electron";
 
-import { getSettings } from "../../main/ipcMain";
-import { DATA_DIR } from "../../main/utils/constants";
+import { DATA_DIR } from "../../../main/utils/constants";
+import { getSettings, saveSettings } from "./settings";
+import { ensureDirectoryExists, getAttachmentIdFromFilename } from "./utils";
+
+export { getSettings };
 
 // so we can filter the native helpers by this key
 export function messageLoggerEnhancedUniqueIdThingyIdkMan() { }
@@ -27,9 +29,10 @@ let imageCacheDir: string;
 const getImageCacheDir = async () => imageCacheDir ?? await getDefaultNativeImageDir();
 const getLogsDir = async () => logsDir ?? await getDefaultNativeDataDir();
 
+
+
 export async function initDirs() {
-    const settings = getSettings();
-    const { ld, icd } = settings.plugins.MessageLoggerEnhanced;
+    const { logsDir: ld, imageCacheDir: icd } = await getSettings();
 
     logsDir = ld || await getDefaultNativeDataDir();
     imageCacheDir = icd || await getDefaultNativeImageDir();
@@ -106,47 +109,27 @@ export async function getDefaultNativeDataDir(): Promise<string> {
     return path.join(DATA_DIR, "MessageLoggerData");
 }
 
-export async function chooseDir(_event: IpcMainInvokeEvent, logKey: "logsDir" | "imageCacheDir", defaultPath: string) {
+export async function chooseDir(_event: IpcMainInvokeEvent, logKey: "logsDir" | "imageCacheDir") {
+    const defaultPath = (await getSettings())[logKey] ?? await getDefaultNativeDataDir();
 
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"], defaultPath: defaultPath });
     const dir = res.filePaths[0];
 
-    if (!dir) return false;
+    if (!dir) throw Error("Invalid Directory");
 
-    const settings = getSettings();
-    settings.plugins.MessageLoggerEnhanced[logKey] = dir;
+    const settings = await getSettings();
+    settings[logKey] = dir;
 
-    await ipcRenderer.invoke(IpcEvents.SET_SETTINGS, JSON.stringify(settings, null, 4));
+    await saveSettings(settings);
 
     switch (logKey) {
         case "logsDir": logsDir = dir; break;
         case "imageCacheDir": imageCacheDir = dir; break;
     }
 
-    return true;
+    return dir;
 }
 
 export async function showItemInFolder(_event: IpcMainInvokeEvent, filePath: string) {
     shell.showItemInFolder(filePath);
-}
-
-
-// utils
-
-async function exists(filename: string) {
-    try {
-        await access(filename);
-        return true;
-    } catch (error) {
-        return false;
-    }
-}
-
-async function ensureDirectoryExists(cacheDir: string) {
-    if (!await exists(cacheDir))
-        await mkdir(cacheDir);
-}
-
-function getAttachmentIdFromFilename(filename: string) {
-    return path.parse(filename).name;
 }

@@ -35,7 +35,6 @@ function createDirSelector(settingKey: "logsDir" | "imageCacheDir", successMessa
                 <SelectFolderInput
                     settingsKey={settingKey}
                     successMessage={successMessage}
-                    path={settings.store[settingKey]}
                 />
             </Forms.FormSection>
         );
@@ -48,10 +47,11 @@ export const LogsDir = createDirSelector("logsDir", "Successfully updated Logs D
 interface Props {
     settingsKey: "imageCacheDir" | "logsDir",
     successMessage: string,
-    path: string,
 }
 
-export function SelectFolderInput({ settingsKey, successMessage, path }: Props) {
+export function SelectFolderInput({ settingsKey, successMessage }: Props) {
+    const path = settings.store[settingsKey];
+
     function getDirName(path: string) {
         const parts = path.split("\\").length > 1 ? path.split("\\") : path.split("/");
 
@@ -59,17 +59,22 @@ export function SelectFolderInput({ settingsKey, successMessage, path }: Props) 
     }
 
     async function onFolderSelect() {
-        const res = await Native.chooseDir(settingsKey, path);
+        try {
+            const res = await Native.chooseDir(settingsKey);
+            settings.store[settingsKey] = res;
 
-        res ? Toasts.show({
-            id: Toasts.genId(),
-            type: Toasts.Type.SUCCESS,
-            message: successMessage
-        }) : Toasts.show({
-            id: Toasts.genId(),
-            type: Toasts.Type.FAILURE,
-            message: "Failed to update directory"
-        });
+            return Toasts.show({
+                id: Toasts.genId(),
+                type: Toasts.Type.SUCCESS,
+                message: successMessage
+            });
+        } catch (err) {
+            Toasts.show({
+                id: Toasts.genId(),
+                type: Toasts.Type.FAILURE,
+                message: "Failed to update directory"
+            });
+        }
     }
 
     return (
