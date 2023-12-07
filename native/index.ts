@@ -111,14 +111,14 @@ export async function getDefaultNativeDataDir(): Promise<string> {
 }
 
 export async function chooseDir(_event: IpcMainInvokeEvent, logKey: "logsDir" | "imageCacheDir") {
-    const defaultPath = (await getSettings())[logKey] ?? await getDefaultNativeDataDir();
+    const settings = await getSettings();
+    const defaultPath = settings[logKey] || await getDefaultNativeDataDir();
 
     const res = await dialog.showOpenDialog({ properties: ["openDirectory"], defaultPath: defaultPath });
     const dir = res.filePaths[0];
 
     if (!dir) throw Error("Invalid Directory");
 
-    const settings = await getSettings();
     settings[logKey] = dir;
 
     await saveSettings(settings);
