@@ -24,7 +24,6 @@ export async function getSettings(): Promise<MLSettings> {
         const settings = {
             logsDir: await getDefaultNativeDataDir(),
             imageCacheDir: await getDefaultNativeImageDir(),
-            isNew: true
         };
         try {
             await saveSettings(settings);
