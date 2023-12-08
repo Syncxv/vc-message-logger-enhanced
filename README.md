@@ -34,6 +34,11 @@ pnpm build
 
 # Changelog
 
+## 2.0.2
+
+-   Fix image saving
+-   Improve security
+
 ## 2.0.0
 
 -   Use native api
