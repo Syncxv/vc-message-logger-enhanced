@@ -116,7 +116,7 @@ export function getNative(): PluginNative<typeof import("../native")> {
     if (IS_WEB) {
         return {
             getLogsFromFs: async () => get(LOGGED_MESSAGES_KEY, MessageLoggerStore),
-            writeLogs: async (_, logs: string) => set(LOGGED_MESSAGES_KEY, JSON.parse(logs), MessageLoggerStore),
+            writeLogs: async (logs: string) => set(LOGGED_MESSAGES_KEY, JSON.parse(logs), MessageLoggerStore),
             getDefaultNativeImageDir: async () => DEFAULT_IMAGE_CACHE_DIR,
             getDefaultNativeDataDir: async () => "",
         } as any;
