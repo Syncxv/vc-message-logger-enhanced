@@ -114,12 +114,24 @@ export function parseJSON(json?: string | null) {
 
 export function getNative(): PluginNative<typeof import("../native")> {
     if (IS_WEB) {
-        return {
+        const Native = {
             getLogsFromFs: async () => get(LOGGED_MESSAGES_KEY, MessageLoggerStore),
             writeLogs: async (logs: string) => set(LOGGED_MESSAGES_KEY, JSON.parse(logs), MessageLoggerStore),
             getDefaultNativeImageDir: async () => DEFAULT_IMAGE_CACHE_DIR,
             getDefaultNativeDataDir: async () => "",
-        } as any;
+            deleteFileNative: async () => { },
+            chooseDir: async (x: string) => "",
+            getSettings: async () => ({ imageCacheDir: DEFAULT_IMAGE_CACHE_DIR, logsDir: "" }),
+            init: async () => { },
+            initDirs: async () => { },
+            getImageNative: async (x: string) => new Uint8Array(0),
+            getNativeSavedImages: async () => new Map(),
+            messageLoggerEnhancedUniqueIdThingyIdkMan: async () => { },
+            showItemInFolder: async () => { },
+            writeImageNative: async () => { },
+        } satisfies PluginNative<typeof import("../native")>;
+
+        return Native;
 
     }
 

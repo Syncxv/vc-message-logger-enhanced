@@ -50,7 +50,7 @@ export async function init(_event: IpcMainInvokeEvent) {
     }
 }
 
-export async function getImageNative(_event: IpcMainInvokeEvent, attachmentId: string) {
+export async function getImageNative(_event: IpcMainInvokeEvent, attachmentId: string): Promise<Uint8Array | Buffer | null> {
     const imagePath = nativeSavedImages.get(attachmentId);
     if (!imagePath) return null;
     return await readFile(imagePath);
