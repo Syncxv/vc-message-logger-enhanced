@@ -29,7 +29,7 @@ import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
-import { Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
+import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
@@ -381,6 +381,27 @@ export const settings = definePluginSettings({
                 onClick={() => Native.showItemInFolder(settings.store.imageCacheDir)}
             >
                 Open Image Cache Folder
+            </Button>
+    },
+
+    clearLogs: {
+        type: OptionType.COMPONENT,
+        description: "Clear Logs",
+        component: () =>
+            <Button
+                color={Button.Colors.RED}
+                onClick={() => Alerts.show({
+                    title: "Clear Logs",
+                    body: "Are you sure you want to clear all logs?",
+                    confirmColor: Button.Colors.RED,
+                    confirmText: "Clear",
+                    cancelText: "Cancel",
+                    onConfirm: () => {
+                        LoggedMessageManager.clearLogs();
+                    },
+                })}
+            >
+                Clear Logs
             </Button>
     },
 
