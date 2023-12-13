@@ -93,15 +93,19 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
     const isEphemeral = ((flags ?? 0) & EPHEMERAL) === EPHEMERAL;
     if (isEphemeral) return true; // ignore
 
-    if (settings.store.alwaysLogCurrentChannel && SelectedChannelStore.getChannelId() === channelId) return false; // keep
-    if (settings.store.alwaysLogDirectMessages && ChannelStore.getChannel(channelId ?? "-1").isDM()) return false; // keep
-
     if (channelId && guildId == null)
         guildId = getGuildIdByChannel(channelId);
 
     const myId = UserStore.getCurrentUser().id;
     const { ignoreUsers, ignoreChannels, ignoreGuilds } = Settings.plugins.MessageLogger;
     const { ignoreBots, ignoreSelf } = settings.store;
+
+    if (ignoreSelf && authorId === myId)
+        return true; // ignore
+    if (settings.store.alwaysLogCurrentChannel && SelectedChannelStore.getChannelId() === channelId)
+        return false; // keep
+    if (settings.store.alwaysLogDirectMessages && ChannelStore.getChannel(channelId ?? "-1").isDM())
+        return false; // keep
 
     const ids = [authorId, channelId, guildId];
 
@@ -129,7 +133,6 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
     const shouldIgnoreMutedChannels = settings.store.ignoreMutedChannels;
 
     if ((ignoreBots && bot) && !isAuthorWhitelisted) return true; // ignore
-    if (ignoreSelf && authorId === myId) return true; // ignore
 
     if (ghostPinged) return false; // keep
 
