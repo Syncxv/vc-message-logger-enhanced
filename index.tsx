@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export const VERSION = "2.0.3";
+export const VERSION = "2.0.4";
 
 export const Native = getNative();
 
