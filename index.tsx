@@ -37,7 +37,7 @@ import { ImageCacheDir, LogsDir } from "./components/settings/FolderSelectInput"
 import { addMessage, loggedMessages, MessageLoggerStore, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, getNative, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
+import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, doesBlobUrlExist, getNative, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
 import { checkForUpdates } from "./utils/checkForUpdates";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import { shouldIgnore } from "./utils/index";
@@ -461,6 +461,15 @@ export default definePlugin({
                 match: /(render\(\){)(.{1,100}zoomThumbnailPlaceholder)/,
                 replace: "$1$self.checkImage(this);$2"
             }
+        },
+
+        // dont fetch messages for channels in modal
+        {
+            find: "Using PollReferenceMessageContext without",
+            replacement: {
+                match: /\i\.(?:default\.)?focusMessage\(/,
+                replace: "!arguments[0]?.message?.deleted && $&"
+            }
         }
     ],
     settings,
@@ -538,9 +547,14 @@ export default definePlugin({
 
     },
 
-    checkImage(instance: any) {
-        if (instance.state?.readyState !== "READY" && instance.props?.src?.startsWith("blob:")) {
-            instance.loadImage(instance.props.src, instance.handleImageLoad);
+    async checkImage(instance: any) {
+        if (!instance.props.isBad && instance.state?.readyState !== "READY" && instance.props?.src?.startsWith("blob:")) {
+            if (await doesBlobUrlExist(instance.props.src)) {
+                Flogger.log("image exists", instance.props.src);
+                return instance.setState(e => ({ ...e, readyState: "READY" }));
+            }
+
+            instance.props.isBad = true;
         }
     },
 

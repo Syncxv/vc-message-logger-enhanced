@@ -112,6 +112,11 @@ export function parseJSON(json?: string | null) {
     }
 }
 
+export async function doesBlobUrlExist(url: string) {
+    const res = await fetch(url);
+    return res.ok;
+}
+
 export function getNative(): PluginNative<typeof import("../native")> {
     if (IS_WEB) {
         const Native = {
