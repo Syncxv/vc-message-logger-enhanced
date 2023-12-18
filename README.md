@@ -29,7 +29,7 @@ cd into your vencord folder and run this
 ```bash
 cd src/userplugins/vc-message-logger-enhanced
 git pull
-pnpm build
+pnpm run build
 ```
 
 # Changelog
