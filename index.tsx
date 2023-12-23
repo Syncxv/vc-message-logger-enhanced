@@ -468,7 +468,7 @@ export default definePlugin({
             find: "Using PollReferenceMessageContext without",
             replacement: {
                 match: /\i\.(?:default\.)?focusMessage\(/,
-                replace: "!arguments[0]?.message?.deleted && $&"
+                replace: "!(arguments[0]?.message?.deleted || arguments[0]?.message?.editHistory?.length > 0) && $&"
             }
         }
     ],
