@@ -27,7 +27,7 @@ export interface LoggedAttachment extends MessageAttachment {
 }
 
 export type RefrencedMessage = LoggedMessageJSON & { message_id: string; };
-export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
+export interface LoggedMessageJSON extends Omit<LoggedMessage, "timestamp"> {
     mention_everyone?: string;
     guildId?: string;
     guild_id?: string;
@@ -36,18 +36,12 @@ export interface LoggedMessageJSON extends Omit<Message, "timestamp"> {
     ourCache?: boolean;
     referenced_message: RefrencedMessage;
     message_reference: RefrencedMessage;
-
-    attachments: LoggedAttachment[];
-    deleted?: boolean;
-    editHistory?: {
-        timestamp: string;
-        content: string;
-    }[];
 }
 
 export interface LoggedMessage extends Message {
     attachments: LoggedAttachment[];
     deleted?: boolean;
+    deletedTimestamp?: string;
     editHistory?: {
         timestamp: string;
         content: string;
