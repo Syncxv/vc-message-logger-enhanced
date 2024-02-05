@@ -307,7 +307,7 @@ export const settings = definePluginSettings({
     alwaysLogCurrentChannel: {
         default: true,
         type: OptionType.BOOLEAN,
-        description: "Always log current selected channel",
+        description: "Always log current selected channel. Blacklisted channels/users will still be ignored.",
     },
 
     messageLimit: {
