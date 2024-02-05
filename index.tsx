@@ -470,6 +470,15 @@ export default definePlugin({
                 match: /\i\.(?:default\.)?focusMessage\(/,
                 replace: "!(arguments[0]?.message?.deleted || arguments[0]?.message?.editHistory?.length > 0) && $&"
             }
+        },
+
+        // only check for expired attachments if the message is not deleted
+        {
+            find: "\"/ephemeral-attachments/\"",
+            replacement: {
+                match: /\i\.attachments\.some\(\i\)\|\|\i\.embeds\.some/,
+                replace: "!arguments[0].deleted && $&"
+            }
         }
     ],
     settings,
@@ -503,6 +512,8 @@ export default definePlugin({
     LoggedMessageManager,
     ImageManager,
     imageUtils,
+
+    isDeletedMessage: (id: string) => loggedMessages.deletedMessages[id] != null,
 
     getDeleted(m1, m2) {
         const deleted = m2?.deleted;
