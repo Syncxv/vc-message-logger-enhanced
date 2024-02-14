@@ -18,7 +18,7 @@
 
 import { get, set } from "@api/DataStore";
 import { PluginNative } from "@utils/types";
-import { findByPropsLazy, findLazy } from "@webpack";
+import { findByProps, findByPropsLazy, findLazy } from "@webpack";
 import { ChannelStore, moment, UserStore } from "@webpack/common";
 
 import { LOGGED_MESSAGES_KEY, MessageLoggerStore } from "../LoggedMessageManager";
@@ -76,25 +76,34 @@ export function findLastIndex<T>(array: T[], predicate: (e: T, t: number, n: T[]
     }
     return -1;
 }
+const isCanary = memoize(() => findByProps("accessibilityLabelCalendarFormat").accessibilityLabelCalendarFormat.toString().includes("new Date"));
+
+const getTimestamp = (timestamp: any): any => {
+    if (isCanary()) return new Date(timestamp);
+
+    return moment(timestamp);
+};
 
 export const mapEditHistory = (m: any) => {
-    m.timestamp = moment(m.timestamp);
+    m.timestamp = getTimestamp(m.timestamp);
     return m;
 };
+
 
 export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJSON; }) => {
     // console.time("message populate");
     if (!log?.message) return null;
 
     const message: LoggedMessage = new MessageClass(log.message);
-    message.timestamp = moment(message.timestamp);
+    // @ts-ignore
+    message.timestamp = getTimestamp(message.timestamp);
 
     const editHistory = message.editHistory?.map(mapEditHistory);
     if (editHistory && editHistory.length > 0) {
         message.editHistory = editHistory;
     }
     if (message.editedTimestamp)
-        message.editedTimestamp = moment(message.editedTimestamp);
+        message.editedTimestamp = getTimestamp(message.editedTimestamp);
     message.author = new AuthorClass(message.author);
     (message.author as any).nick = (message.author as any).globalName ?? message.author.username;
 
