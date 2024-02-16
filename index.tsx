@@ -56,7 +56,7 @@ const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
 
 const handledMessageIds = new Set();
-async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; hide?: boolean; }) {
+async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
     if (payload.mlDeleted) return;
 
     if (handledMessageIds.has(payload.id)) {
@@ -102,15 +102,6 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
         if (message == null || message.channel_id == null || !message.deleted) return;
         // Flogger.log("ADDING MESSAGE (DELETED)", message);
         await addMessage(message, "deletedMessages", payload.isBulk ?? false);
-
-        if (payload.hide && message.author.id === UserStore.getCurrentUser().id) {
-            MessageActions.sendMessage(message.channel_id, {
-                "content": "redacted eh",
-                "tts": false,
-                "invalidEmojis": [],
-                "validNonShortcutEmojis": []
-            }, message.id);
-        }
     }
     finally {
         handledMessageIds.delete(payload.id);
@@ -757,12 +748,13 @@ const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
                                 color="danger"
 
                                 action={() => {
-                                    FluxDispatcher.dispatch({
-                                        type: "MESSAGE_DELETE",
-                                        channelId: props.message.channel_id,
-                                        id: props.message.id,
-                                        hide: true,
-                                    });
+                                    MessageActions.deleteMessage(props.message.channel_id, props.message.id);
+                                    MessageActions.sendMessage(props.message.channel_id, {
+                                        "content": "redacted eh",
+                                        "tts": false,
+                                        "invalidEmojis": [],
+                                        "validNonShortcutEmojis": []
+                                    }, props.message.id);
                                 }}
 
                             />
