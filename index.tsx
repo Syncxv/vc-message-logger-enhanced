@@ -481,22 +481,6 @@ export default definePlugin({
                 replace: "!arguments[0].deleted && $&"
             }
         },
-
-        {
-            find: "Replies must have a message reference",
-            replacement: {
-                match: /return (\i(\.default)?\.fromTimestamp)/,
-                replace: "return arguments[0] || $1"
-            }
-        },
-
-        {
-            find: " is ready for sending now.",
-            replacement: {
-                match: /(sendMessage\(.{1,500})createNonce\)\(\)/,
-                replace: "$1createNonce)(arguments[2])"
-            }
-        }
     ],
     settings,
 
@@ -747,14 +731,14 @@ const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
                                 label="Delete Message (Hide From Message Loggers)"
                                 color="danger"
 
-                                action={() => {
-                                    MessageActions.deleteMessage(props.message.channel_id, props.message.id);
-                                    MessageActions.sendMessage(props.message.channel_id, {
+                                action={async () => {
+                                    await MessageActions.deleteMessage(props.message.channel_id, props.message.id);
+                                    MessageActions._sendMessage(props.message.channel_id, {
                                         "content": "redacted eh",
                                         "tts": false,
                                         "invalidEmojis": [],
                                         "validNonShortcutEmojis": []
-                                    }, props.message.id);
+                                    }, { nonce: props.message.id });
                                 }}
 
                             />
