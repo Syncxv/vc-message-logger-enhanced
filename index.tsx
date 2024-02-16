@@ -29,7 +29,7 @@ import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
-import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
+import { Alerts, Button, FluxDispatcher, Menu, MessageActions, MessageStore, React, Toasts, UserStore } from "@webpack/common";
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
@@ -56,7 +56,7 @@ const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
 
 const handledMessageIds = new Set();
-async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
+async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; hide?: boolean; }) {
     if (payload.mlDeleted) return;
 
     if (handledMessageIds.has(payload.id)) {
@@ -65,6 +65,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
     }
 
     try {
+
         handledMessageIds.add(payload.id);
 
         let message: LoggedMessage | LoggedMessageJSON | null =
@@ -101,6 +102,15 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
         if (message == null || message.channel_id == null || !message.deleted) return;
         // Flogger.log("ADDING MESSAGE (DELETED)", message);
         await addMessage(message, "deletedMessages", payload.isBulk ?? false);
+
+        if (payload.hide && message.author.id === UserStore.getCurrentUser().id) {
+            MessageActions.sendMessage(message.channel_id, {
+                "content": "redacted eh",
+                "tts": false,
+                "invalidEmojis": [],
+                "validNonShortcutEmojis": []
+            }, message.id);
+        }
     }
     finally {
         handledMessageIds.delete(payload.id);
@@ -479,6 +489,22 @@ export default definePlugin({
                 match: /\i\.attachments\.some\(\i\)\|\|\i\.embeds\.some/,
                 replace: "!arguments[0].deleted && $&"
             }
+        },
+
+        {
+            find: "Replies must have a message reference",
+            replacement: {
+                match: /return (\i(\.default)?\.fromTimestamp)/,
+                replace: "return arguments[0] || $1"
+            }
+        },
+
+        {
+            find: " is ready for sending now.",
+            replacement: {
+                match: /(sendMessage\(.{1,500})createNonce\)\(\)/,
+                replace: "$1createNonce)(arguments[2])"
+            }
         }
     ],
     settings,
@@ -713,6 +739,32 @@ const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
                                         }))
 
                                 }
+                            />
+                        </>
+                    )
+                }
+
+                {
+                    props.navId === "message"
+                    && props.message?.author?.id === UserStore.getCurrentUser().id
+                    && props.message?.deleted === false
+                    && (
+                        <>
+                            <Menu.MenuSeparator />
+                            <Menu.MenuItem
+                                id="hide-from-message-loggers"
+                                label="Delete Message (Hide From Message Loggers)"
+                                color="danger"
+
+                                action={() => {
+                                    FluxDispatcher.dispatch({
+                                        type: "MESSAGE_DELETE",
+                                        channelId: props.message.channel_id,
+                                        id: props.message.id,
+                                        hide: true,
+                                    });
+                                }}
+
                             />
                         </>
                     )
