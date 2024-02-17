@@ -23,14 +23,7 @@
 tutorial: https://youtu.be/8wexjSo8fNw
 
 # How to update
-
-cd into your vencord folder and run this
-
-```bash
-cd src/userplugins/vc-message-logger-enhanced
-git pull
-pnpm build
-```
+https://github.com/Syncxv/vc-message-logger-enhanced/assets/47534062/31be3fcb-71db-4714-9d94-99b340371e96
 
 # Changelog
 
