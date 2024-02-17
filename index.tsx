@@ -34,6 +34,7 @@ import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, User
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { ImageCacheDir, LogsDir } from "./components/settings/FolderSelectInput";
+import { openUpdaterModal } from "./components/UpdaterModal";
 import { addMessage, loggedMessages, MessageLoggerStore, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
@@ -227,7 +228,7 @@ export const settings = definePluginSettings({
         type: OptionType.COMPONENT,
         description: "Check for update",
         component: () =>
-            <Button onClick={() => checkForUpdates()}>
+            <Button onClick={() => openUpdaterModal()}>
                 Check For Updates
             </Button>
     },

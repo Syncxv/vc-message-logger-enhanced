@@ -108,3 +108,17 @@ export type MessageRecord = { message: LoggedMessageJSON; };
 
 export type LoggedMessages = LoggedMessageIds & { [message_id: string]: { message?: LoggedMessageJSON; }; };
 
+export type GitValue = {
+    value: any;
+    stderr?: string;
+    ok: true;
+};
+
+export type GitError = {
+    ok: false;
+    cmd: string;
+    message: string;
+    error: any;
+};
+
+export type GitResult = GitValue | GitError;
