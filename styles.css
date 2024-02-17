@@ -76,3 +76,7 @@
     margin: 6px;
     padding: 4px 8px;
 }
+
+.vc-updater-modal-content {
+    padding: 1rem 2rem;
+}

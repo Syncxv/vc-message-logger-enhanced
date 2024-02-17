@@ -65,17 +65,30 @@ export async function getCommitHash() {
     return await git("rev-parse", "HEAD");
 }
 
-export async function getRepo(): Promise<GitResult> {
+export interface GitInfo {
+    repo: string;
+    gitHash: string;
+}
+
+export async function getRepoInfo(): Promise<GitResult> {
     const res = await git("remote", "get-url", "origin");
     if (!res.ok) {
         return res;
     }
 
+    const gitHash = await getCommitHash();
+    if (!gitHash.ok) {
+        return gitHash;
+    }
+
     return {
         ok: true,
-        value: res.value
-            .replace(/git@(.+):/, "https://$1/")
-            .replace(/\.git$/, "")
+        value: {
+            repo: res.value
+                .replace(/git@(.+):/, "https://$1/")
+                .replace(/\.git$/, ""),
+            gitHash: gitHash.value
+        }
     };
 }
 
