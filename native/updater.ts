@@ -13,6 +13,12 @@ import { promisify } from "util";
 import type { GitResult } from "../types";
 import { memoize } from "../utils/memoize";
 
+const execFile = promisify(cpExecFile);
+
+const isFlatpak = process.platform === "linux" && Boolean(process.env.FLATPAK_ID?.includes("discordapp") || process.env.FLATPAK_ID?.includes("Discord"));
+if (process.platform === "darwin") process.env.PATH = `/usr/local/bin:${process.env.PATH}`;
+
+
 const VENCORD_USER_PLUGIN_DIR = join(__dirname, "..", "src", "userplugins");
 const getCwd = memoize(async () => {
     const dirs = await readdir(VENCORD_USER_PLUGIN_DIR, { withFileTypes: true });
@@ -28,12 +34,6 @@ const getCwd = memoize(async () => {
 
     return;
 });
-
-const execFile = promisify(cpExecFile);
-
-const isFlatpak = process.platform === "linux" && Boolean(process.env.FLATPAK_ID?.includes("discordapp") || process.env.FLATPAK_ID?.includes("Discord"));
-
-if (process.platform === "darwin") process.env.PATH = `/usr/local/bin:${process.env.PATH}`;
 
 async function git(...args: string[]): Promise<GitResult> {
     const opts: ExecFileOptions = { cwd: await getCwd(), shell: true };

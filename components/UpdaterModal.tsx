@@ -11,13 +11,13 @@ import { Link } from "@components/Link";
 import { Margins } from "@utils/margins";
 import { classes } from "@utils/misc";
 import { ModalContent, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
-import { relaunch } from "@utils/native";
-import { useAwaiter } from "@utils/react";
-import { Alerts, Button, Card, Forms, React, Toasts, useState } from "@webpack/common";
+import { useAwaiter, useForceUpdater } from "@utils/react";
+import { Button, Card, Forms, React, Toasts, useState } from "@webpack/common";
 
 import { Native } from "..";
-import type { Commit, GitInfo } from "../native";
+import type { GitInfo } from "../native";
 import { GitError, GitResult } from "../types";
+import { changes, checkForUpdates, repoInfo as reInfo, update } from "../utils/updater";
 
 let updateError: GitError | null = null;
 
@@ -37,58 +37,54 @@ function HashLink({ repo, longHash, disabled = false }: { repo: string, longHash
     </Link>;
 }
 
+export function UpdateErrorCard({ updateError, title }: { updateError: GitError; title: string; }) {
+    return (
+        <>
+            <Forms.FormText>{title}</Forms.FormText>
+            <ErrorCard style={{ padding: "1em" }}>
+                {!updateError.cmd ? (
+                    <p>An unknown error occurred</p>
+                ) : (
+                    <>
+                        <p style={{ marginTop: "4px" }}>Error occured when running: <b>{updateError.cmd}</b></p>
+                        <code>
+                            {updateError.message}
+                        </code>
+                    </>
+                )}
+            </ErrorCard>
+        </>
+    );
+}
+
 const cl = classNameFactory("vc-updater-modal-");
 export function UpdaterModal({ modalProps }: { modalProps: ModalProps; }) {
-    const [x, setX] = useState(0);
+    const forceUpdate = useForceUpdater();
     const [isUpdating, setIsUpdating] = useState(false);
 
-    const [repoInfo, err, repoPending] = useAwaiter(() => Unwrap<GitInfo>(Native.getRepoInfo));
-    const [updates] = useAwaiter(() => Unwrap<Commit[]>(Native.getNewCommits), { onSuccess: checkForUpdates, fallbackValue: [], deps: [x] });
+    const [repoInfo, err, repoPending] = useAwaiter(() => Unwrap<GitInfo>(Native.getRepoInfo), { fallbackValue: reInfo });
+    const [updates, setChanges] = useState(changes);
 
     const isOutdated = (updates?.length ?? 0) > 0;
 
     async function onUpdate() {
         setIsUpdating(true);
-        const res = await Native.update();
-        if (!res.ok) {
-            Alerts.show({
-                title: "Welp!",
-                body: "Failed to update. Check the console for more info",
-            });
-            return setIsUpdating(false);
-        }
-        if (!(await VencordNative.updater.rebuild()).ok) {
-            Alerts.show({
-                title: "Welp!",
-                body: "The Build failed. Please try manually building the new update",
-            });
 
-            return setIsUpdating(false);
-        }
-
-        Alerts.show({
-            title: "Update Success!",
-            body: "Successfully updated. Restart now to apply the changes?",
-            confirmText: "Restart",
-            cancelText: "Not now!",
-            onConfirm() {
-                relaunch();
-            },
-        });
-
-
-        return setIsUpdating(false);
-    }
-
-    async function checkForUpdates(changes: Commit[]) {
-        setIsUpdating(true);
-
-        if (!changes) return setIsUpdating(false);
-
-        if (changes.length === 0)
-            Toasts.show({ id: Toasts.genId(), type: Toasts.Type.MESSAGE, message: "No updates found" });
+        await update();
 
         setIsUpdating(false);
+    }
+
+    async function onCheck() {
+        setIsUpdating(true);
+
+        const isOutdated = await checkForUpdates();
+        setChanges(changes);
+        setIsUpdating(false);
+        forceUpdate();
+
+        if (!isOutdated)
+            Toasts.show({ id: Toasts.genId(), type: Toasts.Type.MESSAGE, message: "No updates!" });
     }
 
     return (
@@ -117,21 +113,7 @@ export function UpdaterModal({ modalProps }: { modalProps: ModalProps; }) {
                 <Forms.FormTitle tag="h5">Updates</Forms.FormTitle>
 
                 {(updates == null || repoInfo == null) && updateError ? (
-                    <>
-                        <Forms.FormText>Failed to check updates. Check the console for more info</Forms.FormText>
-                        <ErrorCard style={{ padding: "1em" }}>
-                            {!updateError.cmd ? (
-                                <p>An unknown error occurred</p>
-                            ) : (
-                                <>
-                                    <p style={{ marginTop: "4px" }}>Error occured when running: <b>{updateError.cmd}</b></p>
-                                    <code>
-                                        {updateError.message}
-                                    </code>
-                                </>
-                            )}
-                        </ErrorCard>
-                    </>
+                    <UpdateErrorCard updateError={updateError} title="Failed to check updates. Check the console for more info" />
                 ) : (
                     <Forms.FormText className={Margins.bottom8}>
                         {isOutdated ? (updates!.length === 1 ? "There is 1 Update" : `There are ${updates!.length} Updates`) : "Up to Date!"}
@@ -157,7 +139,7 @@ export function UpdaterModal({ modalProps }: { modalProps: ModalProps; }) {
 
                 <Flex className={classes(Margins.bottom8, Margins.top8)}>
                     {isOutdated && <Button disabled={isUpdating} onClick={onUpdate}>Update</Button>}
-                    <Button disabled={isUpdating} onClick={() => setX(x => x + 1)}>Check for updates</Button>
+                    <Button disabled={isUpdating} onClick={onCheck}>Check for updates</Button>
                 </Flex>
             </ModalContent>
         </ModalRoot>

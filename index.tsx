@@ -39,7 +39,6 @@ import { addMessage, loggedMessages, MessageLoggerStore, removeLog } from "./Log
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, doesBlobUrlExist, getNative, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
-import { checkForUpdates } from "./utils/checkForUpdates";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
@@ -47,6 +46,7 @@ import { doesMatch } from "./utils/parseQuery";
 import * as imageUtils from "./utils/saveImage";
 import * as ImageManager from "./utils/saveImage/ImageManager";
 import { downloadLoggedMessages } from "./utils/settingsUtils";
+import { checkForUpdatesAndNotify } from "./utils/updater";
 
 
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
@@ -581,8 +581,7 @@ export default definePlugin({
         // if (!settings.store.saveMessages)
         //     clearLogs();
 
-        if (settings.store.autoCheckForUpdates)
-            checkForUpdates(10_000, false);
+        checkForUpdatesAndNotify(settings.store.autoCheckForUpdates);
 
         Native.init();
 
