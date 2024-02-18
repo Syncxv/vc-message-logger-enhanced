@@ -14,21 +14,9 @@ import { ModalContent, ModalProps, ModalRoot, ModalSize, openModal } from "@util
 import { useAwaiter, useForceUpdater } from "@utils/react";
 import { Button, Card, Forms, React, Toasts, useState } from "@webpack/common";
 
-import { Native } from "..";
-import type { GitInfo } from "../native";
-import { GitError, GitResult } from "../types";
-import { changes, checkForUpdates, repoInfo as reInfo, update } from "../utils/updater";
+import { GitError } from "../types";
+import { changes, checkForUpdates, getRepoInfo, repoInfo as reInfo, update, updateError } from "../utils/updater";
 
-let updateError: GitError | null = null;
-
-async function Unwrap<T>(p: () => Promise<GitResult>) {
-    const res = await p();
-
-    if (res.ok) return res.value as T;
-
-    updateError = res;
-    if (res.error) console.error(res.error);
-}
 
 // half of this file is just a copy of the original updater modal
 function HashLink({ repo, longHash, disabled = false }: { repo: string, longHash: string, disabled?: boolean; }) {
@@ -62,7 +50,7 @@ export function UpdaterModal({ modalProps }: { modalProps: ModalProps; }) {
     const forceUpdate = useForceUpdater();
     const [isUpdating, setIsUpdating] = useState(false);
 
-    const [repoInfo, err, repoPending] = useAwaiter(() => Unwrap<GitInfo>(Native.getRepoInfo), { fallbackValue: reInfo });
+    const [repoInfo, err, repoPending] = useAwaiter(getRepoInfo, { fallbackValue: reInfo });
     const [updates, setChanges] = useState(changes);
 
     const isOutdated = (updates?.length ?? 0) > 0;

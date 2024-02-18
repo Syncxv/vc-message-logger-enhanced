@@ -23,11 +23,11 @@ import { Alerts } from "@webpack/common";
 import { Native } from "..";
 import { UpdateErrorCard } from "../components/UpdaterModal";
 import { Commit, GitInfo } from "../native";
-import { GitResult } from "../types";
+import { GitError, GitResult } from "../types";
 import { getNative } from "./misc";
 
 export let changes: Commit[] | undefined = [];
-export let updateError: GitResult;
+export let updateError: GitError | undefined;
 export let isOutdated = false;
 export let repoInfo: GitInfo | undefined;
 export let isNewer = false;
@@ -43,6 +43,10 @@ async function Unwrap<T>(p: Promise<GitResult>) {
 
     updateError = res;
     if (res.error) console.error(res.error);
+}
+
+export async function getRepoInfo() {
+    return repoInfo ?? (repoInfo = await Unwrap<GitInfo>(Native.getRepoInfo()));
 }
 
 export async function checkForUpdates() {
@@ -71,12 +75,10 @@ export async function update() {
 
 
     if (!(await VencordNative.updater.rebuild()).ok) {
-        Alerts.show({
+        return Alerts.show({
             title: "Welp!",
             body: "The Build failed. Please try manually building the new update",
         });
-
-        return;
     }
 
     Alerts.show({
