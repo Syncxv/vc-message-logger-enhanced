@@ -1,5 +1,5 @@
 # vc-message-logger-enhanced
-test2
+test3
 ## Features
 
 -   Restore deleted and edited messages even after reloading Discord (optional).
