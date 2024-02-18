@@ -27,7 +27,7 @@ async function Unwrap<T>(p: () => Promise<GitResult>) {
     if (res.ok) return res.value as T;
 
     updateError = res;
-    return;
+    if (res.error) console.error(res.error);
 }
 
 // half of this file is just a copy of the original updater modal
@@ -99,7 +99,16 @@ export function UpdaterModal({ modalProps }: { modalProps: ModalProps; }) {
                     <>
                         <Forms.FormText>Failed to check updates. Check the console for more info</Forms.FormText>
                         <ErrorCard style={{ padding: "1em" }}>
-                            <p>{updateError.error.stderr || updateError.error.stdout || "An unknown error occurred"}</p>
+                            {!updateError.cmd ? (
+                                <p>An unknown error occurred</p>
+                            ) : (
+                                <>
+                                    <p style={{ marginTop: "4px" }}>Error occured when running: <b>{updateError.cmd}</b></p>
+                                    <code>
+                                        {updateError.message}
+                                    </code>
+                                </>
+                            )}
                         </ErrorCard>
                     </>
                 ) : (

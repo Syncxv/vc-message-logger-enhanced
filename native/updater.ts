@@ -100,11 +100,16 @@ export interface Commit {
 }
 
 export async function getNewCommits(_: any): Promise<GitResult> {
-    const logFormat = "%H;%an;%s;";
-    const branchRange = "HEAD..origin/HEAD";
+    const branch = await git("branch", "--show-current");
+    if (!branch.ok) {
+        return branch;
+    }
+
+    const logFormat = "%H;%an;%s";
+    const branchRange = `HEAD..origin/${branch.value}`;
 
     try {
-        await git("fetch", "origin", "HEAD");
+        await git("fetch");
 
         const logOutput = await git("log", `--format=${logFormat}`, branchRange);
 
