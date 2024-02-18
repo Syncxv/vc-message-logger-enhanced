@@ -49,7 +49,7 @@ export let loggedMessages: LoggedMessages = defaultLoggedMessages;
         }
 
         if (IS_WEB) {
-            Flogger.log("hii. no point in checking DataStore if. we already did up there ^");
+            Flogger.log("hii. no point in checking DataStore if. we already did up there ^^");
             return;
         }
 
