@@ -28,9 +28,18 @@ The plugin saves messages to a json file, and can restore them after reloading D
 
 tutorial: https://youtu.be/8wexjSo8fNw
 
+commands used:
+```bash
+git pull
+pnpm build
+```
+
 # How to manually update
 
 https://github.com/Syncxv/vc-message-logger-enhanced/assets/47534062/31be3fcb-71db-4714-9d94-99b340371e96
+
+```
+```
 
 # Changelog
 
