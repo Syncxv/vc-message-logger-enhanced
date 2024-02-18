@@ -41,7 +41,7 @@ export let loggedMessages: LoggedMessages = defaultLoggedMessages;
         const Native = getNative();
         const res = await Native.getLogsFromFs();
         if (res != null) {
-            Flogger.log("Got logged messages from native wont be checking DataStore");
+            Flogger.log("Got logged messages from native wont be checking DataStore testy");
             const cleaned = await cleanMessages(res, Native);
             loggedMessages = cleaned;
             savedLoggedMessages = cleaned;
