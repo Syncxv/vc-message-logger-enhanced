@@ -13,7 +13,7 @@ import { classes } from "@utils/misc";
 import { ModalContent, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { relaunch } from "@utils/native";
 import { useAwaiter } from "@utils/react";
-import { Alerts, Button, Card, Forms, React, useState } from "@webpack/common";
+import { Alerts, Button, Card, Forms, React, Toasts, useState } from "@webpack/common";
 
 import { Native } from "..";
 import type { Commit, GitInfo } from "../native";
@@ -40,24 +40,30 @@ function HashLink({ repo, longHash, disabled = false }: { repo: string, longHash
 const cl = classNameFactory("vc-updater-modal-");
 export function UpdaterModal({ modalProps }: { modalProps: ModalProps; }) {
     const [x, setX] = useState(0);
+    const [isUpdating, setIsUpdating] = useState(false);
+
     const [repoInfo, err, repoPending] = useAwaiter(() => Unwrap<GitInfo>(Native.getRepoInfo));
-    const [updates] = useAwaiter(() => Unwrap<Commit[]>(Native.getNewCommits), { fallbackValue: [], deps: [x] });
+    const [updates] = useAwaiter(() => Unwrap<Commit[]>(Native.getNewCommits), { onSuccess: checkForUpdates, fallbackValue: [], deps: [x] });
 
     const isOutdated = (updates?.length ?? 0) > 0;
 
     async function onUpdate() {
+        setIsUpdating(true);
         const res = await Native.update();
         if (!res.ok) {
-            return Alerts.show({
+            Alerts.show({
                 title: "Welp!",
                 body: "Failed to update. Check the console for more info",
             });
+            return setIsUpdating(false);
         }
         if (!(await VencordNative.updater.rebuild()).ok) {
-            return Alerts.show({
+            Alerts.show({
                 title: "Welp!",
                 body: "The Build failed. Please try manually building the new update",
             });
+
+            return setIsUpdating(false);
         }
 
         Alerts.show({
@@ -69,7 +75,22 @@ export function UpdaterModal({ modalProps }: { modalProps: ModalProps; }) {
                 relaunch();
             },
         });
+
+
+        return setIsUpdating(false);
     }
+
+    async function checkForUpdates(changes: Commit[]) {
+        setIsUpdating(true);
+
+        if (!changes) return setIsUpdating(false);
+
+        if (changes.length === 0)
+            Toasts.show({ id: Toasts.genId(), type: Toasts.Type.MESSAGE, message: "No updates found" });
+
+        setIsUpdating(false);
+    }
+
     return (
         <ModalRoot {...modalProps} size={ModalSize.LARGE}>
             <ModalContent className={cl("content")}>
@@ -135,8 +156,8 @@ export function UpdaterModal({ modalProps }: { modalProps: ModalProps; }) {
                 )}
 
                 <Flex className={classes(Margins.bottom8, Margins.top8)}>
-                    {isOutdated && <Button onClick={onUpdate}>Update</Button>}
-                    <Button onClick={() => setX(x => x + 1)}>Check for updates</Button>
+                    {isOutdated && <Button disabled={isUpdating} onClick={onUpdate}>Update</Button>}
+                    <Button disabled={isUpdating} onClick={() => setX(x => x + 1)}>Check for updates</Button>
                 </Flex>
             </ModalContent>
         </ModalRoot>
