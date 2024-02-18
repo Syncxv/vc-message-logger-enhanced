@@ -1,5 +1,10 @@
 # vc-message-logger-enhanced
 
+## What is this?
+
+This is a third-party-plugin for [Vencord](https://vencord.dev/) that logs messages, images, and ghost pings in Discord.
+The plugin saves messages to a json file, and can restore them after reloading Discord.
+
 ## Features
 
 -   Restore deleted and edited messages even after reloading Discord (optional).
@@ -16,16 +21,28 @@
 -   Export logs for backup and analysis purposes.
 -   Import logs to restore previous logging data.
 
-### **Note:** Enabling "Cache Messages From Servers" can increase the size of log records and disk space usage. Consider this before enabling the feature.
+> [!NOTE]
+> The "Cache Messages From Servers" Option basically treats all servers as whitelisted if its not blacklisted. If you have a lot of servers, this can cause a lot of messages to be logged.
 
 # How to Install
 
 tutorial: https://youtu.be/8wexjSo8fNw
 
-# How to update
+# How to manually update
+
 https://github.com/Syncxv/vc-message-logger-enhanced/assets/47534062/31be3fcb-71db-4714-9d94-99b340371e96
 
 # Changelog
+
+## 3.0.0
+
+- Added updater
+
+## 2.0.4
+
+- Fix always log current channel
+- Fix channel reloading due to invalid attachments
+- Started storing deleted timestamps
 
 ## 2.0.2
 

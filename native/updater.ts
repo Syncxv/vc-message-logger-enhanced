@@ -99,7 +99,7 @@ export interface Commit {
     author: string;
 }
 
-export async function getNewCommits(_: any): Promise<GitResult> {
+export async function getNewCommits(): Promise<GitResult> {
     const branch = await git("branch", "--show-current");
     if (!branch.ok) {
         return branch;
