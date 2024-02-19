@@ -29,7 +29,7 @@ import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
-import { Alerts, Button, FluxDispatcher, Menu, MessageStore, React, Toasts, UserStore } from "@webpack/common";
+import { Alerts, Button, FluxDispatcher, Menu, MessageActions, MessageStore, React, Toasts, UserStore } from "@webpack/common";
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
@@ -309,6 +309,12 @@ export const settings = definePluginSettings({
         default: true,
         type: OptionType.BOOLEAN,
         description: "Always log current selected channel. Blacklisted channels/users will still be ignored.",
+    },
+
+    hideMessageFromMessageLoggers: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "When enabled, a context menu button will be added to messages to allow you to delete messages without them being logged by other loggers. Might not be safe, use at your own risk."
     },
 
     messageLimit: {
@@ -713,6 +719,34 @@ const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
                                         }))
 
                                 }
+                            />
+                        </>
+                    )
+                }
+
+                {
+                    settings.store.hideMessageFromMessageLoggers
+                    && props.navId === "message"
+                    && props.message?.author?.id === UserStore.getCurrentUser().id
+                    && props.message?.deleted === false
+                    && (
+                        <>
+                            <Menu.MenuSeparator />
+                            <Menu.MenuItem
+                                id="hide-from-message-loggers"
+                                label="Delete Message (Hide From Message Loggers)"
+                                color="danger"
+
+                                action={async () => {
+                                    await MessageActions.deleteMessage(props.message.channel_id, props.message.id);
+                                    MessageActions._sendMessage(props.message.channel_id, {
+                                        "content": "redacted eh",
+                                        "tts": false,
+                                        "invalidEmojis": [],
+                                        "validNonShortcutEmojis": []
+                                    }, { nonce: props.message.id });
+                                }}
+
                             />
                         </>
                     )

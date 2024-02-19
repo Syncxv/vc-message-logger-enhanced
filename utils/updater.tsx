@@ -97,6 +97,9 @@ export async function update() {
 
 
 export async function checkForUpdatesAndNotify(shouldNotify = false) {
+    if (IS_WEB)
+        return;
+
     const isOutdated = await checkForUpdates();
     if (!isOutdated) return;
 
