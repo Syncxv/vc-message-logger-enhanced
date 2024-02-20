@@ -34,6 +34,9 @@ https://github.com/Syncxv/vc-message-logger-enhanced/assets/47534062/31be3fcb-71
 
 # Changelog
 
+## 3.0.1
+- Delete message without it being logged by other message loggers (by [@redbaron2k7](https://github.com/redbaron2k7))
+
 ## 3.0.0
 
 - Added updater
