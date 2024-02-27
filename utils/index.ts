@@ -102,7 +102,7 @@ export function shouldIgnore({ channelId, authorId, guildId, flags, bot, ghostPi
 
     if (ignoreSelf && authorId === myId)
         return true; // ignore
-    if (settings.store.alwaysLogDirectMessages && ChannelStore.getChannel(channelId ?? "-1").isDM())
+    if (settings.store.alwaysLogDirectMessages && ChannelStore.getChannel(channelId ?? "-1")?.isDM?.())
         return false; // keep
 
     const shouldLogCurrentChannel = settings.store.alwaysLogCurrentChannel && SelectedChannelStore.getChannelId() === channelId;
