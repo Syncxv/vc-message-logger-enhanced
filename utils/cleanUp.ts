@@ -22,10 +22,13 @@ import { User } from "discord-types/general";
 import { LoggedMessageJSON, RefrencedMessage } from "../types";
 import { getGuildIdByChannel, isGhostPinged } from "./index";
 
-export function cleanupMessage(message: any): LoggedMessageJSON {
+export function cleanupMessage(message: any, removeDetails: boolean = true): LoggedMessageJSON {
     const ret: LoggedMessageJSON = typeof message.toJS === "function" ? JSON.parse(JSON.stringify(message.toJS())) : { ...message };
-    ret.author.phone = undefined;
-    ret.author.email = undefined;
+    if (removeDetails) {
+        ret.author.phone = undefined;
+        ret.author.email = undefined;
+    }
+
     ret.ghostPinged = ret.mentioned ?? isGhostPinged(message);
     ret.guildId = ret.guild_id ?? getGuildIdByChannel(ret.channel_id);
     ret.embeds = (ret.embeds ?? []).map(cleanupEmbed);
@@ -47,7 +50,7 @@ export function cleanupMessage(message: any): LoggedMessageJSON {
 }
 
 export function cleanUpCachedMessage(message: any) {
-    const ret = cleanupMessage(message);
+    const ret = cleanupMessage(message, false);
     ret.ourCache = true;
     return ret;
 }
