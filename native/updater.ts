@@ -111,7 +111,7 @@ export async function getNewCommits(): Promise<GitResult> {
     try {
         await git("fetch");
 
-        const logOutput = await git("log", `--format=${logFormat}`, branchRange);
+        const logOutput = await git("log", `--format="${logFormat}"`, branchRange);
 
         if (!logOutput.ok) {
             return logOutput;
