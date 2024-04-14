@@ -17,6 +17,7 @@
 */
 
 import { classNameFactory } from "@api/Styles";
+import { openUserProfile } from "@utils/discord";
 import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
@@ -367,6 +368,15 @@ function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
                             action={() => {
                                 NavigationRouter.transitionTo(`/channels/${ChannelStore.getChannel(message.channel_id)?.guild_id ?? "@me"}/${message.channel_id}${message.id ? "/" + message.id : ""}`);
                                 closeAllModals();
+                            }}
+                        />
+                        <Menu.MenuItem
+                            key="open-user-profile"
+                            id="open-user-profile"
+                            label="Open user profile"
+                            action={() => {
+                                closeAllModals();
+                                openUserProfile(message.author.id);
                             }}
                         />
 
