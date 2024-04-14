@@ -58,7 +58,12 @@ const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
 const handledMessageIds = new Set();
 async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
-    if (payload.mlDeleted) return;
+    if (payload.mlDeleted) {
+        if (settings.store.permanentlyRemoveLogByDefault)
+            await removeLog(payload.id);
+
+        return;
+    }
 
     if (handledMessageIds.has(payload.id)) {
         // Flogger.warn("skipping duplicate message", payload.id);
@@ -311,10 +316,22 @@ export const settings = definePluginSettings({
         description: "Always log current selected channel. Blacklisted channels/users will still be ignored.",
     },
 
+    permanentlyRemoveLogByDefault: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "Vencord's base MessageLogger remove log button wiil delete logs permanently",
+    },
+
     hideMessageFromMessageLoggers: {
         default: false,
         type: OptionType.BOOLEAN,
         description: "When enabled, a context menu button will be added to messages to allow you to delete messages without them being logged by other loggers. Might not be safe, use at your own risk."
+    },
+
+    hideMessageFromMessageLoggersDeletedMessage: {
+        default: "redacted eh",
+        type: OptionType.STRING,
+        description: "The message content to replace the message with when using the hide message from message loggers feature.",
     },
 
     messageLimit: {
@@ -422,7 +439,7 @@ export default definePlugin({
 
     patches: [
         {
-            find: "displayName=\"MessageStore\"",
+            find: '"MessageStore"',
             replacement: {
                 match: /LOAD_MESSAGES_SUCCESS:function\(\i\){/,
                 replace: "$&$self.messageLoadSuccess(arguments[0]);"
@@ -740,7 +757,7 @@ const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
                                 action={async () => {
                                     await MessageActions.deleteMessage(props.message.channel_id, props.message.id);
                                     MessageActions._sendMessage(props.message.channel_id, {
-                                        "content": "redacted eh",
+                                        "content": settings.store.hideMessageFromMessageLoggersDeletedMessage,
                                         "tts": false,
                                         "invalidEmojis": [],
                                         "validNonShortcutEmojis": []
