@@ -58,8 +58,8 @@ const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
 const handledMessageIds = new Set();
 async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
-    if (payload.mlDeleted && payload.id === "ml-remove-history") {
-        if (settings.store.permanentlyRemoveLogByDefault) removeLog(payload.id);
+    if (payload.mlDeleted) {
+        if (payload.id === "ml-remove-history" && settings.store.permanentlyRemoveLogByDefault) removeLog(payload.id);
         return;
     }
 
