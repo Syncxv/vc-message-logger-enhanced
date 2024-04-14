@@ -59,7 +59,9 @@ const cacheThing = findByPropsLazy("commit", "getOrCreate");
 const handledMessageIds = new Set();
 async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
     if (payload.mlDeleted) {
-        if (payload.id === "ml-remove-history" && settings.store.permanentlyRemoveLogByDefault) removeLog(payload.id);
+        if (settings.store.permanentlyRemoveLogByDefault)
+            await removeLog(payload.id);
+
         return;
     }
 
@@ -324,6 +326,12 @@ export const settings = definePluginSettings({
         default: false,
         type: OptionType.BOOLEAN,
         description: "When enabled, a context menu button will be added to messages to allow you to delete messages without them being logged by other loggers. Might not be safe, use at your own risk."
+    },
+
+    hideMessageFromMessageLoggersDeletedMessage: {
+        default: "redacted eh",
+        type: OptionType.STRING,
+        description: "The message content to replace the message with when using the hide message from message loggers feature.",
     },
 
     messageLimit: {
@@ -749,7 +757,7 @@ const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
                                 action={async () => {
                                     await MessageActions.deleteMessage(props.message.channel_id, props.message.id);
                                     MessageActions._sendMessage(props.message.channel_id, {
-                                        "content": "redacted eh",
+                                        "content": settings.store.hideMessageFromMessageLoggersDeletedMessage,
                                         "tts": false,
                                         "invalidEmojis": [],
                                         "validNonShortcutEmojis": []
