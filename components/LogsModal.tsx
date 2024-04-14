@@ -22,7 +22,7 @@ import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findByCode, findByPropsLazy } from "@webpack";
-import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, Toasts, useCallback, useMemo, useRef, useState } from "@webpack/common";
+import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { settings } from "../index";
@@ -428,22 +428,8 @@ function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
                             action={() =>
                                 removeLog(log.message.id)
                                     .then(() => {
-                                        if (log.message.deleted) {
-                                            FluxDispatcher.dispatch({
-                                                type: "MESSAGE_DELETE",
-                                                channelId: log.message.channel_id,
-                                                id: log.message.id,
-                                                mlDeleted: true
-                                            });
-                                        } else {
-                                            log.message.editHistory = [];
-                                        }
                                         forceUpdate();
-                                    }).catch(() => Toasts.show({
-                                        type: Toasts.Type.FAILURE,
-                                        message: "Failed to remove message",
-                                        id: Toasts.genId()
-                                    }))
+                                    })
                             }
                         />
 
