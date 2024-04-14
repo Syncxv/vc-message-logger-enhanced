@@ -19,10 +19,10 @@
 import { get, set } from "@api/DataStore";
 import { PluginNative } from "@utils/types";
 import { findByPropsLazy, findLazy } from "@webpack";
-import { ChannelStore, UserStore } from "@webpack/common";
+import { ChannelStore, moment, UserStore } from "@webpack/common";
 
 import { LOGGED_MESSAGES_KEY, MessageLoggerStore } from "../LoggedMessageManager";
-import { LoggedMessage, LoggedMessageJSON } from "../types";
+import { LoggedMessageJSON } from "../types";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./constants";
 import { DISCORD_EPOCH } from "./index";
 import { memoize } from "./memoize";
@@ -91,7 +91,7 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     // console.time("message populate");
     if (!log?.message) return null;
 
-    const message: LoggedMessage = new MessageClass(log.message);
+    const message: any = new MessageClass(log.message);
     // @ts-ignore
     message.timestamp = getTimestamp(message.timestamp);
 
@@ -100,11 +100,15 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
         message.editHistory = editHistory;
     }
     if (message.editedTimestamp)
-        message.editedTimestamp = getTimestamp(message.editedTimestamp) as any;
+        message.editedTimestamp = getTimestamp(message.editedTimestamp);
     message.author = new AuthorClass(message.author);
-    (message.author as any).nick = (message.author as any).globalName ?? message.author.username;
+    message.author.nick = message.author.globalName ?? message.author.username;
 
     message.embeds = message.embeds.map(e => embedModule.sanitizeEmbed(message.channel_id, message.id, e));
+
+    if (message.poll)
+        message.poll.expiry = moment(message.poll.expiry);
+
     // console.timeEnd("message populate");
     return message;
 });
