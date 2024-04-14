@@ -58,7 +58,10 @@ const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
 const handledMessageIds = new Set();
 async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
-    if (payload.mlDeleted) return;
+    if (payload.mlDeleted) {
+        if (payload.id === "ml-remove-history" && settings.store.permanentlyRemoveLogByDefault) removeLog(payload.id);
+        return;
+    }
 
     if (handledMessageIds.has(payload.id)) {
         // Flogger.warn("skipping duplicate message", payload.id);
@@ -311,6 +314,12 @@ export const settings = definePluginSettings({
         description: "Always log current selected channel. Blacklisted channels/users will still be ignored.",
     },
 
+    permanentlyRemoveLogByDefault: {
+        default: false,
+        type: OptionType.BOOLEAN,
+        description: "Vencord's base MessageLogger remove log button wiil delete logs permanently",
+    },
+
     hideMessageFromMessageLoggers: {
         default: false,
         type: OptionType.BOOLEAN,
@@ -422,7 +431,7 @@ export default definePlugin({
 
     patches: [
         {
-            find: "displayName=\"MessageStore\"",
+            find: '"MessageStore"',
             replacement: {
                 match: /LOAD_MESSAGES_SUCCESS:function\(\i\){/,
                 replace: "$&$self.messageLoadSuccess(arguments[0]);"
