@@ -26,7 +26,7 @@ import { openUpdaterModal } from "./components/UpdaterModal";
 import { addMessage, loggedMessages, MessageLoggerStore, removeLog } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, doesBlobUrlExist, getNative, isGhostPinged, ListType, mapEditHistory, reAddDeletedMessages, removeFromX } from "./utils";
+import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, doesBlobUrlExist, getNative, isGhostPinged, ListType, mapEditHistory, messageJsonToMessageClass, reAddDeletedMessages, removeFromX } from "./utils";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
@@ -499,7 +499,15 @@ export default definePlugin({
                 match: /\i\.attachments\.some\(\i\)\|\|\i\.embeds\.some/,
                 replace: "!arguments[0].deleted && $&"
             }
-        }
+        },
+
+        // {
+        //     find: "6e4*e.getTimezoneOffset()),Math.floor(n/a)*a}function _(",
+        //     replacement: {
+        //         match: /let t=!\(arguments\.length>1\)\|\|void 0===arguments\[1\]\|\|arguments\[1\],n=e\.getTime\(\);return!t&&\(n-=6e4\*e\.getTimezoneOffset\(\)\)/,
+        //         replace: "if(!e.getTime) {debugger};$&"
+        //     }
+        // }
     ],
     settings,
 
@@ -600,6 +608,15 @@ export default definePlugin({
         // if (!settings.store.saveMessages)
         //     clearLogs();
 
+        this.oldGetMessage = MessageStore.getMessage;
+        // we have to do this because the original message logger fetches the message from the store now
+        MessageStore.getMessage = (channelId: string, messageId: string) => {
+            const MLMessage = LoggedMessageManager.getMessage(channelId, messageId);
+            if (MLMessage?.message) return messageJsonToMessageClass(MLMessage);
+
+            return this.oldGetMessage(channelId, messageId);
+        };
+
         checkForUpdatesAndNotify(settings.store.autoCheckForUpdates);
 
         Native.init();
@@ -624,6 +641,8 @@ export default definePlugin({
         removeContextMenuPatch("user-context", contextMenuPath);
         removeContextMenuPatch("guild-context", contextMenuPath);
         removeContextMenuPatch("gdm-context", contextMenuPath);
+
+        MessageStore.getMessage = this.oldGetMessage;
     }
 });
 

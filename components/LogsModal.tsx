@@ -337,7 +337,7 @@ interface LMessageProps {
 function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
     const message = useMemo(() => messageJsonToMessageClass(log), [log]);
 
-    console.log(message);
+    // console.log(message);
 
     if (!message) return null;
 
