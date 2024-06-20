@@ -1,20 +1,8 @@
 /*
- * Vencord, a modification for Discord's desktop app
- * Copyright (c) 2023 Vendicated and contributors
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
+ * Vencord, a Discord client mod
+ * Copyright (c) 2024 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 export const VERSION = "3.0.0";
 
@@ -334,7 +322,7 @@ export const settings = definePluginSettings({
         description: "Toggle to whenever show the toolbox or not",
         restartNeeded: true,
     },
-    
+
     hideMessageFromMessageLoggersDeletedMessage: {
         default: "redacted eh",
         type: OptionType.STRING,
@@ -456,8 +444,8 @@ export default definePlugin({
         {
             find: "THREAD_STARTER_MESSAGE?null===",
             replacement: {
-                match: /(attachments: \i\(.{1,500})deleted:.{1,50},editHistory:.{1,30},/,
-                replace: "$1deleted: $self.getDeleted(...arguments),editHistory: $self.getEdited(...arguments),"
+                match: / deleted:\i\.deleted, editHistory:\i\.editHistory,/,
+                replace: "deleted:$self.getDeleted(...arguments), editHistory:$self.getEdited(...arguments),"
             }
         },
 
@@ -499,7 +487,7 @@ export default definePlugin({
         {
             find: "Using PollReferenceMessageContext without",
             replacement: {
-                match: /\i\.(?:default\.)?focusMessage\(/,
+                match: /(?:\i\.)?\i\.(?:default\.)?focusMessage\(/,
                 replace: "!(arguments[0]?.message?.deleted || arguments[0]?.message?.editHistory?.length > 0) && $&"
             }
         },

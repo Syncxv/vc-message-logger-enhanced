@@ -1,27 +1,15 @@
 /*
- * Vencord, a modification for Discord's desktop app
- * Copyright (c) 2023 Vendicated and contributors
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
+ * Vencord, a Discord client mod
+ * Copyright (c) 2024 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 import { classNameFactory } from "@api/Styles";
 import { openUserProfile } from "@utils/discord";
 import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
-import { find, findByCode, findByPropsLazy } from "@webpack";
+import { find, findByCode, findByCodeLazy } from "@webpack";
 import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
@@ -61,7 +49,7 @@ export interface ChildrenAccProops {
     showClydeAiEmbeds: boolean;
 }
 
-const ChannelRecords = findByPropsLazy("PrivateChannelRecord");
+const PrivateChannelRecord = findByCodeLazy(".is_message_request_timestamp,");
 const MessagePreview = LazyComponent<MessagePreviewProps>(() => find(m => m?.type?.toString().includes("previewLinkTarget:") && !m?.type?.toString().includes("HAS_THREAD")));
 const ChildrenAccessories = LazyComponent<ChildrenAccProops>(() => findByCode("channelMessageProps:{message:"));
 
@@ -349,6 +337,8 @@ interface LMessageProps {
 function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
     const message = useMemo(() => messageJsonToMessageClass(log), [log]);
 
+    console.log(message);
+
     if (!message) return null;
 
     return (
@@ -447,7 +437,7 @@ function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
                 childrenAccessories={
                     <ChildrenAccessories
                         channelMessageProps={{
-                            channel: ChannelStore.getChannel(message.channel_id) || new ChannelRecords.PrivateChannelRecord({ id: "" }),
+                            channel: ChannelStore.getChannel(message.channel_id) || new PrivateChannelRecord({ id: "" }),
                             message,
                             compact: false,
                             groupId: "1",
