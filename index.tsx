@@ -43,6 +43,7 @@ export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
 
 const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
+let oldGetMessage: typeof MessageStore.getMessage;
 
 const handledMessageIds = new Set();
 async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
@@ -62,7 +63,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
         handledMessageIds.add(payload.id);
 
         let message: LoggedMessage | LoggedMessageJSON | null =
-            MessageStore.getMessage(payload.channelId, payload.id);
+            oldGetMessage?.(payload.channelId, payload.id);
         if (message == null) {
             // most likely an edited message
             const cachedMessage = cacheSentMessages.get(`${payload.channelId},${payload.id}`);
@@ -131,8 +132,7 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
         return;//  Flogger.log("this message has been ignored", payload);
     }
 
-    let message = MessageStore
-        .getMessage(payload.message.channel_id, payload.message.id) as LoggedMessage | LoggedMessageJSON | null;
+    let message = oldGetMessage?.(payload.message.channel_id, payload.message.id) as LoggedMessage | LoggedMessageJSON | null;
 
     if (message == null) {
         // MESSAGE_UPDATE gets dispatched when emebeds change too and content becomes null
@@ -499,15 +499,7 @@ export default definePlugin({
                 match: /\i\.attachments\.some\(\i\)\|\|\i\.embeds\.some/,
                 replace: "!arguments[0].deleted && $&"
             }
-        },
-
-        // {
-        //     find: "6e4*e.getTimezoneOffset()),Math.floor(n/a)*a}function _(",
-        //     replacement: {
-        //         match: /let t=!\(arguments\.length>1\)\|\|void 0===arguments\[1\]\|\|arguments\[1\],n=e\.getTime\(\);return!t&&\(n-=6e4\*e\.getTimezoneOffset\(\)\)/,
-        //         replace: "if(!e.getTime) {debugger};$&"
-        //     }
-        // }
+        }
     ],
     settings,
 
@@ -608,7 +600,7 @@ export default definePlugin({
         // if (!settings.store.saveMessages)
         //     clearLogs();
 
-        this.oldGetMessage = MessageStore.getMessage;
+        this.oldGetMessage = oldGetMessage = MessageStore.getMessage;
         // we have to do this because the original message logger fetches the message from the store now
         MessageStore.getMessage = (channelId: string, messageId: string) => {
             const MLMessage = LoggedMessageManager.getMessage(channelId, messageId);
