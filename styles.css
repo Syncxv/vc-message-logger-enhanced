@@ -81,6 +81,11 @@
     padding: 1rem 2rem;
 }
 
+/* Edited message content highlighting */
+div[class*="messagelogger-edited"] {
+    color: var(--channel-text-area-placeholder) !important;
+}
+
 /*
  Originally part of
  https://github.com/Vendicated/Vencord/blob/main/src/plugins/messageLogger/deleteStyleText.css
