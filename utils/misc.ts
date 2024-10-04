@@ -16,12 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { get, set } from "@api/DataStore";
 import { PluginNative } from "@utils/types";
 import { findByCodeLazy, findLazy } from "@webpack";
 import { ChannelStore, moment, UserStore } from "@webpack/common";
 
-import { LOGGED_MESSAGES_KEY, MessageLoggerStore } from "../LoggedMessageManager";
 import { LoggedMessageJSON } from "../types";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./constants";
 import { DISCORD_EPOCH } from "./index";
@@ -134,8 +132,7 @@ export async function doesBlobUrlExist(url: string) {
 export function getNative(): PluginNative<typeof import("../native")> {
     if (IS_WEB) {
         const Native = {
-            getLogsFromFs: async () => get(LOGGED_MESSAGES_KEY, MessageLoggerStore),
-            writeLogs: async (logs: string) => set(LOGGED_MESSAGES_KEY, JSON.parse(logs), MessageLoggerStore),
+            writeLogs: async () => { },
             getDefaultNativeImageDir: async () => DEFAULT_IMAGE_CACHE_DIR,
             getDefaultNativeDataDir: async () => "",
             deleteFileNative: async () => { },

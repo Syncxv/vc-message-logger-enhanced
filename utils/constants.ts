@@ -20,3 +20,4 @@ export const DEFAULT_IMAGE_CACHE_DIR = "savedImages";
 
 export const DB_NAME = "MessageLoggerIDB";
 export const DB_VERSION = 1;
+export const LOGS_DATA_FILENAME = "message-logger-logs.json";

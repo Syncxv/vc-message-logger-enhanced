@@ -1,6 +1,12 @@
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2024 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+import { LoggedMessageJSON } from "./types";
 import { DB_NAME, DB_VERSION } from "./utils/constants";
 import { DBSchema, IDBPDatabase, openDB } from "./utils/idb";
-import { LoggedMessageJSON } from "./types";
 
 export enum DBMessageStatus {
     DELETED = "DELETED",
@@ -21,7 +27,6 @@ export interface MLIDB extends DBSchema {
         indexes: {
             by_channel_id: string;
             by_status: DBMessageStatus;
-            by_timestamp: string;
             by_channel_and_message_id: [string, string];
         };
     };
@@ -49,9 +54,7 @@ export async function initIDB() {
             const messageStore = db.createObjectStore("messages", { keyPath: "message_id" });
             messageStore.createIndex("by_channel_id", "channel_id");
             messageStore.createIndex("by_status", "status");
-            messageStore.createIndex("by_timestamp", "message.timestamp");
             messageStore.createIndex("by_channel_and_message_id", ["channel_id", "message_id"]);
-
         }
     });
 }
@@ -73,14 +76,31 @@ export async function getMessagesByStatusIDB(status: DBMessageStatus) {
     return cacheRecords(await db.getAllFromIndex("messages", "by_status", status));
 }
 
-export async function getDateStortedMessages(newest: boolean) {
-    return cacheRecords(await db.getAllFromIndex("messages", "by_timestamp", newest ? "prev" : "next"));
-}
+export async function getDateStortedMessagesByStatusIDB(newest: boolean, limit: number, status: DBMessageStatus) {
+    const tx = db.transaction("messages", "readonly");
+    const { store } = tx;
+    const index = store.index("by_status");
 
+    const direction = newest ? "prev" : "next";
+    const cursor = await index.openCursor(IDBKeyRange.only(status), direction);
+
+    if (!cursor) {
+        console.log("No messages found");
+        return [];
+    }
+
+    const messages: DBMessageRecord[] = [];
+    for await (const c of cursor) {
+        messages.push(c.value);
+        if (messages.length >= limit) break;
+    }
+
+    return cacheRecords(messages);
+}
 
 export async function getMessagesByChannelBetweenIDB(channel_id: string, start: string, end: string) {
     const tx = db.transaction("messages", "readonly");
-    const store = tx.store;
+    const { store } = tx;
     const index = store.index("by_channel_and_message_id");
 
     const [lower, upper] = start <= end ? [start, end] : [end, start];
@@ -99,8 +119,26 @@ export async function addMessageIDB(message: LoggedMessageJSON, status: DBMessag
         message,
     });
 
-    cachedMessages[message.id] = message;
+    cachedMessages.set(message.id, message);
 }
+
+export async function addMessagesBulkIDB(messages: LoggedMessageJSON[], status = DBMessageStatus.DELETED) {
+    const tx = db.transaction("messages", "readwrite");
+    const { store } = tx;
+
+    await Promise.all([
+        ...messages.map(message => store.put({
+            channel_id: message.channel_id,
+            message_id: message.id,
+            status,
+            message,
+        })),
+        tx.done
+    ]);
+
+    messages.forEach(message => cachedMessages.set(message.id, message));
+}
+
 
 export async function deleteMessageIDB(message_id: string) {
     await db.delete("messages", message_id);
@@ -110,8 +148,13 @@ export async function deleteMessageIDB(message_id: string) {
 
 export async function deleteMessagesIDB(message_ids: string[]) {
     const tx = db.transaction("messages", "readwrite");
-    const store = tx.store;
+    const { store } = tx;
 
     await Promise.all([...message_ids.map(id => store.delete(id)), tx.done]);
     message_ids.forEach(id => cachedMessages.delete(id));
+}
+
+export async function clearMessagesIDB() {
+    await db.clear("messages");
+    cachedMessages.clear();
 }

@@ -10,15 +10,13 @@ import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent, useAwaiter } from "@utils/react";
 import { find, findByCode, findByCodeLazy } from "@webpack";
-import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useCallback, useMemo, useRef, useState } from "@webpack/common";
+import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
+import { clearMessagesIDB, DBMessageRecord, DBMessageStatus, deleteMessageIDB, deleteMessagesIDB, getDateStortedMessagesByStatusIDB } from "../db";
 import { settings } from "../index";
-import { clearLogs, defaultLoggedMessages, removeLogs, savedLoggedMessages } from "../LoggedMessageManager";
-import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
-import { isGhostPinged, messageJsonToMessageClass, sortMessagesByDate } from "../utils";
-import { doesMatch, parseQuery } from "../utils/parseQuery";
-import { deleteMessageIDB } from "../db";
+import { LoggedMessage, LoggedMessageJSON } from "../types";
+import { messageJsonToMessageClass } from "../utils";
 
 
 
@@ -71,68 +69,21 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const [x, setX] = useState(0);
     const forceUpdate = () => setX(e => e + 1);
 
-    const [logs, _, pending] = useAwaiter(async () => savedLoggedMessages, {
-        fallbackValue: defaultLoggedMessages as LoggedMessages,
-        deps: [x]
-    });
+
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
     const [queryEh, setQuery] = useState(initalQuery ?? "");
     const [sortNewest, setSortNewest] = useState(settings.store.sortNewest);
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
     const contentRef = useRef<HTMLDivElement | null>(null);
 
-    const handleLoadMore = useCallback(() => {
-        setNumDisplayedMessages(prevNum => prevNum + 50);
-    }, []);
+    const [messages, _, pending] = useAwaiter(() => {
+        return getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages, currentTab === LogTabs.DELETED ? DBMessageStatus.DELETED : DBMessageStatus.EDITED);
+    }, {
+        deps: [sortNewest, numDisplayedMessages, currentTab],
+        fallbackValue: []
+    });
 
-
-    // Flogger.log(logs, _, pending, contentRef);
-
-    // Flogger.time("hi");
-    const messages: string[][] = currentTab === LogTabs.DELETED || currentTab === LogTabs.GHOST_PING
-        ? Object.values(logs?.deletedMessages ?? {})
-        : Object.values(logs?.editedMessages ?? {});
-
-    const flattendAndfilteredAndSortedMessages = useMemo(() => {
-        const { success, type, id, negate, query } = parseQuery(queryEh);
-
-        if (query === "" && !success) {
-            const result = messages
-                .flat()
-                .filter(m => currentTab === LogTabs.GHOST_PING ? isGhostPinged(logs[m].message!) : true)
-                .sort(sortMessagesByDate);
-            return sortNewest ? result : result.reverse();
-        }
-
-        const result = messages
-            .flat()
-            .filter(m =>
-                currentTab === LogTabs.GHOST_PING
-                    ? isGhostPinged(logs[m].message)
-                    : true
-            )
-            .filter(m =>
-                logs[m]?.message != null &&
-                (
-                    success === false
-                        ? true
-                        : negate
-                            ? !doesMatch(type!, id!, logs[m].message!)
-                            : doesMatch(type!, id!, logs[m].message!)
-                )
-            )
-            .filter(m =>
-                logs[m]?.message?.content?.toLowerCase()?.includes(query.toLowerCase()) ??
-                logs[m].message?.editHistory?.map(m => m.content?.toLowerCase()).includes(query.toLowerCase())
-            )
-            .sort(sortMessagesByDate);
-
-        return sortNewest ? result : result.reverse();
-    }, [currentTab, logs, queryEh, sortNewest]);
-
-    const visibleMessages = flattendAndfilteredAndSortedMessages.slice(0, numDisplayedMessages);
-
-    const canLoadMore = numDisplayedMessages < flattendAndfilteredAndSortedMessages.length;
+    console.log(messages);
 
     // Flogger.timeEnd("hi");
     return (
@@ -177,21 +128,17 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     <ModalContent
                         className={cl("content")}
                     >
-                        {
-                            pending || logs == null || messages.length === 0
-                                ? <EmptyLogs />
-                                : (
-                                    <LogsContentMemo
-                                        visibleMessages={visibleMessages}
-                                        canLoadMore={canLoadMore}
-                                        tab={currentTab}
-                                        logs={logs}
-                                        sortNewest={sortNewest}
-                                        forceUpdate={forceUpdate}
-                                        handleLoadMore={handleLoadMore}
-                                    />
-                                )
-                        }
+                        {messages.length === 0 && <EmptyLogs />}
+                        {!pending && messages !== null && messages.length > 0 && (
+                            <LogsContentMemo
+                                visibleMessages={messages}
+                                canLoadMore={messages.length >= 50}
+                                tab={currentTab}
+                                sortNewest={sortNewest}
+                                forceUpdate={forceUpdate}
+                                handleLoadMore={() => setNumDisplayedMessages(e => e + 50)}
+                            />
+                        )}
                     </ModalContent>
                 }
             </div>
@@ -205,7 +152,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                         confirmColor: Button.Colors.RED,
                         cancelText: "Cancel",
                         onConfirm: async () => {
-                            await clearLogs();
+                            await clearMessagesIDB();
                             forceUpdate();
                         }
 
@@ -216,15 +163,15 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                 <Button
                     style={{ marginRight: "16px" }}
                     color={Button.Colors.YELLOW}
-                    disabled={visibleMessages.length === 0}
+                    disabled={messages?.length === 0}
                     onClick={() => Alerts.show({
                         title: "Clear Logs",
-                        body: `Are you sure you want to clear ${visibleMessages.length} logs`,
+                        body: `Are you sure you want to clear ${messages.length} logs`,
                         confirmText: "Clear",
                         confirmColor: Button.Colors.RED,
                         cancelText: "Cancel",
                         onConfirm: async () => {
-                            await removeLogs(visibleMessages);
+                            await deleteMessagesIDB(messages.map(e => e.message_id));
                             forceUpdate();
                         }
                     })}
@@ -251,28 +198,27 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
 }
 
 interface LogContentProps {
-    logs: LoggedMessages,
     sortNewest: boolean;
     tab: LogTabs;
-    visibleMessages: string[];
+    visibleMessages: DBMessageRecord[];
     canLoadMore: boolean;
     forceUpdate: () => void;
     handleLoadMore: () => void;
 }
 
-function LogsContent({ logs, visibleMessages, canLoadMore, sortNewest, tab, forceUpdate, handleLoadMore }: LogContentProps) {
+function LogsContent({ visibleMessages, canLoadMore, sortNewest, tab, forceUpdate, handleLoadMore }: LogContentProps) {
     if (visibleMessages.length === 0)
         return <NoResults tab={tab} />;
 
     return (
         <div className={cl("content-inner")}>
             {visibleMessages
-                .map((id, i) => (
+                .map(({ message }, i) => (
                     <LMessage
-                        key={id}
-                        log={logs[id] as { message: LoggedMessageJSON; }}
+                        key={message.id}
+                        log={{ message }}
                         forceUpdate={forceUpdate}
-                        isGroupStart={isGroupStart(logs[id]?.message, logs[visibleMessages[i - 1]]?.message, sortNewest)}
+                        isGroupStart={isGroupStart(message, visibleMessages[visibleMessages.length - 1].message, sortNewest)}
                     />
                 ))}
             {
@@ -467,6 +413,8 @@ function isGroupStart(
     sortNewest: boolean
 ) {
     if (!currentMessage || !previousMessage) return true;
+
+    if (currentMessage.id === previousMessage.id) return true;
 
     const [newestMessage, oldestMessage] = sortNewest
         ? [previousMessage, currentMessage]

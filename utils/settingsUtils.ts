@@ -16,37 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { DataStore } from "@api/index";
-
-import { LOGGED_MESSAGES_KEY, MessageLoggerStore } from "../LoggedMessageManager";
+// import { LOGGED_MESSAGES_KEY, MessageLoggerStore } from "../LoggedMessageManager";
 
 // 99% of this is coppied from src\utils\settingsSync.ts
 
-export async function downloadLoggedMessages() {
-    const filename = "message-logger-logs.json";
-    const exportData = await exportLogs();
-    const data = new TextEncoder().encode(exportData);
-
-    if (IS_WEB || IS_VESKTOP) {
-        const file = new File([data], filename, { type: "application/json" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(file);
-        a.download = filename;
-
-        document.body.appendChild(a);
-        a.click();
-        setImmediate(() => {
-            URL.revokeObjectURL(a.href);
-            document.body.removeChild(a);
-        });
-    } else {
-        DiscordNative.fileManager.saveWithDialog(data, filename);
-    }
-
-}
-
 export async function exportLogs() {
-    const logger_data = await DataStore.get(LOGGED_MESSAGES_KEY, MessageLoggerStore);
-    return JSON.stringify(logger_data, null, 4);
+    // TODO:
 }
 

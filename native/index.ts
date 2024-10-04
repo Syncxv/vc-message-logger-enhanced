@@ -7,12 +7,12 @@
 import { readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { Queue } from "@utils/Queue";
+import { DATA_DIR } from "@main/utils/constants";
 import { dialog, IpcMainInvokeEvent, shell } from "electron";
 
-import { DATA_DIR } from "../../../main/utils/constants";
 import { getSettings, saveSettings } from "./settings";
 export * from "./updater";
+import { LOGS_DATA_FILENAME } from "../utils/constants";
 import { ensureDirectoryExists, getAttachmentIdFromFilename } from "./utils";
 
 export { getSettings };
@@ -82,24 +82,11 @@ export async function deleteFileNative(_event: IpcMainInvokeEvent, attachmentId:
     await unlink(imagePath);
 }
 
-const LOGS_DATA_FILENAME = "message-logger-logs.json";
-const dataWriteQueue = new Queue();
-
-export async function getLogsFromFs(_event: IpcMainInvokeEvent) {
-    const logsDir = await getLogsDir();
-
-    await ensureDirectoryExists(logsDir);
-    try {
-        return JSON.parse(await readFile(path.join(logsDir, LOGS_DATA_FILENAME), "utf-8"));
-    } catch { }
-
-    return null;
-}
 
 export async function writeLogs(_event: IpcMainInvokeEvent, contents: string) {
     const logsDir = await getLogsDir();
 
-    dataWriteQueue.push(() => writeFile(path.join(logsDir, LOGS_DATA_FILENAME), contents));
+    writeFile(path.join(logsDir, LOGS_DATA_FILENAME), contents);
 }
 
 

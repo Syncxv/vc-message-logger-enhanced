@@ -23,21 +23,18 @@ import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { ImageCacheDir, LogsDir } from "./components/settings/FolderSelectInput";
 import { openUpdaterModal } from "./components/UpdaterModal";
-import { addMessage, loggedMessages, MessageLoggerStore } from "./LoggedMessageManager";
+import * as idb from "./db";
+import { addMessage } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { FetchMessagesResponse, LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupMessage, cleanupUserObject, doesBlobUrlExist, getNative, isGhostPinged, ListType, mapEditHistory, messageJsonToMessageClass, reAddDeletedMessages, removeFromX } from "./utils";
+import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, doesBlobUrlExist, getNative, isGhostPinged, ListType, mapEditHistory, messageJsonToMessageClass, reAddDeletedMessages, removeFromX } from "./utils";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
 import * as imageUtils from "./utils/saveImage";
 import * as ImageManager from "./utils/saveImage/ImageManager";
-import { downloadLoggedMessages } from "./utils/settingsUtils";
 import { checkForUpdatesAndNotify } from "./utils/updater";
-
-import * as idb from './db';
-import { sleep } from "@utils/misc";
 
 
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
@@ -98,7 +95,10 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
 
         if (message == null || message.channel_id == null || !message.deleted) return;
         // Flogger.log("ADDING MESSAGE (DELETED)", message);
-        await addMessage(message, idb.DBMessageStatus.DELETED, payload.isBulk ?? false);
+        if (payload.isBulk)
+            return message;
+
+        await addMessage(message, idb.DBMessageStatus.DELETED);
     }
     finally {
         handledMessageIds.delete(payload.id);
@@ -107,10 +107,13 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
 
 async function messageDeleteBulkHandler({ channelId, guildId, ids }: MessageDeleteBulkPayload) {
     // is this bad? idk man
+    const messages = [] as LoggedMessageJSON[];
     for (const id of ids) {
-        await messageDeleteHandler({ type: "MESSAGE_DELETE", channelId, guildId, id, isBulk: true });
+        const msg = await messageDeleteHandler({ type: "MESSAGE_DELETE", channelId, guildId, id, isBulk: true });
+        if (msg) messages.push(msg as LoggedMessageJSON);
     }
-    await LoggedMessageManager.saveLoggedMessages();
+
+    await idb.addMessagesBulkIDB(messages);
 }
 
 async function messageUpdateHandler(payload: MessageUpdatePayload) {
@@ -392,7 +395,7 @@ export const settings = definePluginSettings({
         type: OptionType.COMPONENT,
         description: "Export Logs From IndexedDB",
         component: () =>
-            <Button onClick={downloadLoggedMessages}>
+            <Button>
                 Export Logs
             </Button>
     },
@@ -433,7 +436,7 @@ export const settings = definePluginSettings({
                     confirmText: "Clear",
                     cancelText: "Cancel",
                     onConfirm: () => {
-                        LoggedMessageManager.clearLogs();
+                        idb.clearMessagesIDB();
                     },
                 })}
             >
@@ -549,7 +552,6 @@ export default definePlugin({
     },
 
     messageLoadSuccess,
-    store: MessageLoggerStore,
     openLogModal,
     doesMatch,
     reAddDeletedMessages,
@@ -565,7 +567,7 @@ export default definePlugin({
         return messages;
     },
 
-    isDeletedMessage: (id: string) => loggedMessages.deletedMessages[id] != null,
+    isDeletedMessage: (id: string) => cacheSentMessages.get(id)?.deleted ?? false,
 
     getDeleted(m1, m2) {
         const deleted = m2?.deleted;
@@ -583,9 +585,6 @@ export default definePlugin({
     attachments: new Map<string, LoggedAttachment>(),
     patchAttachments(props: { attachment: LoggedAttachment, message: LoggedMessage; }, forceUpdate: () => void) {
         const { attachment, message } = props;
-        if (!message.deleted || !LoggedMessageManager.hasMessageInLogs(message.id))
-            return; // Flogger.log("ignoring", message.id);
-
         if (this.attachments.has(attachment.id))
             return props.attachment = this.attachments.get(attachment.id)!; // Flogger.log("blobUrl already exists");
 
@@ -622,7 +621,7 @@ export default definePlugin({
     },
 
     flux: {
-        "MESSAGE_DELETE": messageDeleteHandler,
+        "MESSAGE_DELETE": messageDeleteHandler as any,
         "MESSAGE_DELETE_BULK": messageDeleteBulkHandler,
         "MESSAGE_UPDATE": messageUpdateHandler,
         "MESSAGE_CREATE": messageCreateHandler
