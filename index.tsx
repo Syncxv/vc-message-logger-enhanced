@@ -23,10 +23,10 @@ import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
 import { ImageCacheDir, LogsDir } from "./components/settings/FolderSelectInput";
 import { openUpdaterModal } from "./components/UpdaterModal";
-import { addMessage, loggedMessages, MessageLoggerStore, removeLog } from "./LoggedMessageManager";
+import { addMessage, loggedMessages, MessageLoggerStore } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
-import { LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, doesBlobUrlExist, getNative, isGhostPinged, ListType, mapEditHistory, messageJsonToMessageClass, reAddDeletedMessages, removeFromX } from "./utils";
+import { FetchMessagesResponse, LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
+import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupMessage, cleanupUserObject, doesBlobUrlExist, getNative, isGhostPinged, ListType, mapEditHistory, messageJsonToMessageClass, reAddDeletedMessages, removeFromX } from "./utils";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
@@ -35,6 +35,9 @@ import * as imageUtils from "./utils/saveImage";
 import * as ImageManager from "./utils/saveImage/ImageManager";
 import { downloadLoggedMessages } from "./utils/settingsUtils";
 import { checkForUpdatesAndNotify } from "./utils/updater";
+
+import * as idb from './db';
+import { sleep } from "@utils/misc";
 
 
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
@@ -49,7 +52,7 @@ const handledMessageIds = new Set();
 async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
     if (payload.mlDeleted) {
         if (settings.store.permanentlyRemoveLogByDefault)
-            await removeLog(payload.id);
+            await idb.deleteMessageIDB(payload.id);
 
         return;
     }
@@ -95,7 +98,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
 
         if (message == null || message.channel_id == null || !message.deleted) return;
         // Flogger.log("ADDING MESSAGE (DELETED)", message);
-        await addMessage(message, "deletedMessages", payload.isBulk ?? false);
+        await addMessage(message, idb.DBMessageStatus.DELETED, payload.isBulk ?? false);
     }
     finally {
         handledMessageIds.delete(payload.id);
@@ -156,7 +159,7 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
     if (message == null || message.channel_id == null || message.editHistory == null || message.editHistory.length === 0) return;
 
     // Flogger.log("ADDING MESSAGE (EDITED)", message, payload);
-    await addMessage(message, "editedMessages");
+    await addMessage(message, idb.DBMessageStatus.EDITED);
 }
 
 function messageCreateHandler(payload: MessageCreatePayload) {
@@ -177,43 +180,57 @@ function messageCreateHandler(payload: MessageCreatePayload) {
 }
 
 // also stolen from mlv2
-function messageLoadSuccess(payload: LoadMessagePayload) {
-    const deletedMessages = loggedMessages.deletedMessages[payload.channelId];
-    const editedMessages = loggedMessages.editedMessages[payload.channelId];
-    const recordIDs: string[] = [...(deletedMessages || []), ...(editedMessages || [])];
-
-
-    for (let i = 0; i < payload.messages.length; ++i) {
-        const recievedMessage = payload.messages[i];
-        const record = loggedMessages[recievedMessage.id];
-
-        if (record == null || record.message == null) continue;
-
-        if (record.message.editHistory!.length !== 0) {
-            payload.messages[i].editHistory = record.message.editHistory;
+async function messageLoadSuccess(response: FetchMessagesResponse) {
+    try {
+        if (!response.ok || response.body.length === 0) {
+            Flogger.error("Failed to fetch messages", response);
+            return;
         }
 
-    }
+        const firstMessage = response.body[0];
+        const lastMessage = response.body[response.body.length - 1];
+        console.time("fetching messages from idb");
+        const messages = await idb.getMessagesByChannelBetweenIDB(firstMessage.channel_id, firstMessage.id, lastMessage.id);
+        console.timeEnd("fetching messages from idb");
 
-    const fetchUser = (id: string) => UserStore.getUser(id) || payload.messages.find(e => e.author.id === id);
+        if (!messages.length) return;
 
-    for (let i = 0, len = recordIDs.length; i < len; i++) {
-        const id = recordIDs[i];
-        if (!loggedMessages[id]) continue;
-        const { message } = loggedMessages[id] as { message: LoggedMessageJSON; };
+        const deletedMessages = messages.filter(m => m.status === idb.DBMessageStatus.DELETED);
 
-        for (let j = 0, len2 = message.mentions.length; j < len2; j++) {
-            const user = message.mentions[j];
-            const cachedUser = fetchUser((user as any).id || user);
-            if (cachedUser) (message.mentions[j] as any) = cleanupUserObject(cachedUser);
+        for (const recivedMessage of response.body) {
+            const record = messages.find(m => m.message_id === recivedMessage.id);
+
+            if (record == null) continue;
+
+            if (record.message.editHistory && record.message.editHistory.length > 0) {
+                recivedMessage.editHistory = record.message.editHistory;
+            }
         }
 
-        const author = fetchUser(message.author.id);
-        if (!author) continue;
-        (message.author as any) = cleanupUserObject(author);
-    }
+        const fetchUser = (id: string) => UserStore.getUser(id) || response.body.find(e => e.author.id === id);
 
-    reAddDeletedMessages(payload.messages, deletedMessages, !payload.hasMoreAfter && !payload.isBefore, !payload.hasMoreBefore && !payload.isAfter);
+        for (let i = 0, len = messages.length; i < len; i++) {
+            const record = messages[i];
+            if (!record) continue;
+
+            const { message } = record;
+
+            for (let j = 0, len2 = message.mentions.length; j < len2; j++) {
+                const user = message.mentions[j];
+                const cachedUser = fetchUser((user as any).id || user);
+                if (cachedUser) (message.mentions[j] as any) = cleanupUserObject(cachedUser);
+            }
+
+            const author = fetchUser(message.author.id);
+            if (!author) continue;
+            (message.author as any) = cleanupUserObject(author);
+        }
+
+        response.body.extra = deletedMessages.map(m => m.message);
+
+    } catch (e) {
+        Flogger.error("Failed to fetch messages", e);
+    }
 }
 
 export const settings = definePluginSettings({
@@ -434,13 +451,19 @@ export default definePlugin({
 
     patches: [
         {
-            find: '"MessageStore"',
-            replacement: {
-                match: /LOAD_MESSAGES_SUCCESS:function\(\i\){/,
-                replace: "$&$self.messageLoadSuccess(arguments[0]);"
-            }
-        },
+            find: "_tryFetchMessagesCached",
+            replacement: [
+                {
+                    match: /(?<=\.get\({url.+?then\()(\i)=>\(/,
+                    replace: "async $1=>(await $self.messageLoadSuccess($1),"
+                },
+                {
+                    match: /(?<=type:"LOAD_MESSAGES_SUCCESS",.{1,100})messages:(\i)/,
+                    replace: "get messages() {return $self.coolReAddDeletedMessages($1, this);}"
+                }
 
+            ]
+        },
         {
             find: "THREAD_STARTER_MESSAGE?null===",
             replacement: {
@@ -529,9 +552,18 @@ export default definePlugin({
     store: MessageLoggerStore,
     openLogModal,
     doesMatch,
+    reAddDeletedMessages,
     LoggedMessageManager,
     ImageManager,
     imageUtils,
+    idb,
+
+    coolReAddDeletedMessages: (messages: LoggedMessageJSON[] & { extra: LoggedMessageJSON[]; }, payload: LoadMessagePayload) => {
+        if (messages.extra)
+            reAddDeletedMessages(messages, messages.extra, !payload.hasMoreAfter && !payload.isBefore, !payload.hasMoreBefore && !payload.isAfter);
+
+        return messages;
+    },
 
     isDeletedMessage: (id: string) => loggedMessages.deletedMessages[id] != null,
 
@@ -603,8 +635,8 @@ export default definePlugin({
         this.oldGetMessage = oldGetMessage = MessageStore.getMessage;
         // we have to do this because the original message logger fetches the message from the store now
         MessageStore.getMessage = (channelId: string, messageId: string) => {
-            const MLMessage = LoggedMessageManager.getMessage(channelId, messageId);
-            if (MLMessage?.message) return messageJsonToMessageClass(MLMessage);
+            const MLMessage = idb.cachedMessages.get(messageId);
+            if (MLMessage) return messageJsonToMessageClass({ message: MLMessage });
 
             return this.oldGetMessage(channelId, messageId);
         };
@@ -724,7 +756,7 @@ const contextMenuPath: NavContextMenuPatchCallback = (children, props) => {
                                 label={props.message?.deleted ? "Remove Message (Permanent)" : "Remove Message History (Permanent)"}
                                 color="danger"
                                 action={() =>
-                                    removeLog(props.message.id)
+                                    idb.deleteMessageIDB(props.message.id)
                                         .then(() => {
                                             if (props.message.deleted) {
                                                 FluxDispatcher.dispatch({

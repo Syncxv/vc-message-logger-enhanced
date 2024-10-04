@@ -91,6 +91,16 @@ export interface LoadMessagePayload {
     isStale: boolean;
 }
 
+export interface FetchMessagesResponse {
+    ok: boolean;
+    headers: Headers;
+    body: LoggedMessageJSON[] & {
+        extra?: LoggedMessageJSON[];
+    };
+    text: string;
+    status: number;
+}
+
 export interface AttachmentData {
     messageId: string;
     attachmentId: string;

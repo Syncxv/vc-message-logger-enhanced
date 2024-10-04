@@ -101,6 +101,10 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     }
     if (message.editedTimestamp)
         message.editedTimestamp = getTimestamp(message.editedTimestamp);
+
+    if (message.firstEditTimestamp)
+        message.firstEditTimestamp = getTimestamp(message.firstEditTimestamp);
+
     message.author = new AuthorClass(message.author);
     message.author.nick = message.author.globalName ?? message.author.username;
 

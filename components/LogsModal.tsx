@@ -14,10 +14,11 @@ import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, Nav
 import { User } from "discord-types/general";
 
 import { settings } from "../index";
-import { clearLogs, defaultLoggedMessages, removeLog, removeLogs, savedLoggedMessages } from "../LoggedMessageManager";
+import { clearLogs, defaultLoggedMessages, removeLogs, savedLoggedMessages } from "../LoggedMessageManager";
 import { LoggedMessage, LoggedMessageJSON, LoggedMessages } from "../types";
 import { isGhostPinged, messageJsonToMessageClass, sortMessagesByDate } from "../utils";
 import { doesMatch, parseQuery } from "../utils/parseQuery";
+import { deleteMessageIDB } from "../db";
 
 
 
@@ -416,7 +417,7 @@ function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
                             label="Delete Log"
                             color="danger"
                             action={() =>
-                                removeLog(log.message.id)
+                                deleteMessageIDB(log.message.id)
                                     .then(() => {
                                         forceUpdate();
                                     })
