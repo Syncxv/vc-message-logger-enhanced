@@ -68,6 +68,10 @@ export async function hasMessageIDB(message_id: string) {
     return cachedMessages.has(message_id) || (await db.count("messages", message_id)) > 0;
 }
 
+export async function countMessagesByStatusIDB(status: DBMessageStatus) {
+    return db.countFromIndex("messages", "by_status", status);
+}
+
 export async function getAllMessagesIDB() {
     return cacheRecords(await db.getAll("messages"));
 }

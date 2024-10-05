@@ -29,12 +29,16 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, sta
 
     await addMessageIDB(finalMessage, status);
 
-    const currentMessageCount = await db.count("messages");
-    if (settings.store.messageLimit > 0 && currentMessageCount >= settings.store.messageLimit) {
-        const messagesToDelete = currentMessageCount - settings.store.messageLimit;
-        const oldestMessages = await getOldestMessagesIDB(messagesToDelete);
+    if (settings.store.messageLimit > 0) {
+        const currentMessageCount = await db.count("messages");
+        if (currentMessageCount > settings.store.messageLimit) {
+            const messagesToDelete = currentMessageCount - settings.store.messageLimit;
+            if (messagesToDelete <= 0) return;
 
-        Flogger.info(`Deleting ${messagesToDelete} oldest messages`);
-        await deleteMessagesBulkIDB(oldestMessages.map(m => m.message_id));
+            const oldestMessages = await getOldestMessagesIDB(messagesToDelete);
+
+            Flogger.info(`Deleting ${messagesToDelete} oldest messages`);
+            await deleteMessagesBulkIDB(oldestMessages.map(m => m.message_id));
+        }
     }
 };

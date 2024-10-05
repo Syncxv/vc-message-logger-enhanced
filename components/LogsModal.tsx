@@ -13,7 +13,7 @@ import { find, findByCode, findByCodeLazy } from "@webpack";
 import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useEffect, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
-import { clearMessagesIDB, DBMessageRecord, DBMessageStatus, deleteMessageIDB, deleteMessagesBulkIDB, getDateStortedMessagesByStatusIDB } from "../db";
+import { clearMessagesIDB, countMessagesByStatusIDB, DBMessageRecord, DBMessageStatus, deleteMessageIDB, deleteMessagesBulkIDB, getDateStortedMessagesByStatusIDB } from "../db";
 import { settings } from "../index";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
 import { messageJsonToMessageClass } from "../utils";
@@ -73,23 +73,31 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
     const [queryEh, setQuery] = useState(initalQuery ?? "");
     const [sortNewest, setSortNewest] = useState(settings.store.sortNewest);
-    const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
+    const [numDisplayedMessages, setNumDisplayedMessages] = useState(settings.store.messagesToDisplayAtOnceInLogs);
     const contentRef = useRef<HTMLDivElement | null>(null);
 
     // only for initial load
     const [pending, setPending] = useState(true);
 
-    const messagesRef = useRef({} as { [key in LogTabs]: DBMessageRecord[] });
-    const messages = messagesRef[currentTab];
+    const messagesRef = useRef({} as { [key in LogTabs]: { messages: DBMessageRecord[], total: number; } });
+    const { messages, total } = messagesRef.current[currentTab] ?? {};
 
     useEffect(() => {
-        const status = currentTab === LogTabs.DELETED ? DBMessageStatus.DELETED : currentTab === LogTabs.EDITED ? DBMessageStatus.EDITED : DBMessageStatus.GHOST_PINGED;
-        getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages, status)
-            .then(messages => {
-                messagesRef[currentTab] = messages;
-                setPending(false);
-                forceUpdate();
-            });
+        const doStuff = async () => {
+            const status = currentTab === LogTabs.DELETED ? DBMessageStatus.DELETED : currentTab === LogTabs.EDITED ? DBMessageStatus.EDITED : DBMessageStatus.GHOST_PINGED;
+            const messages = await getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages, status);
+            const total = await countMessagesByStatusIDB(status);
+            messagesRef.current[currentTab] = {
+                messages,
+                total,
+            };
+
+            setPending(false);
+            forceUpdate();
+        };
+
+        doStuff();
+
     }, [sortNewest, numDisplayedMessages, currentTab]);
 
     // Flogger.timeEnd("hi");
@@ -104,7 +112,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     selectedItem={currentTab}
                     onItemSelect={e => {
                         setCurrentTab(e);
-                        setNumDisplayedMessages(50);
+                        setNumDisplayedMessages(settings.store.messagesToDisplayAtOnceInLogs);
                         contentRef.current?.firstElementChild?.scrollTo(0, 0);
                         // forceUpdate();
                     }}
@@ -139,11 +147,11 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                         {!pending && messages != null && messages.length > 0 && (
                             <LogsContentMemo
                                 visibleMessages={messages}
-                                canLoadMore={messages.length >= 50}
+                                canLoadMore={messages.length < total && messages.length >= settings.store.messagesToDisplayAtOnceInLogs}
                                 tab={currentTab}
                                 sortNewest={sortNewest}
                                 forceUpdate={forceUpdate}
-                                handleLoadMore={() => setNumDisplayedMessages(e => e + 50)}
+                                handleLoadMore={() => setNumDisplayedMessages(e => e + settings.store.messagesToDisplayAtOnceInLogs)}
                             />
                         )}
                     </ModalContent>
