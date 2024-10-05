@@ -112,7 +112,7 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     if (message.firstEditTimestamp)
         message.firstEditTimestamp = getTimestamp(message.firstEditTimestamp);
 
-    message.author = new AuthorClass(message.author);
+    message.author = UserStore.getUser(message.author.id) ?? new AuthorClass(message.author);
     message.author.nick = message.author.globalName ?? message.author.username;
 
     message.embeds = message.embeds.map(e => sanitizeEmbed(message.channel_id, message.id, e));

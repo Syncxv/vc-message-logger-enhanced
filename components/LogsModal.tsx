@@ -13,7 +13,7 @@ import { find, findByCode, findByCodeLazy } from "@webpack";
 import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useEffect, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
-import { clearMessagesIDB, DBMessageRecord, DBMessageStatus, deleteMessageIDB, deleteMessagesIDB, getDateStortedMessagesByStatusIDB } from "../db";
+import { clearMessagesIDB, DBMessageRecord, DBMessageStatus, deleteMessageIDB, deleteMessagesBulkIDB, getDateStortedMessagesByStatusIDB } from "../db";
 import { settings } from "../index";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
 import { messageJsonToMessageClass } from "../utils";
@@ -178,7 +178,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                         confirmColor: Button.Colors.RED,
                         cancelText: "Cancel",
                         onConfirm: async () => {
-                            await deleteMessagesIDB(messages.map(e => e.message_id));
+                            await deleteMessagesBulkIDB(messages.map(e => e.message_id));
                             forceUpdate();
                         }
                     })}

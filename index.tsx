@@ -26,7 +26,7 @@ import { openUpdaterModal } from "./components/UpdaterModal";
 import * as idb from "./db";
 import { addMessage } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
-import { FetchMessagesResponse, LoadMessagePayload, LoggedAttachment, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
+import { FetchMessagesResponse, LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload, PatchAttachmentItem } from "./types";
 import { addToXAndRemoveFromOpposite, cleanUpCachedMessage, cleanupUserObject, doesBlobUrlExist, getNative, isGhostPinged, ListType, mapEditHistory, messageJsonToMessageClass, reAddDeletedMessages, removeFromX } from "./utils";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import { shouldIgnore } from "./utils/index";
@@ -192,9 +192,9 @@ async function processMessageFetch(response: FetchMessagesResponse) {
             return;
         }
 
-        const firstMessage = response.body[0];
+        const firstMessage = response.body[response.body.length - 1];
         console.time("fetching messages from idb");
-        const messages = await idb.getMessagesForChannelIDB(firstMessage.channel_id);
+        const messages = await idb.getMessagesByChannelAndAfterTimestampIDB(firstMessage.channel_id, firstMessage.timestamp);
         console.timeEnd("fetching messages from idb");
 
         if (!messages.length) return;
@@ -591,36 +591,39 @@ export default definePlugin({
         return editHistory;
     },
 
-    attachments: new Map<string, LoggedAttachment>(),
-    patchAttachments(props: { item: { type: string, originalItem: LoggedAttachment; }, message: LoggedMessage; }, forceUpdate: () => void) {
+    attachments: new Map<string, string>(),
+    patchAttachments(props: { item: PatchAttachmentItem, message: LoggedMessage; }, forceUpdate: () => void) {
         const { item: { type, originalItem: attachment }, message } = props;
 
         if (type !== "IMAGE" || !message.deleted) return;
 
-        if (this.attachments.has(attachment.id)) {
-            Flogger.log("attachment already saved", attachment.id);
-            return;
-        }
-
-        imageUtils.getAttachmentBlobUrl(attachment, message.id).then((blobUrl: string | null) => {
+        const modifyUrls = (blobUrl: string | null) => {
             if (blobUrl == null) {
                 Flogger.error("image not found. for message.id =", message.id, blobUrl);
                 return;
             }
 
-            Flogger.log("Got blob url for message.id =", message.id, blobUrl);
-            // we need to copy because changing this will change the attachment for the message in the logs
-            const attachmentCopy = { ...attachment };
 
-            attachmentCopy.oldUrl = attachment.url;
+            if (!this.attachments.has(attachment.id)) {
+                blobUrl += "#";
+                this.attachments.set(attachment.id, blobUrl);
+            }
 
-            const finalBlobUrl = blobUrl + "#";
-            attachmentCopy.blobUrl = finalBlobUrl;
-            attachmentCopy.url = finalBlobUrl;
-            attachmentCopy.proxy_url = finalBlobUrl;
-            this.attachments.set(attachment.id, attachmentCopy);
+
+            props.item.downloadUrl = blobUrl;
+            props.item.originalItem.url = blobUrl;
+            props.item.originalItem.proxy_url = blobUrl;
+
             forceUpdate();
-        });
+        };
+
+        const exisitingUrl = this.attachments.get(attachment.id);
+        if (exisitingUrl) {
+            Flogger.log("attachment already saved", attachment.id);
+            return;
+        }
+
+        imageUtils.getAttachmentBlobUrl(attachment, message.id).then(modifyUrls);
 
     },
 

@@ -16,8 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { settings } from ".";
-import { addMessageIDB, DBMessageStatus } from "./db";
+import { Flogger, settings } from ".";
+import { addMessageIDB, db, DBMessageStatus, deleteMessagesBulkIDB, getOldestMessagesIDB } from "./db";
 import { LoggedMessage, LoggedMessageJSON } from "./types";
 import { cleanupMessage } from "./utils";
 import { cacheMessageImages } from "./utils/saveImage";
@@ -28,4 +28,13 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, sta
     const finalMessage = cleanupMessage(message);
 
     await addMessageIDB(finalMessage, status);
+
+    const currentMessageCount = await db.count("messages");
+    if (settings.store.messageLimit > 0 && currentMessageCount >= settings.store.messageLimit) {
+        const messagesToDelete = currentMessageCount - settings.store.messageLimit;
+        const oldestMessages = await getOldestMessagesIDB(messagesToDelete);
+
+        Flogger.info(`Deleting ${messagesToDelete} oldest messages`);
+        await deleteMessagesBulkIDB(oldestMessages.map(m => m.message_id));
+    }
 };

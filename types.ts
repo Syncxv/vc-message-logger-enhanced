@@ -101,6 +101,17 @@ export interface FetchMessagesResponse {
     status: number;
 }
 
+export interface PatchAttachmentItem {
+    uniqueId: string;
+    originalItem: LoggedAttachment;
+    type: string;
+    downloadUrl: string;
+    height: number;
+    width: number;
+    spoiler: boolean;
+    contentType: string;
+}
+
 export interface AttachmentData {
     messageId: string;
     attachmentId: string;
