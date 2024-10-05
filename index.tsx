@@ -34,6 +34,7 @@ import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
 import * as imageUtils from "./utils/saveImage";
 import * as ImageManager from "./utils/saveImage/ImageManager";
+import { exportLogs, importLogs } from "./utils/settingsUtils";
 import { checkForUpdatesAndNotify } from "./utils/updater";
 
 
@@ -72,6 +73,8 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
             message = { ...cacheSentMessages.get(`${payload.channelId},${payload.id}`), deleted: true } as LoggedMessageJSON;
         }
 
+        const ghostPinged = isGhostPinged(message as any);
+
         if (
             shouldIgnore({
                 channelId: message?.channel_id ?? payload.channelId,
@@ -79,7 +82,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
                 authorId: message?.author?.id,
                 bot: message?.bot || message?.author?.bot,
                 flags: message?.flags,
-                ghostPinged: isGhostPinged(message as any),
+                ghostPinged,
                 isCachedByUs: (message as LoggedMessageJSON).ourCache
             })
         ) {
@@ -98,7 +101,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
         if (payload.isBulk)
             return message;
 
-        await addMessage(message, idb.DBMessageStatus.DELETED);
+        await addMessage(message, ghostPinged ? idb.DBMessageStatus.GHOST_PINGED : idb.DBMessageStatus.DELETED);
     }
     finally {
         handledMessageIds.delete(payload.id);
@@ -389,14 +392,24 @@ export const settings = definePluginSettings({
         component: ErrorBoundary.wrap(LogsDir) as any
     },
 
+    importLogs: {
+        type: OptionType.COMPONENT,
+        description: "Import Logs From File",
+        component: () =>
+            <Button onClick={importLogs}>
+                Import Logs
+            </Button>
+    },
+
     exportLogs: {
         type: OptionType.COMPONENT,
         description: "Export Logs From IndexedDB",
         component: () =>
-            <Button>
+            <Button onClick={exportLogs}>
                 Export Logs
             </Button>
     },
+
     openLogs: {
         type: OptionType.COMPONENT,
         description: "Open Logs",
@@ -464,6 +477,13 @@ export default definePlugin({
                 }
 
             ]
+        },
+        {
+            find: "THREAD_STARTER_MESSAGE?null===",
+            replacement: {
+                match: / deleted:\i\.deleted, editHistory:\i\.editHistory,/,
+                replace: "deleted:$self.getDeleted(...arguments), editHistory:$self.getEdited(...arguments),"
+            }
         },
         {
             find: "toolbar:function",

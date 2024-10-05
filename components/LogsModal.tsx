@@ -8,9 +8,9 @@ import { classNameFactory } from "@api/Styles";
 import { openUserProfile } from "@utils/discord";
 import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
-import { LazyComponent, useAwaiter } from "@utils/react";
+import { LazyComponent } from "@utils/react";
 import { find, findByCode, findByCodeLazy } from "@webpack";
-import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useMemo, useRef, useState } from "@webpack/common";
+import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useEffect, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { clearMessagesIDB, DBMessageRecord, DBMessageStatus, deleteMessageIDB, deleteMessagesIDB, getDateStortedMessagesByStatusIDB } from "../db";
@@ -76,14 +76,21 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(50);
     const contentRef = useRef<HTMLDivElement | null>(null);
 
-    const [messages, _, pending] = useAwaiter(() => {
-        return getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages, currentTab === LogTabs.DELETED ? DBMessageStatus.DELETED : DBMessageStatus.EDITED);
-    }, {
-        deps: [sortNewest, numDisplayedMessages, currentTab],
-        fallbackValue: []
-    });
+    // only for initial load
+    const [pending, setPending] = useState(true);
 
-    console.log(messages);
+    const messagesRef = useRef({} as { [key in LogTabs]: DBMessageRecord[] });
+    const messages = messagesRef[currentTab];
+
+    useEffect(() => {
+        const status = currentTab === LogTabs.DELETED ? DBMessageStatus.DELETED : currentTab === LogTabs.EDITED ? DBMessageStatus.EDITED : DBMessageStatus.GHOST_PINGED;
+        getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages, status)
+            .then(messages => {
+                messagesRef[currentTab] = messages;
+                setPending(false);
+                forceUpdate();
+            });
+    }, [sortNewest, numDisplayedMessages, currentTab]);
 
     // Flogger.timeEnd("hi");
     return (
@@ -128,8 +135,8 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     <ModalContent
                         className={cl("content")}
                     >
-                        {messages.length === 0 && <EmptyLogs />}
-                        {!pending && messages !== null && messages.length > 0 && (
+                        {messages != null && messages.length === 0 && <EmptyLogs />}
+                        {!pending && messages != null && messages.length > 0 && (
                             <LogsContentMemo
                                 visibleMessages={messages}
                                 canLoadMore={messages.length >= 50}

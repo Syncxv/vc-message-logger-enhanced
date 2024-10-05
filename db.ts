@@ -5,12 +5,14 @@
  */
 
 import { LoggedMessageJSON } from "./types";
+import { getMessageStatus } from "./utils";
 import { DB_NAME, DB_VERSION } from "./utils/constants";
 import { DBSchema, IDBPDatabase, openDB } from "./utils/idb";
 
 export enum DBMessageStatus {
     DELETED = "DELETED",
     EDITED = "EDITED",
+    GHOST_PINGED = "GHOST_PINGED",
 }
 
 export interface DBMessageRecord {
@@ -129,7 +131,7 @@ export async function addMessageIDB(message: LoggedMessageJSON, status: DBMessag
     cachedMessages.set(message.id, message);
 }
 
-export async function addMessagesBulkIDB(messages: LoggedMessageJSON[], status = DBMessageStatus.DELETED) {
+export async function addMessagesBulkIDB(messages: LoggedMessageJSON[], status?: DBMessageStatus) {
     const tx = db.transaction("messages", "readwrite");
     const { store } = tx;
 
@@ -137,7 +139,7 @@ export async function addMessagesBulkIDB(messages: LoggedMessageJSON[], status =
         ...messages.map(message => store.put({
             channel_id: message.channel_id,
             message_id: message.id,
-            status,
+            status: status ?? getMessageStatus(message),
             message,
         })),
         tx.done

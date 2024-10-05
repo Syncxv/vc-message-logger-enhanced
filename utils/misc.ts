@@ -20,6 +20,7 @@ import { PluginNative } from "@utils/types";
 import { findByCodeLazy, findLazy } from "@webpack";
 import { ChannelStore, moment, UserStore } from "@webpack/common";
 
+import { DBMessageStatus } from "../db";
 import { LoggedMessageJSON } from "../types";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./constants";
 import { DISCORD_EPOCH } from "./index";
@@ -43,6 +44,14 @@ export const hasPingged = (message?: LoggedMessageJSON | { mention_everyone: boo
         message.mention_everyone ||
         message.mentions?.find(m => (typeof m === "string" ? m : m.id) === UserStore.getCurrentUser().id)
     );
+};
+
+export const getMessageStatus = (message: LoggedMessageJSON) => {
+    if (isGhostPinged(message)) return DBMessageStatus.GHOST_PINGED;
+    if (message.deleted) return DBMessageStatus.DELETED;
+    if (message.editHistory?.length) return DBMessageStatus.EDITED;
+
+    throw new Error("Unknown message status");
 };
 
 export const discordIdToDate = (id: string) => new Date((parseInt(id) / 4194304) + DISCORD_EPOCH);

@@ -16,11 +16,87 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// import { LOGGED_MESSAGES_KEY, MessageLoggerStore } from "../LoggedMessageManager";
+import { chooseFile } from "@utils/web";
+import { Toasts } from "@webpack/common";
 
-// 99% of this is coppied from src\utils\settingsSync.ts
+import { addMessagesBulkIDB, DBMessageRecord, getAllMessagesIDB } from "../db";
+import { LoggedMessage, LoggedMessageJSON } from "../types";
+
+function readFile(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsText(file);
+    });
+}
+
+export async function importLogs() {
+    const file = await chooseFile(".json");
+    if (file == null) return;
+
+    try {
+        const content = await readFile(file);
+        const data = JSON.parse(content) as { messages: DBMessageRecord[]; };
+
+        let messages: LoggedMessageJSON[] = [];
+
+        if ((data as any).deletedMessages || (data as any).editedMessages) {
+            messages = Object.values((data as unknown as LoggedMessage)).filter(m => m.message).map(m => m.message) as LoggedMessageJSON[];
+        } else
+            messages = data.messages.map(m => m.message);
+
+        if (!Array.isArray(messages)) {
+            throw new Error("Invalid log file format");
+        }
+
+        if (!messages.length) {
+            throw new Error("No messages found in log file");
+        }
+
+        if (!messages.every(m => m.id && m.channel_id && m.timestamp)) {
+            throw new Error("Invalid message format");
+        }
+
+        await addMessagesBulkIDB(messages);
+
+        Toasts.show({
+            id: Toasts.genId(),
+            message: "Successfully imported logs",
+            type: Toasts.Type.SUCCESS
+        });
+    } catch (e) {
+        console.error(e);
+
+        Toasts.show({
+            id: Toasts.genId(),
+            message: "Error importing logs. Check the console for more information",
+            type: Toasts.Type.FAILURE
+        });
+    }
+
+}
 
 export async function exportLogs() {
-    // TODO:
+    const filename = "message-logger-logs-idb.json";
+
+    const messages = await getAllMessagesIDB();
+    const data = JSON.stringify({ messages }, null, 2);
+
+    if (IS_WEB || IS_VESKTOP) {
+        const file = new File([data], filename, { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(file);
+        a.download = filename;
+
+        document.body.appendChild(a);
+        a.click();
+        setImmediate(() => {
+            URL.revokeObjectURL(a.href);
+            document.body.removeChild(a);
+        });
+    } else {
+        DiscordNative.fileManager.saveWithDialog(data, filename);
+    }
 }
 
