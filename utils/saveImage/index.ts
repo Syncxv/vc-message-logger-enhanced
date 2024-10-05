@@ -18,6 +18,7 @@
 
 import { sleep } from "@utils/misc";
 import { MessageAttachment } from "discord-types/general";
+import { hasMessageIDB } from "userplugins/vc-message-logger-enhanced/db";
 
 import { Flogger, Native, settings } from "../..";
 import { LoggedAttachment, LoggedMessage, LoggedMessageJSON } from "../../types";
@@ -104,7 +105,13 @@ export async function deleteMessageImages(message: LoggedMessage | LoggedMessage
     }
 }
 
-export const getAttachmentBlobUrl = memoize(async (attachment: LoggedAttachment) => {
+export const getAttachmentBlobUrl = memoize(async (attachment: LoggedAttachment, message_id: string) => {
+    // avoid unnecessary file reads
+    if (!await hasMessageIDB(message_id)) {
+        Flogger.error("Message not found in db");
+        return null;
+    }
+
     const imageData = await getImage(attachment.id, attachment.fileExtension);
     if (!imageData) return null;
 

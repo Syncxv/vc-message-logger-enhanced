@@ -182,8 +182,7 @@ function messageCreateHandler(payload: MessageCreatePayload) {
     // Flogger.log(`cached\nkey:${payload.message.channel_id},${payload.message.id}\nvalue:`, payload.message);
 }
 
-// also stolen from mlv2
-async function messageLoadSuccess(response: FetchMessagesResponse) {
+async function processMessageFetch(response: FetchMessagesResponse) {
     try {
         if (!response.ok || response.body.length === 0) {
             Flogger.error("Failed to fetch messages", response);
@@ -191,9 +190,8 @@ async function messageLoadSuccess(response: FetchMessagesResponse) {
         }
 
         const firstMessage = response.body[0];
-        const lastMessage = response.body[response.body.length - 1];
         console.time("fetching messages from idb");
-        const messages = await idb.getMessagesByChannelBetweenIDB(firstMessage.channel_id, firstMessage.id, lastMessage.id);
+        const messages = await idb.getMessagesForChannelIDB(firstMessage.channel_id);
         console.timeEnd("fetching messages from idb");
 
         if (!messages.length) return;
@@ -458,7 +456,7 @@ export default definePlugin({
             replacement: [
                 {
                     match: /(?<=\.get\({url.+?then\()(\i)=>\(/,
-                    replace: "async $1=>(await $self.messageLoadSuccess($1),"
+                    replace: "async $1=>(await $self.processMessageFetch($1),"
                 },
                 {
                     match: /(?<=type:"LOAD_MESSAGES_SUCCESS",.{1,100})messages:(\i)/,
@@ -467,14 +465,6 @@ export default definePlugin({
 
             ]
         },
-        {
-            find: "THREAD_STARTER_MESSAGE?null===",
-            replacement: {
-                match: / deleted:\i\.deleted, editHistory:\i\.editHistory,/,
-                replace: "deleted:$self.getDeleted(...arguments), editHistory:$self.getEdited(...arguments),"
-            }
-        },
-
         {
             find: "toolbar:function",
             predicate: () => settings.store.ShowLogsButton,
@@ -492,17 +482,16 @@ export default definePlugin({
             }
         },
 
-        // https://regex101.com/r/TMV1vY/1
         {
-            find: ".removeAttachmentHoverButton",
+            find: ".removeMosaicItemHoverButton",
             replacement: {
-                match: /(\i=(\i)=>{)(.{1,250}isSingleMosaicItem)/,
-                replace: "$1 let forceUpdate=Vencord.Util.useForceUpdater();$self.patchAttachments($2,forceUpdate);$3"
+                match: /(function \i\(\i\){)(.{1,250}isSingleMosaicItem)/,
+                replace: "$1 let forceUpdate=Vencord.Util.useForceUpdater();$self.patchAttachments(arguments[0],forceUpdate);$2"
             }
         },
 
         {
-            find: "handleImageLoad=",
+            find: ".handleImageLoad)",
             replacement: {
                 match: /(render\(\){)(.{1,100}zoomThumbnailPlaceholder)/,
                 replace: "$1$self.checkImage(this);$2"
@@ -551,7 +540,7 @@ export default definePlugin({
         ];
     },
 
-    messageLoadSuccess,
+    processMessageFetch,
     openLogModal,
     doesMatch,
     reAddDeletedMessages,
@@ -583,16 +572,22 @@ export default definePlugin({
     },
 
     attachments: new Map<string, LoggedAttachment>(),
-    patchAttachments(props: { attachment: LoggedAttachment, message: LoggedMessage; }, forceUpdate: () => void) {
-        const { attachment, message } = props;
-        if (this.attachments.has(attachment.id))
-            return props.attachment = this.attachments.get(attachment.id)!; // Flogger.log("blobUrl already exists");
+    patchAttachments(props: { item: { type: string, originalItem: LoggedAttachment; }, message: LoggedMessage; }, forceUpdate: () => void) {
+        const { item: { type, originalItem: attachment }, message } = props;
 
-        imageUtils.getAttachmentBlobUrl(attachment).then((blobUrl: string | null) => {
+        if (type !== "IMAGE" || !message.deleted) return;
+
+        if (this.attachments.has(attachment.id)) {
+            Flogger.log("attachment already saved", attachment.id);
+            return;
+        }
+
+        imageUtils.getAttachmentBlobUrl(attachment, message.id).then((blobUrl: string | null) => {
             if (blobUrl == null) {
                 Flogger.error("image not found. for message.id =", message.id, blobUrl);
                 return;
             }
+
             Flogger.log("Got blob url for message.id =", message.id, blobUrl);
             // we need to copy because changing this will change the attachment for the message in the logs
             const attachmentCopy = { ...attachment };

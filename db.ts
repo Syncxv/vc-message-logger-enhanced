@@ -60,6 +60,10 @@ export async function initIDB() {
 }
 initIDB();
 
+export async function hasMessageIDB(message_id: string) {
+    return cachedMessages.has(message_id) || (await db.count("messages", message_id)) > 0;
+}
+
 export async function getAllMessagesIDB() {
     return cacheRecords(await db.getAll("messages"));
 }
@@ -104,6 +108,9 @@ export async function getMessagesByChannelBetweenIDB(channel_id: string, start: 
     const index = store.index("by_channel_and_message_id");
 
     const [lower, upper] = start <= end ? [start, end] : [end, start];
+
+    console.log("lower", lower, "upper", upper);
+
     const keyRange = IDBKeyRange.bound([channel_id, lower], [channel_id, upper]);
 
     const records = await index.getAll(keyRange);
