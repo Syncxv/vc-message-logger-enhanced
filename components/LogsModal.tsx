@@ -10,13 +10,14 @@ import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent } from "@utils/react";
 import { find, findByCode, findByCodeLazy } from "@webpack";
-import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useEffect, useMemo, useRef, useState } from "@webpack/common";
+import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
-import { clearMessagesIDB, countMessagesByStatusIDB, DBMessageRecord, DBMessageStatus, deleteMessageIDB, deleteMessagesBulkIDB, getDateStortedMessagesByStatusIDB } from "../db";
+import { clearMessagesIDB, DBMessageRecord, deleteMessageIDB, deleteMessagesBulkIDB } from "../db";
 import { settings } from "../index";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
 import { messageJsonToMessageClass } from "../utils";
+import { useMessages } from "./hooks";
 
 
 
@@ -54,7 +55,7 @@ const ChildrenAccessories = LazyComponent<ChildrenAccProops>(() => findByCode("c
 
 const cl = classNameFactory("msg-logger-modal-");
 
-enum LogTabs {
+export enum LogTabs {
     DELETED = "Deleted",
     EDITED = "Edited",
     GHOST_PING = "Ghost Pinged"
@@ -76,31 +77,8 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(settings.store.messagesToDisplayAtOnceInLogs);
     const contentRef = useRef<HTMLDivElement | null>(null);
 
-    // only for initial load
-    const [pending, setPending] = useState(true);
+    const { messages, total, pending } = useMessages(queryEh, currentTab, sortNewest, numDisplayedMessages, forceUpdate);
 
-    const messagesRef = useRef({} as { [key in LogTabs]: { messages: DBMessageRecord[], total: number; } });
-    const { messages, total } = messagesRef.current[currentTab] ?? {};
-
-    useEffect(() => {
-        const doStuff = async () => {
-            const status = currentTab === LogTabs.DELETED ? DBMessageStatus.DELETED : currentTab === LogTabs.EDITED ? DBMessageStatus.EDITED : DBMessageStatus.GHOST_PINGED;
-            const messages = await getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages, status);
-            const total = await countMessagesByStatusIDB(status);
-            messagesRef.current[currentTab] = {
-                messages,
-                total,
-            };
-
-            setPending(false);
-            forceUpdate();
-        };
-
-        doStuff();
-
-    }, [sortNewest, numDisplayedMessages, currentTab]);
-
-    // Flogger.timeEnd("hi");
     return (
         <ModalRoot className={cl("root")} {...modalProps} size={ModalSize.LARGE}>
             <ModalHeader className={cl("header")}>
@@ -233,7 +211,7 @@ function LogsContent({ visibleMessages, canLoadMore, sortNewest, tab, forceUpdat
                         key={message.id}
                         log={{ message }}
                         forceUpdate={forceUpdate}
-                        isGroupStart={isGroupStart(message, visibleMessages[visibleMessages.length - 1].message, sortNewest)}
+                        isGroupStart={isGroupStart(message, visibleMessages[i - 1]?.message, sortNewest)}
                     />
                 ))}
             {

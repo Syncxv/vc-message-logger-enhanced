@@ -33,7 +33,7 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, sta
         const currentMessageCount = await db.count("messages");
         if (currentMessageCount > settings.store.messageLimit) {
             const messagesToDelete = currentMessageCount - settings.store.messageLimit;
-            if (messagesToDelete <= 0) return;
+            if (messagesToDelete <= 0 || messagesToDelete >= settings.store.messageLimit) return;
 
             const oldestMessages = await getOldestMessagesIDB(messagesToDelete);
 
