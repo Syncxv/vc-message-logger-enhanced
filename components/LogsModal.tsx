@@ -6,12 +6,13 @@
 
 import { classNameFactory } from "@api/Styles";
 import { Flex } from "@components/Flex";
+import { InfoIcon } from "@components/Icons";
 import { openUserProfile } from "@utils/discord";
 import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent } from "@utils/react";
 import { find, findByCode, findByCodeLazy } from "@webpack";
-import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, useMemo, useRef, useState } from "@webpack/common";
+import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, Tooltip, useMemo, useRef, useState } from "@webpack/common";
 import { User } from "discord-types/general";
 
 import { clearMessagesIDB, DBMessageRecord, deleteMessageIDB, deleteMessagesBulkIDB } from "../db";
@@ -20,8 +21,6 @@ import { LoggedMessage, LoggedMessageJSON } from "../types";
 import { messageJsonToMessageClass } from "../utils";
 import { importLogs } from "../utils/settingsUtils";
 import { useMessages } from "./hooks";
-
-
 
 export interface MessagePreviewProps {
     className: string;
@@ -268,15 +267,30 @@ function NoResults({ tab }: { tab: LogTabs; }) {
 function EmptyLogs({ hasQuery, reset: forceUpdate }: { hasQuery: boolean; reset: () => void; }) {
     return (
         <div className={cl("empty-logs", "content-inner")} style={{ textAlign: "center" }}>
-            <Flex flexDirection="column">
+            <Flex flexDirection="column" style={{ position: "relative" }}>
+
                 <Text variant="text-lg/normal">
                     Empty eh
                 </Text>
 
                 {!hasQuery && (
-                    <Button onClick={() => importLogs().then(() => forceUpdate())}>
-                        Import Logs
-                    </Button>
+                    <>
+                        <Tooltip text="ML Enhanced now stores logs in indexeddb. You need to import your old logs from the logs directory. Importing wont overwrite existing logs">
+                            {({ onMouseEnter, onMouseLeave }) => (
+                                <div
+                                    className={cl("info-icon")}
+                                    onMouseEnter={onMouseEnter}
+                                    onMouseLeave={onMouseLeave}
+                                >
+                                    <InfoIcon />
+                                </div>
+                            )}
+                        </Tooltip>
+
+                        <Button onClick={() => importLogs().then(() => forceUpdate())}>
+                            Import Logs
+                        </Button>
+                    </>
                 )}
             </Flex>
         </div>
