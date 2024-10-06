@@ -125,3 +125,12 @@ export async function chooseDir(event: IpcMainInvokeEvent, logKey: "logsDir" | "
 export async function showItemInFolder(_event: IpcMainInvokeEvent, filePath: string) {
     shell.showItemInFolder(filePath);
 }
+
+export async function chooseFile(_event: IpcMainInvokeEvent, title: string, filters: Electron.FileFilter[], defaultPath?: string) {
+    const res = await dialog.showOpenDialog({ title, filters, properties: ["openFile"], defaultPath });
+    const [path] = res.filePaths;
+
+    if (!path) throw Error("Invalid file");
+
+    return await readFile(path, "utf-8");
+}

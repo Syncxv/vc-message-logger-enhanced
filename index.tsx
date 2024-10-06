@@ -23,8 +23,8 @@ import * as idb from "./db";
 import { addMessage } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { settings } from "./settings";
-import { FetchMessagesResponse, LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload, PatchAttachmentItem } from "./types";
-import { cleanUpCachedMessage, cleanupUserObject, doesBlobUrlExist, getNative, isGhostPinged, mapEditHistory, messageJsonToMessageClass, reAddDeletedMessages } from "./utils";
+import { FetchMessagesResponse, LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
+import { cleanUpCachedMessage, cleanupUserObject, getNative, isGhostPinged, mapEditHistory, messageJsonToMessageClass, reAddDeletedMessages } from "./utils";
 import { removeContextMenuBindings, setupContextMenuPatches } from "./utils/contextMenu";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
@@ -278,19 +278,15 @@ export default definePlugin({
             }
         },
 
-        {
-            find: ".removeMosaicItemHoverButton",
-            replacement: {
-                match: /(function \i\(\i\){)(.{1,250}isSingleMosaicItem)/,
-                replace: "$1 let forceUpdate=Vencord.Util.useForceUpdater();$self.patchAttachments(arguments[0],forceUpdate);$2"
-            }
-        },
-
+        // https://regex101.com/r/S3IVGm/1
+        // fix vidoes failing because there are no thumbnails
         {
             find: ".handleImageLoad)",
             replacement: {
-                match: /(render\(\){)(.{1,100}zoomThumbnailPlaceholder)/,
-                replace: "$1$self.checkImage(this);$2"
+                match: /(componentDidMount\(\){)(.{1,150}===(.+?)\.LOADING)/,
+                replace:
+                    "$1if(this.props.src.startsWith('blob:') && this.props.item.type === 'VIDEO')" +
+                    "return this.setState({readyState: $3.READY});$2"
             }
         },
 
@@ -365,51 +361,6 @@ export default definePlugin({
         if (editHistory == null && m1?.editHistory != null && m1.editHistory.length > 0)
             return m1.editHistory.map(mapEditHistory);
         return editHistory;
-    },
-
-    attachments: new Map<string, string>(),
-    patchAttachments(props: { item: PatchAttachmentItem, message: LoggedMessage; }, forceUpdate: () => void) {
-        const { item: { type, originalItem: attachment }, message } = props;
-
-        if (type !== "IMAGE" || !message.deleted) return;
-
-        const modifyUrls = (blobUrl: string | null) => {
-            if (blobUrl == null) {
-                Flogger.error("image not found. for message.id =", message.id, blobUrl);
-                return;
-            }
-
-            if (!this.attachments.has(attachment.id)) {
-                blobUrl += "#";
-                this.attachments.set(attachment.id, blobUrl);
-            }
-
-            props.item.downloadUrl = blobUrl;
-            props.item.originalItem.url = blobUrl;
-            props.item.originalItem.proxy_url = blobUrl;
-
-            forceUpdate();
-        };
-
-        const exisitingUrl = this.attachments.get(attachment.id);
-        if (exisitingUrl) {
-            Flogger.log("attachment already saved", attachment.id);
-            return;
-        }
-
-        imageUtils.getAttachmentBlobUrl(attachment, message.id).then(modifyUrls);
-
-    },
-
-    async checkImage(instance: any) {
-        if (!instance.props.isBad && instance.state?.readyState !== "READY" && instance.props?.src?.startsWith("blob:")) {
-            if (await doesBlobUrlExist(instance.props.src)) {
-                Flogger.log("image exists", instance.props.src);
-                return instance.setState(e => ({ ...e, readyState: "READY" }));
-            }
-
-            instance.props.isBad = true;
-        }
     },
 
     flux: {

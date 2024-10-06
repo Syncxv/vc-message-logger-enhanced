@@ -16,27 +16,33 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { chooseFile } from "@utils/web";
+import { chooseFile as chooseFileWeb } from "@utils/web";
 import { Toasts } from "@webpack/common";
 
+import { Native } from "..";
 import { addMessagesBulkIDB, DBMessageRecord, getAllMessagesIDB } from "../db";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
 
-function readFile(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsText(file);
-    });
+async function getLogContents(): Promise<string> {
+    if (IS_WEB) {
+        const file = await chooseFileWeb(".json");
+        return new Promise((resolve, reject) => {
+            if (!file) return reject("No file selected");
+
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsText(file);
+        });
+    }
+
+    const settings = await Native.getSettings();
+    return Native.chooseFile("Logs", [{ extensions: ["json"], name: "logs" }], settings.logsDir);
 }
 
 export async function importLogs() {
-    const file = await chooseFile(".json");
-    if (file == null) return;
-
     try {
-        const content = await readFile(file);
+        const content = await getLogContents();
         const data = JSON.parse(content) as { messages: DBMessageRecord[]; };
 
         let messages: LoggedMessageJSON[] = [];

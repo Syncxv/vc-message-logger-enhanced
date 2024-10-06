@@ -5,6 +5,7 @@
  */
 
 import { classNameFactory } from "@api/Styles";
+import { Flex } from "@components/Flex";
 import { openUserProfile } from "@utils/discord";
 import { copyWithToast } from "@utils/misc";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
@@ -17,6 +18,7 @@ import { clearMessagesIDB, DBMessageRecord, deleteMessageIDB, deleteMessagesBulk
 import { settings } from "../index";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
 import { messageJsonToMessageClass } from "../utils";
+import { importLogs } from "../utils/settingsUtils";
 import { useMessages } from "./hooks";
 
 
@@ -77,7 +79,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(settings.store.messagesToDisplayAtOnceInLogs);
     const contentRef = useRef<HTMLDivElement | null>(null);
 
-    const { messages, total, pending } = useMessages(queryEh, currentTab, sortNewest, numDisplayedMessages, forceUpdate);
+    const { messages, total, pending, reset } = useMessages(queryEh, currentTab, sortNewest, numDisplayedMessages, forceUpdate);
 
     return (
         <ModalRoot className={cl("root")} {...modalProps} size={ModalSize.LARGE}>
@@ -121,14 +123,19 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     <ModalContent
                         className={cl("content")}
                     >
-                        {messages != null && messages.length === 0 && <EmptyLogs />}
+                        {messages != null && messages.length === 0 && (
+                            <EmptyLogs
+                                hasQuery={queryEh.length !== 0}
+                                reset={reset}
+                            />
+                        )}
                         {!pending && messages != null && messages.length > 0 && (
                             <LogsContentMemo
                                 visibleMessages={messages}
                                 canLoadMore={messages.length < total && messages.length >= settings.store.messagesToDisplayAtOnceInLogs}
                                 tab={currentTab}
                                 sortNewest={sortNewest}
-                                forceUpdate={forceUpdate}
+                                reset={reset}
                                 handleLoadMore={() => setNumDisplayedMessages(e => e + settings.store.messagesToDisplayAtOnceInLogs)}
                             />
                         )}
@@ -146,7 +153,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                         cancelText: "Cancel",
                         onConfirm: async () => {
                             await clearMessagesIDB();
-                            forceUpdate();
+                            reset();
                         }
 
                     })}
@@ -165,7 +172,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                         cancelText: "Cancel",
                         onConfirm: async () => {
                             await deleteMessagesBulkIDB(messages.map(e => e.message_id));
-                            forceUpdate();
+                            reset();
                         }
                     })}
                 >
@@ -195,11 +202,11 @@ interface LogContentProps {
     tab: LogTabs;
     visibleMessages: DBMessageRecord[];
     canLoadMore: boolean;
-    forceUpdate: () => void;
+    reset: () => void;
     handleLoadMore: () => void;
 }
 
-function LogsContent({ visibleMessages, canLoadMore, sortNewest, tab, forceUpdate, handleLoadMore }: LogContentProps) {
+function LogsContent({ visibleMessages, canLoadMore, sortNewest, tab, reset, handleLoadMore }: LogContentProps) {
     if (visibleMessages.length === 0)
         return <NoResults tab={tab} />;
 
@@ -210,7 +217,7 @@ function LogsContent({ visibleMessages, canLoadMore, sortNewest, tab, forceUpdat
                     <LMessage
                         key={message.id}
                         log={{ message }}
-                        forceUpdate={forceUpdate}
+                        reset={reset}
                         isGroupStart={isGroupStart(message, visibleMessages[i - 1]?.message, sortNewest)}
                     />
                 ))}
@@ -258,12 +265,20 @@ function NoResults({ tab }: { tab: LogTabs; }) {
     );
 }
 
-function EmptyLogs() {
+function EmptyLogs({ hasQuery, reset: forceUpdate }: { hasQuery: boolean; reset: () => void; }) {
     return (
         <div className={cl("empty-logs", "content-inner")} style={{ textAlign: "center" }}>
-            <Text variant="text-lg/normal">
-                Empty eh
-            </Text>
+            <Flex flexDirection="column">
+                <Text variant="text-lg/normal">
+                    Empty eh
+                </Text>
+
+                {!hasQuery && (
+                    <Button onClick={() => importLogs().then(() => forceUpdate())}>
+                        Import Logs
+                    </Button>
+                )}
+            </Flex>
         </div>
     );
 
@@ -272,9 +287,9 @@ function EmptyLogs() {
 interface LMessageProps {
     log: { message: LoggedMessageJSON; };
     isGroupStart: boolean,
-    forceUpdate: () => void;
+    reset: () => void;
 }
-function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
+function LMessage({ log, isGroupStart, reset, }: LMessageProps) {
     const message = useMemo(() => messageJsonToMessageClass(log), [log]);
 
     // console.log(message);
@@ -356,10 +371,7 @@ function LMessage({ log, isGroupStart, forceUpdate, }: LMessageProps) {
                             label="Delete Log"
                             color="danger"
                             action={() =>
-                                deleteMessageIDB(log.message.id)
-                                    .then(() => {
-                                        forceUpdate();
-                                    })
+                                deleteMessageIDB(log.message.id).then(() => reset())
                             }
                         />
 

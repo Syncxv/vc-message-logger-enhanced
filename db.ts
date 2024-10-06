@@ -8,6 +8,7 @@ import { LoggedMessageJSON } from "./types";
 import { getMessageStatus } from "./utils";
 import { DB_NAME, DB_VERSION } from "./utils/constants";
 import { DBSchema, IDBPDatabase, openDB } from "./utils/idb";
+import { getAttachmentBlobUrl } from "./utils/saveImage";
 
 export enum DBMessageStatus {
     DELETED = "DELETED",
@@ -39,12 +40,22 @@ export interface MLIDB extends DBSchema {
 export let db: IDBPDatabase<MLIDB>;
 export const cachedMessages = new Map<string, LoggedMessageJSON>();
 
-function cacheRecords(records: DBMessageRecord[]) {
-    records.forEach(r => cachedMessages.set(r.message_id, r.message));
+async function cacheRecords(records: DBMessageRecord[]) {
+    for (const r of records) {
+        cacheRecord(r);
+
+        for (const att of r.message.attachments) {
+            const blobUrl = await getAttachmentBlobUrl(att, r.message_id);
+            if (blobUrl) {
+                att.url = blobUrl + "#";
+                att.proxy_url = blobUrl + "#";
+            }
+        }
+    }
     return records;
 }
 
-function cacheRecord(record?: DBMessageRecord | null) {
+async function cacheRecord(record?: DBMessageRecord | null) {
     if (!record) return record;
 
     cachedMessages.set(record.message_id, record.message);

@@ -32,12 +32,35 @@ export function getFileExtension(str: string) {
     return matches[1];
 }
 
-export function isImage(url: string) {
-    return /\.(jpe?g|png|gif|bmp)(\?.*)?$/i.test(url);
+export function isValidAttachment(url: string) {
+    // return /\.(jpe?g|png|gif|bmp)(\?.*)?$/i.test(url);
+    // all images, video, audio
 }
 
-export function isAttachmentImage(attachment: MessageAttachment) {
-    return isImage(attachment.filename ?? attachment.url) || (attachment.content_type?.split("/")[0] === "image");
+export function isAttachmentGoodToCache(attachment: MessageAttachment) {
+    if (attachment.size > settings.store.attachmentSizeLimitInMegabytes * 1024 * 1024) {
+        Flogger.log("Attachment too large to cache", attachment.filename);
+        return false;
+    }
+
+    let fileExtension = getFileExtension(attachment.filename ?? attachment.url);
+    const { attachmentFileExtensions } = settings.store;
+
+    if (!fileExtension) {
+        Flogger.error("Attachment has no file extension", attachment);
+        return false;
+    }
+
+    if (fileExtension.startsWith(".")) {
+        fileExtension = fileExtension.slice(1);
+    }
+
+    if (!fileExtension || !attachmentFileExtensions.includes(fileExtension)) {
+        Flogger.log("Attachment not in allowed file extensions", attachment.filename);
+        return false;
+    }
+
+    return true;
 }
 
 function transformAttachmentUrl(messageId: string, attachmentUrl: string) {
@@ -47,18 +70,18 @@ function transformAttachmentUrl(messageId: string, attachmentUrl: string) {
     return url.toString();
 }
 
-export async function cacheImage(url: string, attachmentIdx: number, attachmentId: string, messageId: string, channelId: string, fileExtension: string | null, attempts = 0) {
+export async function cacheAttachment(url: string, attachmentIdx: number, attachmentId: string, messageId: string, channelId: string, fileExtension: string | null, attempts = 0) {
     const res = await fetch(url);
     if (res.status !== 200) {
         if (res.status === 404 || res.status === 403) return;
         attempts++;
         if (attempts > 3) {
-            Flogger.warn(`Failed to get image ${attachmentId} for caching, error code ${res.status}`);
+            Flogger.warn(`Failed to get attachment ${attachmentId} for caching, error code ${res.status}`);
             return;
         }
 
         await sleep(1000);
-        return cacheImage(url, attachmentIdx, attachmentId, messageId, channelId, fileExtension, attempts);
+        return cacheAttachment(url, attachmentIdx, attachmentId, messageId, channelId, fileExtension, attempts);
     }
     const ab = await res.arrayBuffer();
     const imageCacheDir = settings.store.imageCacheDir ?? await Native.getDefaultNativeImageDir();
@@ -74,15 +97,16 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
     try {
         for (let i = 0; i < message.attachments.length; i++) {
             const attachment = message.attachments[i];
-            if (!isAttachmentImage(attachment)) {
+            if (!isAttachmentGoodToCache(attachment)) {
                 Flogger.log("skipping", attachment.filename);
                 continue;
             }
             // apparently proxy urls last longer
             attachment.url = transformAttachmentUrl(message.id, attachment.proxy_url);
+            attachment.proxy_url = attachment.url;
 
             const fileExtension = getFileExtension(attachment.filename ?? attachment.url) ?? attachment.content_type?.split("/")?.[1] ?? ".png";
-            const path = await cacheImage(attachment.url, i, attachment.id, message.id, message.channel_id, fileExtension);
+            const path = await cacheAttachment(attachment.url, i, attachment.id, message.id, message.channel_id, fileExtension);
 
             if (path == null) {
                 Flogger.error("Failed to save image from attachment. id: ", attachment.id);

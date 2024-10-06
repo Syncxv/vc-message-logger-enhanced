@@ -35,7 +35,7 @@ export const settings = definePluginSettings({
 
     saveImages: {
         type: OptionType.BOOLEAN,
-        description: "Save deleted messages",
+        description: "Save deleted attachments.",
         default: false
     },
 
@@ -143,10 +143,16 @@ export const settings = definePluginSettings({
         description: "Maximum number of messages to save. Older messages are deleted when the limit is reached. 0 means there is no limit"
     },
 
-    imagesLimit: {
-        default: 100,
+    attachmentSizeLimitInMegabytes: {
+        default: 12,
         type: OptionType.NUMBER,
-        description: "Maximum number of images to save. Older images are deleted when the limit is reached. 0 means there is no limit"
+        description: "Maximum size of an attachment in megabytes to save. Attachments larger than this size will not be saved."
+    },
+
+    attachmentFileExtensions: {
+        default: "png,jpg,jpeg,gif,webp,mp4,webm,mp3,ogg,wav",
+        type: OptionType.STRING,
+        description: "Comma separated list of file extensions to save. Attachments with file extensions not in this list will not be saved."
     },
 
     cacheLimit: {

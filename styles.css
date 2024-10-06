@@ -40,7 +40,6 @@
 }
 
 .msg-logger-modal-tab-bar-item {
-    margin-right: 32px;
     padding-bottom: 16px;
     margin-bottom: -2px;
 }
@@ -50,12 +49,11 @@
     width: 100%;
     justify-content: space-around;
 }
-
 .vc-log-toolbox-btn svg {
     color: var(--interactive-normal);
 }
 
-:is(.vc-log-toolbox-btn:hover, .vc-log-toolbox-btn[class*='selected']) svg {
+:is(.vc-log-toolbox-btn:hover, .vc-log-toolbox-btn[class*="selected"]) svg {
     color: var(--interactive-active);
 }
 

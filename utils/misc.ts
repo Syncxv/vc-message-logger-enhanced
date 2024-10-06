@@ -99,7 +99,6 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     if (!log?.message) return null;
 
     const message: any = new MessageClass(log.message);
-    // @ts-ignore
     message.timestamp = getTimestamp(message.timestamp);
 
     const editHistory = message.editHistory?.map(mapEditHistory);
@@ -158,6 +157,7 @@ export function getNative(): PluginNative<typeof import("../native")> {
             getRepoInfo: async () => ({ ok: true, value: { repo: "", gitHash: "" } }),
             getNewCommits: async () => ({ ok: true, value: [] }),
             update: async () => ({ ok: true, value: "" }),
+            chooseFile: async () => "",
         } satisfies PluginNative<typeof import("../native")>;
 
         return Native;
