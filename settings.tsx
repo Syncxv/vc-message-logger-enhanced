@@ -45,12 +45,6 @@ export const settings = definePluginSettings({
         description: "Sort logs by newest.",
     },
 
-    messagesToDisplayAtOnceInLogs: {
-        default: 100,
-        type: OptionType.NUMBER,
-        description: "Number of messages to display at once in logs & number of messages to load when loading more messages in logs.",
-    },
-
     cacheMessagesFromServers: {
         default: false,
         type: OptionType.BOOLEAN,
@@ -131,6 +125,12 @@ export const settings = definePluginSettings({
         restartNeeded: true,
     },
 
+    messagesToDisplayAtOnceInLogs: {
+        default: 100,
+        type: OptionType.NUMBER,
+        description: "Number of messages to display at once in logs & number of messages to load when loading more messages in logs.",
+    },
+
     hideMessageFromMessageLoggersDeletedMessage: {
         default: "redacted eh",
         type: OptionType.STRING,
@@ -152,7 +152,7 @@ export const settings = definePluginSettings({
     attachmentFileExtensions: {
         default: "png,jpg,jpeg,gif,webp,mp4,webm,mp3,ogg,wav",
         type: OptionType.STRING,
-        description: "Comma separated list of file extensions to save. Attachments with file extensions not in this list will not be saved."
+        description: "Comma separated list of file extensions to save. Attachments with file extensions not in this list will not be saved. Leave empty to save all attachments."
     },
 
     cacheLimit: {

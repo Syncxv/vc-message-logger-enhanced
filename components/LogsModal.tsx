@@ -68,17 +68,13 @@ interface Props {
 }
 
 export function LogsModal({ modalProps, initalQuery }: Props) {
-    const [x, setX] = useState(0);
-    const forceUpdate = () => setX(e => e + 1);
-
-
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
     const [queryEh, setQuery] = useState(initalQuery ?? "");
     const [sortNewest, setSortNewest] = useState(settings.store.sortNewest);
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(settings.store.messagesToDisplayAtOnceInLogs);
     const contentRef = useRef<HTMLDivElement | null>(null);
 
-    const { messages, total, pending, reset } = useMessages(queryEh, currentTab, sortNewest, numDisplayedMessages, forceUpdate);
+    const { messages, total, statusTotal, pending, reset } = useMessages(queryEh, currentTab, sortNewest, numDisplayedMessages);
 
     return (
         <ModalRoot className={cl("root")} {...modalProps} size={ModalSize.LARGE}>
@@ -122,16 +118,17 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     <ModalContent
                         className={cl("content")}
                     >
-                        {messages != null && messages.length === 0 && (
+                        {messages != null && total === 0 && (
                             <EmptyLogs
                                 hasQuery={queryEh.length !== 0}
                                 reset={reset}
                             />
                         )}
-                        {!pending && messages != null && messages.length > 0 && (
+
+                        {!pending && messages != null && (
                             <LogsContentMemo
                                 visibleMessages={messages}
-                                canLoadMore={messages.length < total && messages.length >= settings.store.messagesToDisplayAtOnceInLogs}
+                                canLoadMore={messages.length < statusTotal && messages.length >= settings.store.messagesToDisplayAtOnceInLogs}
                                 tab={currentTab}
                                 sortNewest={sortNewest}
                                 reset={reset}

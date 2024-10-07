@@ -12,8 +12,10 @@ import { dialog, IpcMainInvokeEvent, shell } from "electron";
 
 import { getSettings, saveSettings } from "./settings";
 export * from "./updater";
+
+import { LoggedAttachment } from "../types";
 import { LOGS_DATA_FILENAME } from "../utils/constants";
-import { ensureDirectoryExists, getAttachmentIdFromFilename } from "./utils";
+import { ensureDirectoryExists, getAttachmentIdFromFilename, sleep } from "./utils";
 
 export { getSettings };
 
@@ -133,4 +135,60 @@ export async function chooseFile(_event: IpcMainInvokeEvent, title: string, filt
     if (!path) throw Error("Invalid file");
 
     return await readFile(path, "utf-8");
+}
+
+// doing it in native because you can only fetch images from the renderer
+// other types of files will cause cors issues
+export async function downloadAttachment(_event: IpcMainInvokeEvent, attachemnt: LoggedAttachment, attempts = 0): Promise<{ error: string | null; path: string | null; }> {
+    try {
+        if (!attachemnt?.url || !attachemnt?.id || !attachemnt?.fileExtension)
+            return { error: "Invalid Attachment", path: null };
+
+        if (attachemnt.id.match(/[\\/.]/)) {
+            return { error: "Invalid Attachment ID", path: null };
+        }
+
+        const existingImage = nativeSavedImages.get(attachemnt.id);
+        if (existingImage)
+            return {
+                error: null,
+                path: existingImage
+            };
+
+        const res = await fetch(attachemnt.url);
+
+        if (res.status !== 200) {
+            if (res.status === 404 || res.status === 403)
+                return { error: `Failed to get attachment ${attachemnt.id} for caching, error code ${res.status}`, path: null };
+
+            attempts++;
+            if (attempts > 3) {
+                return {
+                    error: `Failed to get attachment ${attachemnt.id} for caching, error code ${res.status}`,
+                    path: null,
+                };
+            }
+
+            await sleep(1000);
+            return downloadAttachment(_event, attachemnt, attempts);
+        }
+
+        const ab = await res.arrayBuffer();
+        const imageCacheDir = await getImageCacheDir();
+        await ensureDirectoryExists(imageCacheDir);
+
+        const finalPath = path.join(imageCacheDir, `${attachemnt.id}${attachemnt.fileExtension}`);
+        await writeFile(finalPath, Buffer.from(ab));
+
+        nativeSavedImages.set(attachemnt.id, finalPath);
+
+        return {
+            error: null,
+            path: finalPath
+        };
+
+    } catch (error: any) {
+        console.error(error);
+        return { error: error.message, path: null };
+    }
 }

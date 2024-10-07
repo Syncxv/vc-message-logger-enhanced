@@ -24,6 +24,7 @@ export interface LoggedAttachment extends MessageAttachment {
     blobUrl?: string;
     nativefileSystem?: boolean;
     oldUrl?: string;
+    oldProxyUrl?: string;
 }
 
 export type RefrencedMessage = LoggedMessageJSON & { message_id: string; };

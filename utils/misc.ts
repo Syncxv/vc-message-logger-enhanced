@@ -158,6 +158,7 @@ export function getNative(): PluginNative<typeof import("../native")> {
             getNewCommits: async () => ({ ok: true, value: [] }),
             update: async () => ({ ok: true, value: "" }),
             chooseFile: async () => "",
+            downloadAttachment: async () => ({ error: "web", path: null }),
         } satisfies PluginNative<typeof import("../native")>;
 
         return Native;

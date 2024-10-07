@@ -40,12 +40,13 @@ export interface MLIDB extends DBSchema {
 export let db: IDBPDatabase<MLIDB>;
 export const cachedMessages = new Map<string, LoggedMessageJSON>();
 
+// this is probably not the best way to do this
 async function cacheRecords(records: DBMessageRecord[]) {
     for (const r of records) {
         cacheRecord(r);
 
         for (const att of r.message.attachments) {
-            const blobUrl = await getAttachmentBlobUrl(att, r.message_id);
+            const blobUrl = await getAttachmentBlobUrl(att);
             if (blobUrl) {
                 att.url = blobUrl + "#";
                 att.proxy_url = blobUrl + "#";
@@ -77,6 +78,10 @@ initIDB();
 
 export async function hasMessageIDB(message_id: string) {
     return cachedMessages.has(message_id) || (await db.count("messages", message_id)) > 0;
+}
+
+export async function countMessagesIDB() {
+    return db.count("messages");
 }
 
 export async function countMessagesByStatusIDB(status: DBMessageStatus) {
@@ -161,7 +166,7 @@ export async function addMessagesBulkIDB(messages: LoggedMessageJSON[], status?:
     const { store } = tx;
 
     await Promise.all([
-        ...messages.map(message => store.put({
+        ...messages.map(message => store.add({
             channel_id: message.channel_id,
             message_id: message.id,
             status: status ?? getMessageStatus(message),

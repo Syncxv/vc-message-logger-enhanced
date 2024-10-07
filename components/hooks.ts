@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "@webpack/common";
 
-import { countMessagesByStatusIDB, DBMessageRecord, DBMessageStatus, getDateStortedMessagesByStatusIDB } from "../db";
+import { countMessagesByStatusIDB, countMessagesIDB, DBMessageRecord, DBMessageStatus, getDateStortedMessagesByStatusIDB } from "../db";
 import { doesMatch, tokenizeQuery } from "../utils/parseQuery";
 import { LogTabs } from "./LogsModal";
 
@@ -26,10 +26,12 @@ function useDebouncedValue<T>(value: T, delay: number): T {
     return debouncedValue;
 }
 
-export function useMessages(query: string, currentTab: LogTabs, sortNewest: boolean, numDisplayedMessages: number, forceUpdate: () => void) {
+// this is so shit
+export function useMessages(query: string, currentTab: LogTabs, sortNewest: boolean, numDisplayedMessages: number) {
     // only for initial load
     const [pending, setPending] = useState(true);
     const [messages, setMessages] = useState<DBMessageRecord[]>([]);
+    const [statusTotal, setStatusTotal] = useState<number>(0);
     const [total, setTotal] = useState<number>(0);
 
     const debouncedQuery = useDebouncedValue(query, 300);
@@ -37,17 +39,20 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
     useEffect(() => {
         let isMounted = true;
 
-        const fetchMessages = async () => {
+        const loadMessages = async () => {
             const status = getStatus(currentTab);
 
             if (debouncedQuery === "") {
-                const [messages, total] = await Promise.all([
+                const [messages, statusTotal, total] = await Promise.all([
                     getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages, status),
                     countMessagesByStatusIDB(status),
+                    countMessagesIDB()
                 ]);
+
 
                 if (isMounted) {
                     setMessages(messages);
+                    setStatusTotal(statusTotal);
                     setTotal(total);
                 }
 
@@ -71,13 +76,13 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
 
                 if (isMounted) {
                     setMessages(filteredMessages.slice(0, numDisplayedMessages));
-                    setTotal(Number.MAX_SAFE_INTEGER);
+                    setStatusTotal(Number.MAX_SAFE_INTEGER);
                 }
                 setPending(false);
             }
         };
 
-        fetchMessages();
+        loadMessages();
 
         return () => {
             isMounted = false;
@@ -86,7 +91,7 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
     }, [debouncedQuery, sortNewest, numDisplayedMessages, currentTab, pending]);
 
 
-    return { messages, total, pending, reset: () => setPending(true) };
+    return { messages, statusTotal, total, pending, reset: () => setPending(true) };
 }
 
 
