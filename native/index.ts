@@ -139,9 +139,9 @@ export async function chooseFile(_event: IpcMainInvokeEvent, title: string, filt
 
 // doing it in native because you can only fetch images from the renderer
 // other types of files will cause cors issues
-export async function downloadAttachment(_event: IpcMainInvokeEvent, attachemnt: LoggedAttachment, attempts = 0): Promise<{ error: string | null; path: string | null; }> {
+export async function downloadAttachment(_event: IpcMainInvokeEvent, attachemnt: LoggedAttachment, attempts = 0, useOldUrl = false): Promise<{ error: string | null; path: string | null; }> {
     try {
-        if (!attachemnt?.url || !attachemnt?.id || !attachemnt?.fileExtension)
+        if (!attachemnt?.url || !attachemnt.oldUrl || !attachemnt?.id || !attachemnt?.fileExtension)
             return { error: "Invalid Attachment", path: null };
 
         if (attachemnt.id.match(/[\\/.]/)) {
@@ -155,7 +155,7 @@ export async function downloadAttachment(_event: IpcMainInvokeEvent, attachemnt:
                 path: existingImage
             };
 
-        const res = await fetch(attachemnt.url);
+        const res = await fetch(useOldUrl ? attachemnt.oldUrl : attachemnt.url);
 
         if (res.status !== 200) {
             if (res.status === 404 || res.status === 403)
@@ -164,13 +164,13 @@ export async function downloadAttachment(_event: IpcMainInvokeEvent, attachemnt:
             attempts++;
             if (attempts > 3) {
                 return {
-                    error: `Failed to get attachment ${attachemnt.id} for caching, error code ${res.status}`,
+                    error: `Failed to get attachment ${attachemnt.id} for caching. too many attempts, error code ${res.status}`,
                     path: null,
                 };
             }
 
             await sleep(1000);
-            return downloadAttachment(_event, attachemnt, attempts);
+            return downloadAttachment(_event, attachemnt, attempts, res.status === 415);
         }
 
         const ab = await res.arrayBuffer();
