@@ -54,13 +54,6 @@ export function isAttachmentGoodToCache(attachment: MessageAttachment, fileExten
     return true;
 }
 
-function transformAttachmentUrl(messageId: string, attachmentUrl: string) {
-    const url = new URL(attachmentUrl);
-    url.searchParams.set("messageId", messageId);
-
-    return url.toString();
-}
-
 export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJSON) {
     try {
         for (const attachment of message.attachments) {
@@ -76,11 +69,10 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
 
             // only normal urls work if theres a charset in the content type /shrug
             if (attachment.content_type?.includes(";")) {
-                attachment.url = transformAttachmentUrl(message.id, attachment.url);
                 attachment.proxy_url = attachment.url;
             } else {
                 // apparently proxy urls last longer
-                attachment.url = transformAttachmentUrl(message.id, attachment.proxy_url);
+                attachment.url = attachment.proxy_url;
                 attachment.proxy_url = attachment.url;
             }
 
