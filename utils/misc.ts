@@ -88,8 +88,9 @@ const getTimestamp = (timestamp: any): Date => {
     return new Date(timestamp);
 };
 
-export const mapEditHistory = (m: any) => {
-    m.timestamp = getTimestamp(m.timestamp);
+export const mapTimestamp = (m: any) => {
+    if (m.timestamp) m.timestamp = getTimestamp(m.timestamp);
+    if (m.editedTimestamp) m.editedTimestamp = getTimestamp(m.editedTimestamp);
     return m;
 };
 
@@ -101,7 +102,7 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     const message: any = new MessageClass(log.message);
     message.timestamp = getTimestamp(message.timestamp);
 
-    const editHistory = message.editHistory?.map(mapEditHistory);
+    const editHistory = message.editHistory?.map(mapTimestamp);
     if (editHistory && editHistory.length > 0) {
         message.editHistory = editHistory;
     }
@@ -118,6 +119,9 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
 
     if (message.poll)
         message.poll.expiry = moment(message.poll.expiry);
+
+    if (message.messageSnapshots)
+        message.messageSnapshots.map(m => mapTimestamp(m.message));
 
     // console.timeEnd("message populate");
     return message;

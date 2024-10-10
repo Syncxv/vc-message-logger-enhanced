@@ -24,7 +24,7 @@ import { addMessage } from "./LoggedMessageManager";
 import * as LoggedMessageManager from "./LoggedMessageManager";
 import { settings } from "./settings";
 import { FetchMessagesResponse, LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { cleanUpCachedMessage, cleanupUserObject, getNative, isGhostPinged, mapEditHistory, messageJsonToMessageClass, reAddDeletedMessages } from "./utils";
+import { cleanUpCachedMessage, cleanupUserObject, getNative, isGhostPinged, mapTimestamp, messageJsonToMessageClass, reAddDeletedMessages } from "./utils";
 import { removeContextMenuBindings, setupContextMenuPatches } from "./utils/contextMenu";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
@@ -306,7 +306,14 @@ export default definePlugin({
                 match: /\i\.attachments\.some\(\i\)\|\|\i\.embeds\.some/,
                 replace: "!arguments[0].deleted && $&"
             }
-        }
+        },
+        // {
+        //     find: ".getTimezoneOffset()),",
+        //     replacement: {
+        //         match: /(\i)\.getTime/,
+        //         replace: "($1=new Date($1)).getTime"
+        //     }
+        // }
     ],
     settings,
 
@@ -365,7 +372,7 @@ export default definePlugin({
     getEdited(m1, m2) {
         const editHistory = m2?.editHistory;
         if (editHistory == null && m1?.editHistory != null && m1.editHistory.length > 0)
-            return m1.editHistory.map(mapEditHistory);
+            return m1.editHistory.map(mapTimestamp);
         return editHistory;
     },
 
