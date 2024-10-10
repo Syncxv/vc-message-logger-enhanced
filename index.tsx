@@ -342,10 +342,16 @@ export default definePlugin({
     idb,
 
     coolReAddDeletedMessages: (messages: LoggedMessageJSON[] & { extra: LoggedMessageJSON[]; }, payload: LoadMessagePayload) => {
-        if (messages.extra)
-            reAddDeletedMessages(messages, messages.extra, !payload.hasMoreAfter && !payload.isBefore, !payload.hasMoreBefore && !payload.isAfter);
-
-        return messages;
+        try {
+            if (messages.extra)
+                reAddDeletedMessages(messages, messages.extra, !payload.hasMoreAfter && !payload.isBefore, !payload.hasMoreBefore && !payload.isAfter);
+        }
+        catch (e) {
+            Flogger.error("Failed to re-add deleted messages", e);
+        }
+        finally {
+            return messages;
+        }
     },
 
     isDeletedMessage: (id: string) => cacheSentMessages.get(id)?.deleted ?? false,
