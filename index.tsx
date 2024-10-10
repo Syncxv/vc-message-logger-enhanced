@@ -306,14 +306,7 @@ export default definePlugin({
                 match: /\i\.attachments\.some\(\i\)\|\|\i\.embeds\.some/,
                 replace: "!arguments[0].deleted && $&"
             }
-        },
-        // {
-        //     find: ".getTimezoneOffset()),",
-        //     replacement: {
-        //         match: /(\i)\.getTime/,
-        //         replace: "($1=new Date($1)).getTime"
-        //     }
-        // }
+        }
     ],
     settings,
 

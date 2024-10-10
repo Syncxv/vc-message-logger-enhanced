@@ -37,23 +37,25 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
     const debouncedQuery = useDebouncedValue(query, 300);
 
     useEffect(() => {
+        countMessagesIDB().then(x => setTotal(x));
+    }, [pending]);
+
+    useEffect(() => {
         let isMounted = true;
 
         const loadMessages = async () => {
             const status = getStatus(currentTab);
 
             if (debouncedQuery === "") {
-                const [messages, statusTotal, total] = await Promise.all([
+                const [messages, statusTotal] = await Promise.all([
                     getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages, status),
                     countMessagesByStatusIDB(status),
-                    countMessagesIDB()
                 ]);
 
 
                 if (isMounted) {
                     setMessages(messages);
                     setStatusTotal(statusTotal);
-                    setTotal(total);
                 }
 
                 setPending(false);
@@ -75,7 +77,7 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
                 });
 
                 if (isMounted) {
-                    setMessages(filteredMessages.slice(0, numDisplayedMessages));
+                    setMessages(filteredMessages);
                     setStatusTotal(Number.MAX_SAFE_INTEGER);
                 }
                 setPending(false);
