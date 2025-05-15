@@ -270,8 +270,9 @@ export default definePlugin({
             }
         },
 
+        // https://regex101.com/r/JD9Qav/1
         {
-            find: ",guildId:void 0}),childrenMessageContent",
+            find: /=!0,disableInteraction:/,
             replacement: {
                 match: /(cozyMessage.{1,50},)childrenHeader:/,
                 replace: "$1childrenAccessories:arguments[0].childrenAccessories || null,childrenHeader:"
