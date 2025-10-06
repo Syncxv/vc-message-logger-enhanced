@@ -262,7 +262,7 @@ export default definePlugin({
             }
         },
         {
-            find: "toolbar:function",
+            find: ".controlButtonWrapper,",
             predicate: () => settings.store.ShowLogsButton,
             replacement: {
                 match: /(function \i\(\i\){)(.{1,200}toolbar.{1,100}mobileToolbar)/,
@@ -272,7 +272,7 @@ export default definePlugin({
 
         // https://regex101.com/r/JD9Qav/1
         {
-            find: /=!0,disableInteraction:/,
+            find: "=!0,disableInteraction:",
             replacement: {
                 match: /(cozyMessage.{1,50},)childrenHeader:/,
                 replace: "$1childrenAccessories:arguments[0].childrenAccessories || null,childrenHeader:"
