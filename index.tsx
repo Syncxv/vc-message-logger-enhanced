@@ -195,7 +195,10 @@ async function processMessageFetch(response: FetchMessagesResponse) {
 
         if (!messages.length) return;
 
-        const deletedMessages = messages.filter(m => m.status === idb.DBMessageStatus.DELETED);
+        const deletedMessages = messages.filter(m =>
+            m.status === idb.DBMessageStatus.DELETED ||
+            m.status === idb.DBMessageStatus.GHOST_PINGED
+        );
 
         for (const recivedMessage of response.body) {
             const record = messages.find(m => m.message_id === recivedMessage.id);
