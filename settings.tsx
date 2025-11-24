@@ -5,9 +5,10 @@
  */
 
 import { definePluginSettings } from "@api/Settings";
+import { Button } from "@components/Button";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { OptionType } from "@utils/types";
-import { Alerts, Button } from "@webpack/common";
+import { Alerts } from "@webpack/common";
 import { Settings } from "Vencord";
 
 import { Native } from ".";
@@ -232,11 +233,12 @@ export const settings = definePluginSettings({
         description: "Clear Logs",
         component: () =>
             <Button
-                color={Button.Colors.RED}
+                variant="dangerPrimary"
                 onClick={() => Alerts.show({
                     title: "Clear Logs",
                     body: "Are you sure you want to clear all logs?",
-                    confirmColor: Button.Colors.RED,
+                    // @ts-ignore
+                    confirmVariant: "critical-primary",
                     confirmText: "Clear",
                     cancelText: "Cancel",
                     onConfirm: () => {
