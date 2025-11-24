@@ -8,7 +8,7 @@ import { definePluginSettings } from "@api/Settings";
 import { Button } from "@components/Button";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { OptionType } from "@utils/types";
-import { Alerts } from "@webpack/common";
+import { Alerts, useState } from "@webpack/common";
 import { Settings } from "Vencord";
 
 import { Native } from ".";
@@ -18,6 +18,46 @@ import { openUpdaterModal } from "./components/UpdaterModal";
 import { clearMessagesIDB } from "./db";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./utils/constants";
 import { exportLogs, importLogs } from "./utils/settingsUtils";
+
+function ImportLogsButton() {
+    const [loading, setLoading] = useState(false);
+
+    return (
+        <Button
+            disabled={loading}
+            onClick={async () => {
+                setLoading(true);
+                try {
+                    await importLogs();
+                } finally {
+                    setLoading(false);
+                }
+            }}
+        >
+            {loading ? "Importing..." : "Import Logs"}
+        </Button>
+    );
+}
+
+function ExportLogsButton() {
+    const [loading, setLoading] = useState(false);
+
+    return (
+        <Button
+            disabled={loading}
+            onClick={async () => {
+                setLoading(true);
+                try {
+                    await exportLogs();
+                } finally {
+                    setLoading(false);
+                }
+            }}
+        >
+            {loading ? "Exporting..." : "Export Logs"}
+        </Button>
+    );
+}
 
 export const settings = definePluginSettings({
     checkForUpdate: {
@@ -189,19 +229,13 @@ export const settings = definePluginSettings({
     importLogs: {
         type: OptionType.COMPONENT,
         description: "Import Logs From File",
-        component: () =>
-            <Button onClick={importLogs}>
-                Import Logs
-            </Button>
+        component: ImportLogsButton
     },
 
     exportLogs: {
         type: OptionType.COMPONENT,
         description: "Export Logs From IndexedDB",
-        component: () =>
-            <Button onClick={exportLogs}>
-                Export Logs
-            </Button>
+        component: ExportLogsButton
     },
 
     openLogs: {
