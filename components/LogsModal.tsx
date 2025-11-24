@@ -8,12 +8,12 @@ import { classNameFactory } from "@api/Styles";
 import { Flex } from "@components/Flex";
 import { InfoIcon } from "@components/Icons";
 import { openUserProfile } from "@utils/discord";
-import { copyWithToast } from "@utils/misc";
+import { copyWithToast } from "@utils/discord";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent } from "@utils/react";
 import { find, findByCode, findByCodeLazy } from "@webpack";
 import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, Tooltip, useMemo, useRef, useState } from "@webpack/common";
-import { User } from "discord-types/general";
+import type { User } from "@vencord/discord-types";
 
 import { clearMessagesIDB, DBMessageRecord, deleteMessageIDB, deleteMessagesBulkIDB } from "../db";
 import { settings } from "../index";

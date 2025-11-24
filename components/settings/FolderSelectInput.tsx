@@ -17,7 +17,7 @@
 */
 
 import { classNameFactory } from "@api/Styles";
-import { copyWithToast } from "@utils/misc";
+import { copyWithToast } from "@utils/discord";
 import { Button, Forms, Toasts } from "@webpack/common";
 
 import { Native, settings } from "../..";
