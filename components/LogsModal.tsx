@@ -7,8 +7,7 @@
 import { classNameFactory } from "@api/Styles";
 import { Flex } from "@components/Flex";
 import { InfoIcon } from "@components/Icons";
-import { openUserProfile } from "@utils/discord";
-import { copyWithToast } from "@utils/misc";
+import { openUserProfile, copyWithToast } from "@utils/discord";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent } from "@utils/react";
 import { find, findByCode, findByCodeLazy } from "@webpack";
