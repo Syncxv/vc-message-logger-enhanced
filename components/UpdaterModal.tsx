@@ -5,14 +5,19 @@
  */
 
 import { classNameFactory } from "@api/Styles";
+import { Button } from "@components/Button";
+import { Card } from "@components/Card";
+import { Divider } from "@components/Divider";
 import { ErrorCard } from "@components/ErrorCard";
 import { Flex } from "@components/Flex";
+import { Heading } from "@components/Heading";
 import { Link } from "@components/Link";
+import { Paragraph } from "@components/Paragraph";
 import { Margins } from "@utils/margins";
 import { classes } from "@utils/misc";
 import { ModalContent, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { useAwaiter, useForceUpdater } from "@utils/react";
-import { Button, Card, Forms, React, Toasts, useState } from "@webpack/common";
+import { React, Toasts, useState } from "@webpack/common";
 
 import { GitError } from "../types";
 import { changes, checkForUpdates, getRepoInfo, repoInfo as reInfo, update, updateError } from "../utils/updater";
@@ -28,7 +33,7 @@ function HashLink({ repo, longHash, disabled = false }: { repo: string, longHash
 export function UpdateErrorCard({ updateError, title }: { updateError: GitError; title: string; }) {
     return (
         <>
-            <Forms.FormText>{title}</Forms.FormText>
+            <Paragraph>{title}</Paragraph>
             <ErrorCard style={{ padding: "1em" }}>
                 {!updateError.cmd ? (
                     <p>An unknown error occurred</p>
@@ -78,10 +83,10 @@ export function UpdaterModal({ modalProps }: { modalProps: ModalProps; }) {
     return (
         <ModalRoot {...modalProps} size={ModalSize.LARGE}>
             <ModalContent className={cl("content")}>
-                <Forms.FormTitle tag="h5">Repo</Forms.FormTitle>
+                <Heading tag="h5">Repo</Heading>
                 {!repoPending && repoInfo != null && err == null && (
                     <>
-                        <Forms.FormText className="vc-text-selectable">
+                        <Paragraph className="vc-text-selectable">
                             {repoPending
                                 ? repoInfo.repo
                                 : err
@@ -93,32 +98,39 @@ export function UpdaterModal({ modalProps }: { modalProps: ModalProps; }) {
                                     )
                             }
                             {" "}(<HashLink longHash={repoInfo.gitHash} repo={repoInfo.repo} disabled={repoPending} />)
-                        </Forms.FormText>
+                        </Paragraph>
                     </>
                 )}
 
-                <Forms.FormDivider className={Margins.top8 + " " + Margins.bottom8} />
-                <Forms.FormTitle tag="h5">Updates</Forms.FormTitle>
+                <Divider className={Margins.top8 + " " + Margins.bottom8} />
+                <Heading tag="h5">Updates</Heading>
 
                 {(updates == null || repoInfo == null) && updateError ? (
                     <UpdateErrorCard updateError={updateError} title="Failed to check updates. Check the console for more info" />
                 ) : (
-                    <Forms.FormText className={Margins.bottom8}>
+                    <Paragraph className={Margins.bottom8}>
                         {isOutdated ? (updates!.length === 1 ? "There is 1 Update" : `There are ${updates!.length} Updates`) : "Up to Date!"}
-                    </Forms.FormText>
+                    </Paragraph>
                 )}
                 {isOutdated && (
                     <Card style={{ padding: "0 0.5em" }}>
                         {updates!.map(({ hash, longHash, author, message }) => (
-                            <div style={{
-                                marginTop: "0.5em",
-                                marginBottom: "0.5em"
-                            }}>
+                            <div
+                                key={longHash}
+                                style={{
+                                    marginTop: "0.5em",
+                                    marginBottom: "0.5em"
+                                }}
+                            >
                                 <code><HashLink repo={repoInfo?.repo!} longHash={longHash} disabled={repoPending} /></code>
-                                <span style={{
-                                    marginLeft: "0.5em",
-                                    color: "var(--text-normal)"
-                                }}>{message} - {author}</span>
+                                <span
+                                    style={{
+                                        marginLeft: "0.5em",
+                                        color: "var(--text-normal)"
+                                    }}
+                                >
+                                    {message} - {author}
+                                </span>
                             </div>
                         ))
                         }

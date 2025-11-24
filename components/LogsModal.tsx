@@ -5,15 +5,17 @@
  */
 
 import { classNameFactory } from "@api/Styles";
+import { BaseText } from "@components/BaseText";
+import { Button } from "@components/Button";
 import { Flex } from "@components/Flex";
 import { InfoIcon } from "@components/Icons";
-import { openUserProfile } from "@utils/discord";
-import { copyWithToast } from "@utils/discord";
+import { Link } from "@components/Link";
+import { copyWithToast, openUserProfile } from "@utils/discord";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent } from "@utils/react";
-import { find, findByCode, findByCodeLazy } from "@webpack";
-import { Alerts, Button, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, Text, TextInput, Tooltip, useMemo, useRef, useState } from "@webpack/common";
 import type { User } from "@vencord/discord-types";
+import { find, findByCode, findByCodeLazy } from "@webpack";
+import { Alerts, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, TextInput, Tooltip, useMemo, useRef, useState } from "@webpack/common";
 
 import { clearMessagesIDB, DBMessageRecord, deleteMessageIDB, deleteMessagesBulkIDB } from "../db";
 import { settings } from "../index";
@@ -138,14 +140,16 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     </ModalContent>
                 }
             </div>
-            <ModalFooter>
+            <ModalFooter className={cl("footer")}>
                 <Button
-                    color={Button.Colors.RED}
+                    variant="dangerPrimary"
                     onClick={() => Alerts.show({
                         title: "Clear Logs",
                         body: "Are you sure you want to clear all the logs",
                         confirmText: "Clear",
-                        confirmColor: Button.Colors.RED,
+                        // confirmColor: cl('danger-btn'), // changed to confirmVariant
+                        // @ts-ignore
+                        confirmVariant: "critical-primary",
                         cancelText: "Cancel",
                         onConfirm: async () => {
                             await clearMessagesIDB();
@@ -158,13 +162,15 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                 </Button>
                 <Button
                     style={{ marginRight: "16px" }}
-                    color={Button.Colors.YELLOW}
+                    variant="dangerSecondary"
                     disabled={messages?.length === 0}
                     onClick={() => Alerts.show({
                         title: "Clear Logs",
                         body: `Are you sure you want to clear ${messages.length} logs`,
                         confirmText: "Clear",
-                        confirmColor: Button.Colors.RED,
+                        // confirmColor: cl('danger-btn'),
+                        // @ts-ignore
+                        confirmVariant: "critical-primary",
                         cancelText: "Cancel",
                         onConfirm: async () => {
                             await deleteMessagesBulkIDB(messages.map(e => e.message_id));
@@ -174,9 +180,8 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                 >
                     Clear Visible Logs
                 </Button>
-                <Button
-                    look={Button.Looks.LINK}
-                    color={Button.Colors.PRIMARY}
+                <Link
+                    style={{ marginRight: "1rem" }}
                     onClick={() => {
                         setSortNewest(e => {
                             const val = !e;
@@ -187,7 +192,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     }}
                 >
                     Sort {sortNewest ? "Oldest First" : "Newest First"}
-                </Button>
+                </Link>
             </ModalFooter>
         </ModalRoot>
     );
@@ -221,7 +226,7 @@ function LogsContent({ visibleMessages, canLoadMore, sortNewest, tab, reset, han
                 canLoadMore &&
                 <Button
                     style={{ marginTop: "1rem", width: "100%" }}
-                    size={Button.Sizes.SMALL} onClick={() => handleLoadMore()}
+                    size="small" onClick={() => handleLoadMore()}
                 >
                     Load More
                 </Button>
@@ -251,12 +256,12 @@ function NoResults({ tab }: { tab: LogTabs; }) {
 
     return (
         <div className={cl("empty-logs", "content-inner")} style={{ textAlign: "center" }}>
-            <Text variant="text-lg/normal">
+            <BaseText size="lg">
                 No results in <b>{tab}</b>.
-            </Text>
-            <Text variant="text-lg/normal" style={{ marginTop: "0.2rem" }}>
+            </BaseText>
+            <BaseText size="lg" style={{ marginTop: "0.2rem" }}>
                 Maybe try <b>{nextTab}</b> or <b>{lastTab}</b>
-            </Text>
+            </BaseText>
         </div>
     );
 }
@@ -266,9 +271,9 @@ function EmptyLogs({ hasQuery, reset: forceUpdate }: { hasQuery: boolean; reset:
         <div className={cl("empty-logs", "content-inner")} style={{ textAlign: "center" }}>
             <Flex flexDirection="column" style={{ position: "relative" }}>
 
-                <Text variant="text-lg/normal">
+                <BaseText size="lg">
                     Empty eh
-                </Text>
+                </BaseText>
 
                 {!hasQuery && (
                     <>

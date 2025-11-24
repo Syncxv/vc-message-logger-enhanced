@@ -25,6 +25,10 @@
     /* width: 100%; */
 }
 
+.msg-logger-modal-footer {
+    align-items: center;
+}
+
 .msg-logger-modal-content-container {
     /* max-height: 80vh; */
     overflow: hidden;
@@ -57,6 +61,12 @@
     width: 100%;
     justify-content: space-around;
 }
+
+.msg-logger-modal-danger-btn {
+    color: var(--white-500);
+    background-color: var(--button-danger-background);
+}
+
 .vc-log-toolbox-btn svg {
     color: var(--interactive-normal);
 }
@@ -69,7 +79,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: var(--background-secondary);
+    padding: 0;
+    background-color: var(--input-background);
 }
 
 .folder-upload-input {
