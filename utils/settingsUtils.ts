@@ -22,7 +22,6 @@ import { Toasts } from "@webpack/common";
 import { Native } from "..";
 import { addMessagesBulkIDB, iterateAllMessagesIDB } from "../db";
 import { LoggedMessageJSON } from "../types";
-import { JSONParser } from "./streamparser-json"; // gets used in both native and web
 
 export async function importLogs() {
     try {
@@ -124,12 +123,12 @@ export async function exportLogs() {
 
             let first = true;
             let count = 0;
-            for await (const record of iterateAllMessagesIDB()) {
+            for await (const records of iterateAllMessagesIDB()) {
                 const prefix = first ? "" : ",\n";
                 first = false;
-                const chunk = prefix + "    " + JSON.stringify(record);
+                const chunk = prefix + "    " + JSON.stringify(records);
                 await writer.write(encoder.encode(chunk));
-                count++;
+                count += records.length;
             }
 
             await writer.write(encoder.encode("\n  ]\n}"));
@@ -154,15 +153,17 @@ export async function exportLogs() {
 
 
 async function* parseJsonStream(readChunk: () => Promise<string | null>) {
-    const parser = new JSONParser({});
+    const { JSONParser } = await import("./streamparser-json");
+
+    const parser = new JSONParser({
+        paths: ["$.messages.*"],
+        keepStack: false,
+    });
     const queue: any[] = [];
     let error: Error | null = null;
 
-    parser.onValue = ({ value, stack }) => {
-        if (stack.length === 2 && stack[1]?.key === "messages") {
-            queue.push(value);
-            return { drop: true };
-        }
+    parser.onValue = ({ value }) => {
+        queue.push(value);
     };
 
     parser.onError = (err: Error) => {
