@@ -1,3 +1,4 @@
+/* eslint-disable */
 import fs from 'node:fs/promises'
 import { join } from 'node:path'
 import { errors } from '../util.js'

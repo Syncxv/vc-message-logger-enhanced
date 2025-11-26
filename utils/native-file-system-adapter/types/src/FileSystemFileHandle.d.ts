@@ -1,3 +1,4 @@
+/* eslint-disable */
 export default FileSystemFileHandle;
 export class FileSystemFileHandle extends FileSystemHandle {
     constructor(adapter: any);

@@ -1,3 +1,4 @@
+/* eslint-disable */
 export default config;
 declare namespace config {
     const ReadableStream: {

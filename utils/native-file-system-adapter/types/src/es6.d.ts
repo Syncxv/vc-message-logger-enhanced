@@ -1,3 +1,4 @@
+/* eslint-disable */
 import FileSystemDirectoryHandle from "./FileSystemDirectoryHandle.js";
 import FileSystemFileHandle from "./FileSystemFileHandle.js";
 import FileSystemHandle from "./FileSystemHandle.js";

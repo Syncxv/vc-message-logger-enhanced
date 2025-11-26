@@ -1,3 +1,4 @@
+/* eslint-disable */
 export default FileSystemDirectoryHandle;
 export class FileSystemDirectoryHandle extends FileSystemHandle {
     constructor(adapter: any);

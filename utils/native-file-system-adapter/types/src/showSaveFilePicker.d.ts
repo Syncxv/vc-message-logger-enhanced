@@ -1,3 +1,4 @@
+/* eslint-disable */
 export default showSaveFilePicker;
 export type FileSystemFileHandle = import('./FileSystemFileHandle.js').default;
 export function showSaveFilePicker(options?: {

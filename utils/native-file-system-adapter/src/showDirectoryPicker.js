@@ -1,3 +1,4 @@
+/* eslint-disable */
 /** @typedef {import('./FileSystemDirectoryHandle.js').default} FileSystemDirectoryHandle */
 
 const native = globalThis.showDirectoryPicker

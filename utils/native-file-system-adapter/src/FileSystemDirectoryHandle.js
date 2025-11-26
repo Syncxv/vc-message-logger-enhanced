@@ -1,3 +1,4 @@
+/* eslint-disable */
 import FileSystemHandle from './FileSystemHandle.js'
 import { errors } from './util.js'
 

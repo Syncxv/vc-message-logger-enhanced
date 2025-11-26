@@ -1,3 +1,4 @@
+/* eslint-disable */
 const config = {
   ReadableStream: globalThis.ReadableStream,
   WritableStream: globalThis.WritableStream,

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /** @typedef {import('./FileSystemFileHandle.js').default} FileSystemFileHandle */
 
 const native = globalThis.showSaveFilePicker

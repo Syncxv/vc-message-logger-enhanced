@@ -1,3 +1,4 @@
+/* eslint-disable */
 export class FileHandle {
     constructor(file: FileEntry, writable?: boolean);
     file: FileEntry;

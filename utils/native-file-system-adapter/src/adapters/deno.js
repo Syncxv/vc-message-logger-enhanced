@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { join, basename } from 'https://deno.land/std@0.108.0/path/mod.ts'
 import { errors } from '../util.js'
 

@@ -1,3 +1,4 @@
+/* eslint-disable */
 export default FileSystemWritableFileStream;
 export class FileSystemWritableFileStream extends WritableStream<any> {
     constructor(...args: any[]);

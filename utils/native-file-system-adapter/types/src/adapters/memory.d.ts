@@ -1,3 +1,4 @@
+/* eslint-disable */
 export class Sink {
     constructor(fileHandle: FileHandle, file: File);
     fileHandle: FileHandle;

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /** @typedef {import('./FileSystemDirectoryHandle.js').default} FileSystemDirectoryHandle */
 
 if (globalThis.DataTransferItem && !DataTransferItem.prototype.getAsFileSystemHandle) {

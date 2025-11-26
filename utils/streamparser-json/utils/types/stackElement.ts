@@ -1,15 +1,14 @@
-/* eslint-disable simple-header/header */
-
+/* eslint-disable */
 import type { JsonKey, JsonStruct } from "./jsonTypes.js";
 
 export const enum TokenParserMode {
-    OBJECT,
-    ARRAY,
+  OBJECT,
+  ARRAY,
 }
 
 export interface StackElement {
-    key: JsonKey;
-    value: JsonStruct;
-    mode?: TokenParserMode;
-    emit: boolean;
+  key: JsonKey;
+  value: JsonStruct;
+  mode?: TokenParserMode;
+  emit: boolean;
 }

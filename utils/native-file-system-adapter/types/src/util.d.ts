@@ -1,3 +1,4 @@
+/* eslint-disable */
 export function fromDataTransfer(entries: any): Promise<import("./FileSystemDirectoryHandle.js").default>;
 export function getDirHandlesFromInput(input: any): Promise<import("./FileSystemDirectoryHandle.js").default>;
 export function getFileHandlesFromInput(input: any): Promise<import("./FileSystemFileHandle.js").default[]>;

@@ -1,3 +1,4 @@
+/* eslint-disable */
 export const errors = {
   INVALID: ['seeking position failed.', 'InvalidStateError'],
   GONE: ['A requested file or directory could not be found at the time an operation was processed.', 'NotFoundError'],

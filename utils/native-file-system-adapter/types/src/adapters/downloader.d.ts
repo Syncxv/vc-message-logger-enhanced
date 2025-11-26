@@ -1,3 +1,4 @@
+/* eslint-disable */
 export class FileHandle {
     constructor(name?: string);
     name: string;

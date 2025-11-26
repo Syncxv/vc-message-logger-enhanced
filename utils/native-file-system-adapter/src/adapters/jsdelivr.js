@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { errors } from '../util.js'
 
 const { GONE, MISMATCH, SYNTAX, DISALLOWED } = errors

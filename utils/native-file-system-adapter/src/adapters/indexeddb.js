@@ -1,3 +1,4 @@
+/* eslint-disable */
 /* global indexedDB, Blob, File, DOMException */
 
 import { errors } from '../util.js'
