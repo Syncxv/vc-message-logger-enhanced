@@ -11,6 +11,8 @@ import { DATA_DIR } from "@main/utils/constants";
 import { dialog, IpcMainInvokeEvent, shell } from "electron";
 
 import { getSettings, saveSettings } from "./settings";
+export * from "./export";
+export * from "./import";
 export * from "./updater";
 
 import { LoggedAttachment } from "../types";

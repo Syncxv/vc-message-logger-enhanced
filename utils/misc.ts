@@ -164,6 +164,12 @@ export function getNative(): PluginNative<typeof import("../native")> {
             update: async () => ({ ok: true, value: "" }),
             chooseFile: async () => "",
             downloadAttachment: async () => ({ error: "web", path: null }),
+            startNativeLogExport: async () => "" as any,
+            finishNativeLogExport: async () => { },
+            writeNativeLogChunk: async () => { },
+            startNativeLogImport: async () => "" as any,
+            readNativeLogChunk: async () => null,
+            closeNativeLogImport: async () => { }
         } satisfies PluginNative<typeof import("../native")>;
 
         return Native;

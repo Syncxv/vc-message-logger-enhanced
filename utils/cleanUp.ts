@@ -16,8 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { User } from "@vencord/discord-types";
 import { MessageStore } from "@webpack/common";
-import { User } from "discord-types/general";
 
 import { LoggedMessageJSON, RefrencedMessage } from "../types";
 import { getGuildIdByChannel, isGhostPinged } from "./index";
