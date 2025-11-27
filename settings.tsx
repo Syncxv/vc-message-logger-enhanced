@@ -71,7 +71,7 @@ export const settings = definePluginSettings({
     saveMessages: {
         default: true,
         type: OptionType.BOOLEAN,
-        description: "Wether to save the deleted and edited messages.",
+        description: "Whether to save the deleted and edited messages.",
     },
 
     saveImages: {
