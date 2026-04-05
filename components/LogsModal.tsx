@@ -13,8 +13,8 @@ import { classNameFactory } from "@utils/css";
 import { copyWithToast, openUserProfile } from "@utils/discord";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent } from "@utils/react";
-import type { User } from "@vencord/discord-types";
-import { find, findByCode, findByCodeLazy } from "@webpack";
+import type { Channel, User } from "@vencord/discord-types";
+import { find, findByCodeLazy } from "@webpack";
 import { Alerts, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, TextInput, Tooltip, useMemo, useRef, useState } from "@webpack/common";
 
 import { clearMessagesIDB, DBMessageRecord, deleteMessageIDB, deleteMessagesBulkIDB } from "../db";
@@ -28,33 +28,14 @@ export interface MessagePreviewProps {
     className: string;
     author: User;
     message: LoggedMessage;
+    channel?: Channel;
     compact: boolean;
     isGroupStart: boolean;
     hideSimpleEmbedContent: boolean;
-
-    childrenAccessories: any;
-}
-
-export interface ChildrenAccProops {
-    channelMessageProps: {
-        compact: boolean;
-        channel: any;
-        message: LoggedMessage;
-        groupId: string;
-        id: string;
-        isLastItem: boolean;
-        isHighlight: boolean;
-        renderContentOnly: boolean;
-    };
-    hasSpoilerEmbeds: boolean;
-    isInteracting: boolean;
-    isAutomodBlockedMessage: boolean;
-    showClydeAiEmbeds: boolean;
 }
 
 const PrivateChannelRecord = findByCodeLazy(".is_message_request_timestamp,");
 const MessagePreview = LazyComponent<MessagePreviewProps>(() => find(m => m?.type?.toString().includes("previewLinkTarget:") && !m?.type?.toString().includes("HAS_THREAD")));
-const ChildrenAccessories = LazyComponent<ChildrenAccProops>(() => findByCode("channelMessageProps:{message:"));
 
 const cl = classNameFactory("msg-logger-modal-");
 
@@ -127,10 +108,17 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                             />
                         )}
 
-                        {!pending && messages != null && (
+                        {pending && (!messages || messages.length === 0) && (
+                            <div className={cl("empty-logs", "content-inner")} style={{ textAlign: "center", marginTop: "2rem" }}>
+                                <BaseText size="lg">Loading...</BaseText>
+                            </div>
+                        )}
+
+                        {messages != null && total > 0 && (
                             <LogsContentMemo
                                 visibleMessages={messages}
-                                canLoadMore={messages.length === numDisplayedMessages && messages.length < statusTotal}
+                                pending={pending}
+                                canLoadMore={messages.length < statusTotal && (pending || messages.length >= numDisplayedMessages)}
                                 tab={currentTab}
                                 sortNewest={sortNewest}
                                 reset={reset}
@@ -202,12 +190,13 @@ interface LogContentProps {
     sortNewest: boolean;
     tab: LogTabs;
     visibleMessages: DBMessageRecord[];
+    pending?: boolean;
     canLoadMore: boolean;
     reset: () => void;
     handleLoadMore: () => void;
 }
 
-function LogsContent({ visibleMessages, canLoadMore, sortNewest, tab, reset, handleLoadMore }: LogContentProps) {
+function LogsContent({ visibleMessages, pending, canLoadMore, sortNewest, tab, reset, handleLoadMore }: LogContentProps) {
     if (visibleMessages.length === 0)
         return <NoResults tab={tab} />;
 
@@ -227,8 +216,9 @@ function LogsContent({ visibleMessages, canLoadMore, sortNewest, tab, reset, han
                 <Button
                     style={{ marginTop: "1rem", width: "100%" }}
                     size="small" onClick={() => handleLoadMore()}
+                    disabled={pending}
                 >
-                    Load More
+                    {pending ? "Loading..." : "Load More"}
                 </Button>
             }
         </div>
@@ -398,29 +388,10 @@ function LMessage({ log, isGroupStart, reset, }: LMessageProps) {
                 className={`${cl("msg-preview")} ${message.deleted ? "messagelogger-deleted" : ""}`}
                 author={message.author}
                 message={message}
+                channel={ChannelStore.getChannel(message.channel_id) || new PrivateChannelRecord({ id: "" })}
                 compact={false}
                 isGroupStart={isGroupStart}
                 hideSimpleEmbedContent={false}
-
-                childrenAccessories={
-                    <ChildrenAccessories
-                        channelMessageProps={{
-                            channel: ChannelStore.getChannel(message.channel_id) || new PrivateChannelRecord({ id: "" }),
-                            message,
-                            compact: false,
-                            groupId: "1",
-                            id: message.id,
-                            isLastItem: false,
-                            isHighlight: false,
-                            renderContentOnly: false,
-                        }}
-                        hasSpoilerEmbeds={false}
-                        isInteracting={false}
-                        showClydeAiEmbeds={true}
-                        isAutomodBlockedMessage={false}
-                    />
-                }
-
             />
         </div>
     );

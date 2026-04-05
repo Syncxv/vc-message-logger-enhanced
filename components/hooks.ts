@@ -28,22 +28,23 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 
 // this is so shit
 export function useMessages(query: string, currentTab: LogTabs, sortNewest: boolean, numDisplayedMessages: number) {
-    // only for initial load
-    const [pending, setPending] = useState(true);
+    const [isFetching, setIsFetching] = useState(true);
+    const [reloadVersion, setReloadVersion] = useState(0);
     const [messages, setMessages] = useState<DBMessageRecord[]>([]);
     const [statusTotal, setStatusTotal] = useState<number>(0);
-    const [total, setTotal] = useState<number>(0);
+    const [total, setTotal] = useState<number>(-1);
 
     const debouncedQuery = useDebouncedValue(query, 300);
 
     useEffect(() => {
         countMessagesIDB().then(x => setTotal(x));
-    }, [pending]);
+    }, [reloadVersion]);
 
     useEffect(() => {
         let isMounted = true;
 
         const loadMessages = async () => {
+            setIsFetching(true);
             const status = getStatus(currentTab);
 
             if (debouncedQuery === "") {
@@ -56,9 +57,8 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
                 if (isMounted) {
                     setMessages(messages);
                     setStatusTotal(statusTotal);
+                    setIsFetching(false);
                 }
-
-                setPending(false);
             } else {
                 const { queries, rest } = tokenizeQuery(debouncedQuery);
                 const filteredMessages = await searchMessagesIDB(sortNewest, numDisplayedMessages, status, queries, rest);
@@ -66,8 +66,8 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
                 if (isMounted) {
                     setMessages(filteredMessages);
                     setStatusTotal(Number.MAX_SAFE_INTEGER);
+                    setIsFetching(false);
                 }
-                setPending(false);
             }
         };
 
@@ -77,10 +77,10 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
             isMounted = false;
         };
 
-    }, [debouncedQuery, sortNewest, numDisplayedMessages, currentTab, pending]);
+    }, [debouncedQuery, sortNewest, numDisplayedMessages, currentTab, reloadVersion]);
 
 
-    return { messages, statusTotal, total, pending, reset: () => setPending(true) };
+    return { messages, statusTotal, total, pending: isFetching, reset: () => setReloadVersion(v => v + 1) };
 }
 
 

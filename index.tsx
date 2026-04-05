@@ -273,16 +273,6 @@ export default definePlugin({
             }
         },
 
-        // https://regex101.com/r/JD9Qav/1
-        // MessagePreview component in LogsModal
-        {
-            find: "=!0,disableInteraction:",
-            replacement: {
-                match: /childrenHeader:.{0,100}childrenMessageContent/,
-                replace: "childrenAccessories:arguments[0].childrenAccessories || null,$&"
-            }
-        },
-
         // https://regex101.com/r/S3IVGm/1
         // fix vidoes failing because there are no thumbnails
         {
