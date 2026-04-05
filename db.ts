@@ -8,6 +8,7 @@ import { LoggedMessageJSON } from "./types";
 import { getMessageStatus } from "./utils";
 import { DB_NAME, DB_VERSION } from "./utils/constants";
 import { DBSchema, IDBPDatabase, openDB } from "./utils/idb";
+import { doesMatch } from "./utils/parseQuery";
 import { getAttachmentBlobUrl } from "./utils/saveImage";
 
 export enum DBMessageStatus {
@@ -149,6 +150,49 @@ export async function getDateStortedMessagesByStatusIDB(newest: boolean, limit: 
     for await (const c of cursor) {
         messages.push(c.value);
         if (messages.length >= limit) break;
+    }
+
+    return cacheRecords(messages);
+}
+
+export async function searchMessagesIDB(
+    newest: boolean,
+    limit: number,
+    status: DBMessageStatus,
+    queries: { key: any; value: string; negate: boolean; }[],
+    rest: string[]
+) {
+    const tx = db.transaction("messages", "readonly");
+    const { store } = tx;
+    const index = store.index("by_status");
+
+    const direction = newest ? "prev" : "next";
+    const cursor = await index.openCursor(IDBKeyRange.only(status), direction);
+
+    if (!cursor) {
+        console.log("No messages found");
+        return [];
+    }
+
+    const messages: DBMessageRecord[] = [];
+    for await (const c of cursor) {
+        const record = c.value;
+        let matches = true;
+
+        for (const query of queries) {
+            const matching = doesMatch(query.key, query.value, record.message);
+            if (query.negate ? matching : !matching) {
+                matches = false;
+                break;
+            }
+        }
+
+        if (matches) {
+            if (rest.every(r => record.message.content.toLowerCase().includes(r.toLowerCase()))) {
+                messages.push(record);
+                if (messages.length >= limit) break;
+            }
+        }
     }
 
     return cacheRecords(messages);

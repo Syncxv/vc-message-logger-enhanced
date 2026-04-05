@@ -6,8 +6,8 @@
 
 import { useEffect, useState } from "@webpack/common";
 
-import { countMessagesByStatusIDB, countMessagesIDB, DBMessageRecord, DBMessageStatus, getDateStortedMessagesByStatusIDB } from "../db";
-import { doesMatch, tokenizeQuery } from "../utils/parseQuery";
+import { countMessagesByStatusIDB, countMessagesIDB, DBMessageRecord, DBMessageStatus, getDateStortedMessagesByStatusIDB, searchMessagesIDB } from "../db";
+import { tokenizeQuery } from "../utils/parseQuery";
 import { LogTabs } from "./LogsModal";
 
 function useDebouncedValue<T>(value: T, delay: number): T {
@@ -60,21 +60,8 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
 
                 setPending(false);
             } else {
-                const allMessages = await getDateStortedMessagesByStatusIDB(sortNewest, Number.MAX_SAFE_INTEGER, status);
                 const { queries, rest } = tokenizeQuery(debouncedQuery);
-
-                const filteredMessages = allMessages.filter(record => {
-                    for (const query of queries) {
-                        const matching = doesMatch(query.key, query.value, record.message);
-                        if (query.negate ? matching : !matching) {
-                            return false;
-                        }
-                    }
-
-                    return rest.every(r =>
-                        record.message.content.toLowerCase().includes(r.toLowerCase())
-                    );
-                });
+                const filteredMessages = await searchMessagesIDB(sortNewest, numDisplayedMessages, status, queries, rest);
 
                 if (isMounted) {
                     setMessages(filteredMessages);
