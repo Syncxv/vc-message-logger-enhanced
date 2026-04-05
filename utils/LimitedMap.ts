@@ -16,14 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { settings } from "../index";
-
 export class LimitedMap<K, V> {
     public map: Map<K, V> = new Map();
-    constructor() { }
+    constructor(private limit?: number | (() => number)) { }
 
     set(key: K, value: V) {
-        if (settings.store.cacheLimit > 0 && this.map.size >= settings.store.cacheLimit) {
+        const currentLimit = typeof this.limit === "function" ? this.limit() : this.limit;
+        if (currentLimit !== undefined && currentLimit > 0 && this.map.size >= currentLimit) {
             // delete the first entry
             this.map.delete(this.map.keys().next().value!);
         }
@@ -32,5 +31,17 @@ export class LimitedMap<K, V> {
 
     get(key: K) {
         return this.map.get(key);
+    }
+
+    has(key: K) {
+        return this.map.has(key);
+    }
+
+    delete(key: K) {
+        return this.map.delete(key);
+    }
+
+    clear() {
+        this.map.clear();
     }
 }

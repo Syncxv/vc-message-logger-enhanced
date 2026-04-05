@@ -36,7 +36,7 @@ export { settings };
 
 export const Flogger = new Logger("MessageLoggerEnhanced", "#f26c6c");
 
-export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
+export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>(() => settings.store.cacheLimit);
 
 const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
@@ -188,9 +188,34 @@ async function processMessageFetch(response: FetchMessagesResponse) {
             return;
         }
 
-        const firstMessage = response.body[response.body.length - 1];
+        const oldestMessage = response.body[response.body.length - 1];
+        const newestMessage = response.body[0];
+
+        let startTimestamp = oldestMessage.timestamp;
+        let endTimestamp = newestMessage.timestamp;
+
+        try {
+            const currentMessages = MessageStore.getMessages(oldestMessage.channel_id);
+            if (currentMessages) {
+                const msgArray = typeof currentMessages.toArray === "function" ? currentMessages.toArray() : [];
+                if (msgArray.length > 0) {
+                    const previousOldest = msgArray[0];
+                    const previousNewest = msgArray[msgArray.length - 1];
+
+                    // If scrolling UP (fetching older), our fetched chunk is older than the current chat top
+                    if (previousOldest && previousOldest.timestamp > newestMessage.timestamp) {
+                        endTimestamp = previousOldest.timestamp;
+                    }
+                    // If scrolling DOWN (fetching newer), our fetched chunk is newer than the current chat bottom
+                    if (previousNewest && previousNewest.timestamp < oldestMessage.timestamp) {
+                        startTimestamp = previousNewest.timestamp;
+                    }
+                }
+            }
+        } catch (ignore) { }
+
         // console.time("fetching messages from idb");
-        const messages = await idb.getMessagesByChannelAndAfterTimestampIDB(firstMessage.channel_id, firstMessage.timestamp);
+        const messages = await idb.getMessagesByChannelAndBetweenTimestampsIDB(oldestMessage.channel_id, startTimestamp, endTimestamp);
         // console.timeEnd("fetching messages from idb");
 
         if (!messages.length) return;

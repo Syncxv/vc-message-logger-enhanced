@@ -8,6 +8,7 @@ import { LoggedMessageJSON } from "./types";
 import { getMessageStatus } from "./utils";
 import { DB_NAME, DB_VERSION } from "./utils/constants";
 import { DBSchema, IDBPDatabase, openDB } from "./utils/idb";
+import { LimitedMap } from "./utils/LimitedMap";
 import { doesMatch } from "./utils/parseQuery";
 import { getAttachmentBlobUrl } from "./utils/saveImage";
 
@@ -39,13 +40,10 @@ export interface MLIDB extends DBSchema {
 }
 
 export let db: IDBPDatabase<MLIDB>;
-export const cachedMessages = new Map<string, LoggedMessageJSON>();
+export const cachedMessages = new LimitedMap<string, LoggedMessageJSON>(5000);
 
-// this is probably not the best way to do this
-async function cacheRecords(records: DBMessageRecord[]) {
+async function processAttachmentUrls(records: DBMessageRecord[]) {
     for (const r of records) {
-        cacheRecord(r);
-
         for (const att of r.message.attachments) {
             const blobUrl = await getAttachmentBlobUrl(att);
             if (blobUrl) {
@@ -55,6 +53,14 @@ async function cacheRecords(records: DBMessageRecord[]) {
         }
     }
     return records;
+}
+
+// this is probably not the best way to do this
+async function cacheRecords(records: DBMessageRecord[]) {
+    for (const r of records) {
+        cacheRecord(r);
+    }
+    return processAttachmentUrls(records);
 }
 
 async function cacheRecord(record?: DBMessageRecord | null) {
@@ -198,21 +204,50 @@ export async function searchMessagesIDB(
     return cacheRecords(messages);
 }
 
-export async function getMessagesByChannelAndAfterTimestampIDB(channel_id: string, start: string) {
+export async function getAllMessagesForChannelUncachedIDB(channel_id: string) {
+    const tx = db.transaction("messages", "readonly");
+    const { store } = tx;
+    const index = store.index("by_channel_id");
+
+    const cursor = await index.openCursor(IDBKeyRange.only(channel_id));
+    const messages: DBMessageRecord[] = [];
+
+    if (!cursor) return [];
+
+    for await (const c of cursor) {
+        messages.push(c.value);
+    }
+
+    return processAttachmentUrls(messages);
+}
+
+export async function getMessagesByChannelAndBetweenTimestampsIDB(channel_id: string, start: string, end: string) {
     const tx = db.transaction("messages", "readonly");
     const { store } = tx;
     const index = store.index("by_timestamp_and_message_id");
 
-    const cursor = await index.openCursor(IDBKeyRange.bound([channel_id, start], [channel_id, "\uffff"]));
+    const cursor = await index.openCursor(IDBKeyRange.bound([channel_id, start], [channel_id, end]));
 
     if (!cursor) {
-        console.log("No messages found in range");
         return [];
     }
 
     const messages: DBMessageRecord[] = [];
+    let deletedCount = 0;
+
     for await (const c of cursor) {
-        messages.push(c.value);
+        const record = c.value;
+        messages.push(record);
+
+        if (record.status === DBMessageStatus.DELETED || record.status === DBMessageStatus.GHOST_PINGED) {
+            deletedCount++;
+
+            // If a server nuke happened in this gap (> 1000 deleted messages), pagination might be broken.
+            // Fallback and return all messages for the channel, which will be slower but should work regardless of how many messages were deleted.
+            if (deletedCount > 1000) {
+                return getAllMessagesForChannelUncachedIDB(channel_id);
+            }
+        }
     }
 
     return cacheRecords(messages);
