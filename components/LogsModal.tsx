@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { classNameFactory } from "@api/Styles";
 import { BaseText } from "@components/BaseText";
 import { Button } from "@components/Button";
 import { Flex } from "@components/Flex";
 import { InfoIcon } from "@components/Icons";
 import { Link } from "@components/Link";
+import { classNameFactory } from "@utils/css";
 import { copyWithToast, openUserProfile } from "@utils/discord";
 import { closeAllModals, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { LazyComponent } from "@utils/react";
@@ -130,7 +130,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                         {!pending && messages != null && (
                             <LogsContentMemo
                                 visibleMessages={messages}
-                                canLoadMore={messages.length < statusTotal && messages.length >= settings.store.messagesToDisplayAtOnceInLogs}
+                                canLoadMore={messages.length === numDisplayedMessages && messages.length < statusTotal}
                                 tab={currentTab}
                                 sortNewest={sortNewest}
                                 reset={reset}
