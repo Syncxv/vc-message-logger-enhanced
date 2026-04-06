@@ -181,7 +181,7 @@ function messageCreateHandler(payload: MessageCreatePayload) {
     // Flogger.log(`cached\nkey:${payload.message.channel_id},${payload.message.id}\nvalue:`, payload.message);
 }
 
-async function processMessageFetch(response: FetchMessagesResponse) {
+async function processMessageFetch(response: FetchMessagesResponse, isBefore: boolean) {
     try {
         if (!response.ok || response.body.length === 0) {
             Flogger.error("Failed to fetch messages", response);
@@ -197,6 +197,15 @@ async function processMessageFetch(response: FetchMessagesResponse) {
         try {
             const currentMessages = MessageStore.getMessages(oldestMessage.channel_id);
             if (currentMessages) {
+                if (!isBefore) {
+                    const hasExistingNewer = currentMessages && currentMessages.toArray().length > 0 &&
+                        currentMessages.toArray()[currentMessages.length - 1].timestamp > newestMessage.timestamp;
+
+                    if (!hasExistingNewer) {
+                        // un-cap the upper bound to the end of time to catch all newly deleted messages
+                        endTimestamp = "\uffff";
+                    }
+                }
                 const msgArray = typeof currentMessages.toArray === "function" ? currentMessages.toArray() : [];
                 if (msgArray.length > 0) {
                     const previousOldest = msgArray[0];
@@ -272,8 +281,8 @@ export default definePlugin({
             find: "_tryFetchMessagesCached",
             replacement: [
                 {
-                    match: /(?<=\.get\({url.+?then\()(\i)=>\(/,
-                    replace: "async $1=>(await $self.processMessageFetch($1),"
+                    match: /(?<=\.get\({url.+?before:(\i).+?then\()(\i)=>\(/,
+                    replace: "async $2=>(await $self.processMessageFetch($2, null != $1),"
                 },
                 {
                     match: /(?<=type:"LOAD_MESSAGES_SUCCESS",.{1,100})messages:(\i)/,
