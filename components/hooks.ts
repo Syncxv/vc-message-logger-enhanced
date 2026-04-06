@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useEffect, useState } from "@webpack/common";
+import { useEffect, useRef, useState } from "@webpack/common";
 
 import { countMessagesByStatusIDB, countMessagesIDB, DBMessageRecord, DBMessageStatus, getDateStortedMessagesByStatusIDB, searchMessagesIDB } from "../db";
 import { tokenizeQuery } from "../utils/parseQuery";
@@ -34,6 +34,8 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
     const [statusTotal, setStatusTotal] = useState<number>(0);
     const [total, setTotal] = useState<number>(-1);
 
+    const prevTab = useRef<LogTabs>(currentTab);
+
     const debouncedQuery = useDebouncedValue(query, 300);
 
     useEffect(() => {
@@ -44,6 +46,11 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
         let isMounted = true;
 
         const loadMessages = async () => {
+            if (prevTab.current !== currentTab) {
+                setMessages([]);
+                prevTab.current = currentTab;
+            }
+
             setIsFetching(true);
             const status = getStatus(currentTab);
 
@@ -65,7 +72,7 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
 
                 if (isMounted) {
                     setMessages(filteredMessages);
-                    setStatusTotal(Number.MAX_SAFE_INTEGER);
+                    setStatusTotal(filteredMessages.length < numDisplayedMessages ? filteredMessages.length : filteredMessages.length + 1);
                     setIsFetching(false);
                 }
             }
