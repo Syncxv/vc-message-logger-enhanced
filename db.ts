@@ -43,12 +43,14 @@ export let db: IDBPDatabase<MLIDB>;
 export const cachedMessages = new LimitedMap<string, LoggedMessageJSON>(5000);
 
 async function processAttachmentUrls(records: DBMessageRecord[]) {
+    // lazily fetch attachments via WrapperComponent in index.tsx
     for (const r of records) {
+        if (!r.message.attachments) continue;
         for (const att of r.message.attachments) {
-            const blobUrl = await getAttachmentBlobUrl(att);
-            if (blobUrl) {
-                att.url = blobUrl + "#";
-                att.proxy_url = blobUrl + "#";
+            if (att.fileExtension) {
+                const schemeUrl = `vencord-ml://${att.id}${att.fileExtension}`;
+                att.url = schemeUrl;
+                att.proxy_url = schemeUrl;
             }
         }
     }

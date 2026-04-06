@@ -15,7 +15,7 @@ import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import definePlugin from "@utils/types";
 import { findByPropsLazy } from "@webpack";
-import { FluxDispatcher, MessageStore, React, UserStore } from "@webpack/common";
+import { FluxDispatcher, MessageStore, React, useEffect, UserStore } from "@webpack/common";
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
@@ -313,11 +313,31 @@ export default definePlugin({
         // fix vidoes failing because there are no thumbnails
         {
             find: ".handleImageLoad)",
+            replacement: [
+
+                {
+                    match: /(componentDidMount\(\){)(.{1,150}===(.+?)\.LOADING)/,
+                    replace:
+                        "$1if(this.props?.src?.startsWith('blob:') && this.props?.item?.type === 'VIDEO')" +
+                        "return this.setState({readyState: $3.READY});$2"
+                },
+                // {
+                //     predicate: () => !IS_DISCORD_DESKTOP,
+                //     match: /(?<=loadImage\(\i,\i\){)/,
+                //     replace: "if ($self.handleIDBImage(this, arguments)) return;"
+                // }
+            ]
+        },
+
+        {
+            find: "#{intl::REMOVE_ATTACHMENT_TOOLTIP_TEXT}",
+            // Thanks spotifyControls
             replacement: {
-                match: /(componentDidMount\(\){)(.{1,150}===(.+?)\.LOADING)/,
-                replace:
-                    "$1if(this.props?.src?.startsWith('blob:') && this.props?.item?.type === 'VIDEO')" +
-                    "return this.setState({readyState: $3.READY});$2"
+                predicate: () => !IS_DISCORD_DESKTOP,
+                // return .jsx)(AttachmentComponent, { ... })
+                match: /(?<=return.{1,15}jsx\)\()(\i),{(.{1,500}SPOILER)/,
+                // return .jsx)(WrapperComponent, { VencordOriginal: AttachmentComponent, ... })
+                replace: "$self.WrapperComponent,{VencordOriginal: $1,$2"
             }
         },
 
@@ -371,6 +391,79 @@ export default definePlugin({
     ImageManager,
     imageUtils,
     idb,
+
+    WrapperComponent({ VencordOriginal, ...props }) {
+        console.log("Rendering attachment with props", props);
+        const [blobUrl, setBlobUrl] = React.useState<string | null>(null);
+        const [failed, setFailed] = React.useState<boolean>(false);
+        const originalUrl = props.item.downloadUrl || props.item.originalItem.url;
+
+        console.log("original url", originalUrl);
+
+        if (!originalUrl.startsWith("vencord-ml")) {
+            console.log("original url is already modified, skipping", originalUrl);
+            return (
+                <VencordOriginal {...props} />
+            );
+        }
+
+        useEffect(() => {
+            let blobUrl: string;
+            const attachmentId = new URL(originalUrl).hostname || new URL(originalUrl).pathname.replace(/^\/+/, "");
+            const id = attachmentId.split(".")[0];
+            console.log("checking for image with id", id);
+
+            imageUtils.getAttachmentBlobUrl(id).then(url => {
+                if (url) {
+                    url += "#";
+                    console.log("got blob url", url);
+                    blobUrl = url;
+                    setBlobUrl(url);
+                } else {
+                    setFailed(true);
+                }
+            }).catch(e => {
+                console.error("failed to get blob url for", originalUrl, e);
+                setFailed(true);
+            });
+
+            return () => {
+                if (blobUrl) {
+                    console.log("revoking blob url", blobUrl);
+                    URL.revokeObjectURL(blobUrl);
+                }
+            };
+        }, [originalUrl]);
+
+        if (failed) {
+            console.log("failed to get blob url for", originalUrl);
+            return (
+                <VencordOriginal {...props} />
+            );
+        }
+
+        if (!blobUrl) {
+            console.log("no blob url yet for", originalUrl);
+            return null;
+        }
+
+        const modifedProps = {
+            ...props,
+            item: {
+                ...props.item,
+                downloadUrl: blobUrl,
+                originalItem: {
+                    ...props.item.originalItem,
+                    url: blobUrl,
+                    proxy_url: blobUrl,
+                }
+            }
+        };
+
+        return (
+            <VencordOriginal {...modifedProps} />
+        );
+    },
 
     coolReAddDeletedMessages: (messages: LoggedMessageJSON[] & { extra: LoggedMessageJSON[]; }, payload: LoadMessagePayload) => {
         try {

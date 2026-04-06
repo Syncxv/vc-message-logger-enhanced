@@ -19,7 +19,7 @@
 import { MessageAttachment } from "@vencord/discord-types";
 
 import { Flogger, settings } from "../..";
-import { LoggedAttachment, LoggedMessage, LoggedMessageJSON } from "../../types";
+import { LoggedMessage, LoggedMessageJSON } from "../../types";
 import { memoize } from "../memoize";
 import { deleteImage, downloadAttachment, getImage, } from "./ImageManager";
 
@@ -100,8 +100,8 @@ export async function deleteMessageImages(message: LoggedMessage | LoggedMessage
     }
 }
 
-export const getAttachmentBlobUrl = memoize(async (attachment: LoggedAttachment) => {
-    const imageData = await getImage(attachment.id, attachment.fileExtension);
+export const getAttachmentBlobUrl = memoize(async (attachmentId: string) => {
+    const imageData = await getImage(attachmentId);
     if (!imageData) return null;
 
     const blob = new Blob([imageData]);
