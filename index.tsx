@@ -197,16 +197,18 @@ async function processMessageFetch(response: FetchMessagesResponse, isBefore: bo
         try {
             const currentMessages = MessageStore.getMessages(oldestMessage.channel_id);
             if (currentMessages) {
+                const msgArray = typeof currentMessages.toArray === "function" ? currentMessages.toArray() : [];
+
                 if (!isBefore) {
-                    const hasExistingNewer = currentMessages && currentMessages.toArray().length > 0 &&
-                        currentMessages.toArray()[currentMessages.length - 1].timestamp > newestMessage.timestamp;
+                    const hasExistingNewer = currentMessages && msgArray.length > 0 &&
+                        currentMessages.toArray()[msgArray.length - 1].timestamp > newestMessage.timestamp;
 
                     if (!hasExistingNewer) {
                         // un-cap the upper bound to the end of time to catch all newly deleted messages
                         endTimestamp = "\uffff";
                     }
                 }
-                const msgArray = typeof currentMessages.toArray === "function" ? currentMessages.toArray() : [];
+
                 if (msgArray.length > 0) {
                     const previousOldest = msgArray[0];
                     const previousNewest = msgArray[msgArray.length - 1];
