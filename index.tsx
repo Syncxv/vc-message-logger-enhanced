@@ -10,12 +10,15 @@ export const Native = getNative();
 
 import "./styles.css";
 
+import { plugins } from "@api/PluginManager";
 import ErrorBoundary from "@components/ErrorBoundary";
+import { parseEditContent } from "@plugins/messageLogger";
 import { Devs } from "@utils/constants";
+import { getIntlMessage } from "@utils/discord";
 import { Logger } from "@utils/Logger";
 import definePlugin from "@utils/types";
-import { findByPropsLazy } from "@webpack";
-import { FluxDispatcher, MessageStore, React, UserStore } from "@webpack/common";
+import { findByPropsLazy, findCssClassesLazy } from "@webpack";
+import { FluxDispatcher, MessageStore, React, Timestamp, UserStore } from "@webpack/common";
 
 import { OpenLogsButton } from "./components/LogsButton";
 import { openLogModal } from "./components/LogsModal";
@@ -24,7 +27,7 @@ import * as LoggedMessageManager from "./LoggedMessageManager";
 import { addMessage } from "./LoggedMessageManager";
 import { settings } from "./settings";
 import { FetchMessagesResponse, LoadMessagePayload, LoggedMessage, LoggedMessageJSON, MessageCreatePayload, MessageDeleteBulkPayload, MessageDeletePayload, MessageUpdatePayload } from "./types";
-import { cleanUpCachedMessage, cleanupUserObject, getNative, isGhostPinged, mapTimestamp, messageJsonToMessageClass, reAddDeletedMessages } from "./utils";
+import { cleanUpCachedMessage, cleanupUserObject, discordIdToDate, getNative, isGhostPinged, mapTimestamp, reAddDeletedMessages } from "./utils";
 import { removeContextMenuBindings, setupContextMenuPatches } from "./utils/contextMenu";
 import { shouldIgnore } from "./utils/index";
 import { LimitedMap } from "./utils/LimitedMap";
@@ -55,7 +58,7 @@ async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: bo
         handledMessageIds.add(payload.id);
 
         let message: LoggedMessage | LoggedMessageJSON | null =
-            oldGetMessage?.(payload.channelId, payload.id);
+            MessageStore.getMessage(payload.channelId, payload.id);
         if (message == null) {
             // most likely an edited message
             const cachedMessage = cacheSentMessages.get(`${payload.channelId},${payload.id}`);
@@ -132,7 +135,7 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
         return;//  Flogger.log("this message has been ignored", payload);
     }
 
-    let message = oldGetMessage?.(payload.message.channel_id, payload.message.id) as LoggedMessage | LoggedMessageJSON | null;
+    let message = MessageStore.getMessage(payload.message.channel_id, payload.message.id) as LoggedMessage | LoggedMessageJSON | null;
 
     if (message == null) {
         // MESSAGE_UPDATE gets dispatched when emebeds change too and content becomes null
@@ -159,6 +162,7 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
     await addMessage(message, idb.DBMessageStatus.EDITED);
 }
 
+
 function messageCreateHandler(payload: MessageCreatePayload) {
     // we do this here because cache is limited and to save memory
     if (!settings.store.cacheMessagesFromServers && payload.guildId != null) {
@@ -176,16 +180,49 @@ function messageCreateHandler(payload: MessageCreatePayload) {
     // Flogger.log(`cached\nkey:${payload.message.channel_id},${payload.message.id}\nvalue:`, payload.message);
 }
 
-async function processMessageFetch(response: FetchMessagesResponse) {
+async function processMessageFetch(
+    response: FetchMessagesResponse,
+    options?: { channelId: string; before?: string; after?: string; around?: string; limit?: number; }
+) {
     try {
-        if (!response.ok || response.body.length === 0) {
-            Flogger.error("Failed to fetch messages", response);
-            return;
+        if (!response.ok || !options) return;
+
+        const { channelId, before: beforeId, after: afterId, around: aroundId } = options;
+        if (!channelId) return;
+
+        let startTimestamp: string | null = null;
+        let endTimestamp: string | undefined = undefined;
+
+        if (response.body.length > 0) {
+            let minTimestamp = response.body[0].timestamp;
+            let maxTimestamp = response.body[0].timestamp;
+            for (const msg of response.body) {
+                if (msg.timestamp < minTimestamp) minTimestamp = msg.timestamp;
+                if (msg.timestamp > maxTimestamp) maxTimestamp = msg.timestamp;
+            }
+
+            startTimestamp = minTimestamp;
+
+            if (beforeId) {
+                endTimestamp = discordIdToDate(beforeId).toISOString();
+            } else if (afterId) {
+                startTimestamp = discordIdToDate(afterId).toISOString();
+                // unbounded so the newest deleted message after the scroll point always matches
+                endTimestamp = undefined;
+            } else if (aroundId) {
+                endTimestamp = maxTimestamp;
+            }
+        } else {
+            // latest message deleted edgecase
+            if (afterId) {
+                startTimestamp = discordIdToDate(afterId).toISOString();
+            } else {
+                return;
+            }
         }
 
-        const firstMessage = response.body[response.body.length - 1];
         // console.time("fetching messages from idb");
-        const messages = await idb.getMessagesByChannelAndAfterTimestampIDB(firstMessage.channel_id, firstMessage.timestamp);
+        const messages = await idb.getMessagesByChannelAndAfterTimestampIDB(channelId, startTimestamp, endTimestamp);
         // console.timeEnd("fetching messages from idb");
 
         if (!messages.length) return;
@@ -194,6 +231,8 @@ async function processMessageFetch(response: FetchMessagesResponse) {
             m.status === idb.DBMessageStatus.DELETED ||
             m.status === idb.DBMessageStatus.GHOST_PINGED
         );
+
+        await imageUtils.loadAttachmentBlobUrls(deletedMessages);
 
         for (const recivedMessage of response.body) {
             const record = messages.find(m => m.message_id === recivedMessage.id);
@@ -236,6 +275,7 @@ export default definePlugin({
     authors: [Devs.Aria],
     description: "G'day",
     dependencies: ["MessageLogger"],
+    originalRenderEdits: null as any,
 
     patches: [
         {
@@ -243,7 +283,7 @@ export default definePlugin({
             replacement: [
                 {
                     match: /(?<=\.get\({url.+?then\()(\i)=>\(/,
-                    replace: "async $1=>(await $self.processMessageFetch($1),"
+                    replace: "async $1=>(await $self.processMessageFetch($1, arguments[0]),"
                 },
                 {
                     match: /(?<=type:"LOAD_MESSAGES_SUCCESS",.{1,100})messages:(\i)/,
@@ -367,26 +407,34 @@ export default definePlugin({
     },
 
     async start() {
-        this.oldGetMessage = oldGetMessage = MessageStore.getMessage;
+        const self = this;
+        const { MessageLogger } = plugins as any;
+        if (MessageLogger) {
+            this.originalRenderEdits = MessageLogger.renderEdits;
+            const MessageClasses = findCssClassesLazy("edited", "communicationDisabled", "isSystemMessage");
 
-        // we have to do this because the original message logger fetches the message from the store now
-        MessageStore.getMessage = (channelId: string, messageId: string) => {
-            const MLMessage = idb.cachedMessages.get(messageId);
-            if (!MLMessage)
-                return this.oldGetMessage(channelId, messageId);
-
-            if (MLMessage.deleted)
-                return messageJsonToMessageClass({ message: MLMessage });
-
-            // update the edited message with the latest data
-            const latestMessage = this.oldGetMessage(channelId, messageId);
-            return messageJsonToMessageClass({
-                message: {
-                    ...MLMessage,
-                    ...(latestMessage ?? {}),
+            MessageLogger.renderEdits = ErrorBoundary.wrap(({ message }: { message: any; }) => {
+                if (message?.editHistory?.length > 0) {
+                    return MessageLogger.settings.store.inlineEdits && (
+                        <>
+                            {message.editHistory.map((edit: any, idx: number) => (
+                                <div key={idx} className="messagelogger-edited">
+                                    {parseEditContent(edit.content, message)}
+                                    <Timestamp
+                                        timestamp={edit.timestamp}
+                                        isEdited={true}
+                                        isInline={false}
+                                    >
+                                        <span className={MessageClasses.edited}>{" "}({getIntlMessage("MESSAGE_EDITED")})</span>
+                                    </Timestamp>
+                                </div>
+                            ))}
+                        </>
+                    );
                 }
-            });
-        };
+                return self.originalRenderEdits({ message });
+            }, { noop: true });
+        }
 
         checkForUpdatesAndNotify(settings.store.autoCheckForUpdates);
 
@@ -401,7 +449,11 @@ export default definePlugin({
 
     stop() {
         removeContextMenuBindings();
-        MessageStore.getMessage = this.oldGetMessage;
+
+        const { MessageLogger } = plugins as any;
+        if (MessageLogger && this.originalRenderEdits) {
+            MessageLogger.renderEdits = this.originalRenderEdits;
+        }
     }
 });
 

@@ -8,7 +8,7 @@ import { LoggedMessageJSON } from "./types";
 import { getMessageStatus } from "./utils";
 import { DB_NAME, DB_VERSION } from "./utils/constants";
 import { DBSchema, IDBPDatabase, openDB } from "./utils/idb";
-import { getAttachmentBlobUrl } from "./utils/saveImage";
+import { doesMatch, tokenizeQuery } from "./utils/parseQuery";
 
 export enum DBMessageStatus {
     DELETED = "DELETED",
@@ -38,32 +38,9 @@ export interface MLIDB extends DBSchema {
 }
 
 export let db: IDBPDatabase<MLIDB>;
-export const cachedMessages = new Map<string, LoggedMessageJSON>();
-
-// this is probably not the best way to do this
-async function cacheRecords(records: DBMessageRecord[]) {
-    for (const r of records) {
-        cacheRecord(r);
-
-        for (const att of r.message.attachments) {
-            const blobUrl = await getAttachmentBlobUrl(att);
-            if (blobUrl) {
-                att.url = blobUrl + "#";
-                att.proxy_url = blobUrl + "#";
-            }
-        }
-    }
-    return records;
-}
-
-async function cacheRecord(record?: DBMessageRecord | null) {
-    if (!record) return record;
-
-    cachedMessages.set(record.message_id, record.message);
-    return record;
-}
 
 export async function initIDB() {
+
     db = await openDB<MLIDB>(DB_NAME, DB_VERSION, {
         upgrade(db) {
             const messageStore = db.createObjectStore("messages", { keyPath: "message_id" });
@@ -77,42 +54,50 @@ export async function initIDB() {
 initIDB();
 
 export async function hasMessageIDB(message_id: string) {
-    return cachedMessages.has(message_id) || (await db.count("messages", message_id)) > 0;
+
+    return (await db.count("messages", message_id)) > 0;
 }
 
 export async function countMessagesIDB() {
-    return db.count("messages");
+
+    return await db.count("messages");
 }
 
 export async function countMessagesByStatusIDB(status: DBMessageStatus) {
-    return db.countFromIndex("messages", "by_status", status);
+
+    return await db.countFromIndex("messages", "by_status", status);
 }
 
 export async function getAllMessagesIDB() {
-    return cacheRecords(await db.getAll("messages"));
+
+    return await db.getAll("messages");
 }
 
 export async function getMessagesForChannelIDB(channel_id: string) {
-    return cacheRecords(await db.getAllFromIndex("messages", "by_channel_id", channel_id));
+
+    return await db.getAllFromIndex("messages", "by_channel_id", channel_id);
 }
 
 export async function getMessageIDB(message_id: string) {
-    return cacheRecord(await db.get("messages", message_id));
+
+    return await db.get("messages", message_id);
 }
 
 export async function getMessagesByStatusIDB(status: DBMessageStatus) {
-    return cacheRecords(await db.getAllFromIndex("messages", "by_status", status));
+
+    return await db.getAllFromIndex("messages", "by_status", status);
 }
 
 export async function getOldestMessagesIDB(limit: number) {
-    return cacheRecords(await db.getAllFromIndex("messages", "by_timestamp", undefined, limit));
+
+    return await db.getAllFromIndex("messages", "by_timestamp", undefined, limit);
 }
 
 export async function* iterateAllMessagesIDB(batchSize = 100) {
     let lastId: string | undefined;
     while (true) {
         const batch: DBMessageRecord[] = [];
-        // new transaction for each batch to avoid timeouts during yield
+
         const tx = db.transaction("messages");
         const range = lastId ? IDBKeyRange.lowerBound(lastId, true) : undefined;
         let cursor = await tx.store.openCursor(range);
@@ -126,19 +111,20 @@ export async function* iterateAllMessagesIDB(batchSize = 100) {
 
         lastId = batch[batch.length - 1].message_id;
 
-        yield await cacheRecords(batch);
+        yield batch;
 
         if (batch.length < batchSize) break;
     }
 }
 
-export async function getDateStortedMessagesByStatusIDB(newest: boolean, limit: number, status: DBMessageStatus) {
+export async function getDateStortedMessagesByStatusIDB(newest: boolean, limit: number, status: DBMessageStatus, skipCache = false) {
+
     const tx = db.transaction("messages", "readonly");
     const { store } = tx;
     const index = store.index("by_status");
 
     const direction = newest ? "prev" : "next";
-    const cursor = await index.openCursor(IDBKeyRange.only(status), direction);
+    let cursor = await index.openCursor(IDBKeyRange.only(status), direction);
 
     if (!cursor) {
         console.log("No messages found");
@@ -146,20 +132,26 @@ export async function getDateStortedMessagesByStatusIDB(newest: boolean, limit: 
     }
 
     const messages: DBMessageRecord[] = [];
-    for await (const c of cursor) {
-        messages.push(c.value);
+    while (cursor) {
+        messages.push(cursor.value);
         if (messages.length >= limit) break;
+        cursor = await cursor.continue();
     }
 
-    return cacheRecords(messages);
+    return messages;
 }
 
-export async function getMessagesByChannelAndAfterTimestampIDB(channel_id: string, start: string) {
+export async function getMessagesByChannelAndAfterTimestampIDB(channel_id: string, start: string, end?: string) {
+
     const tx = db.transaction("messages", "readonly");
     const { store } = tx;
     const index = store.index("by_timestamp_and_message_id");
 
-    const cursor = await index.openCursor(IDBKeyRange.bound([channel_id, start], [channel_id, "\uffff"]));
+    const range = end
+        ? IDBKeyRange.bound([channel_id, start], [channel_id, end])
+        : IDBKeyRange.bound([channel_id, start], [channel_id, "\uffff"]);
+
+    let cursor = await index.openCursor(range);
 
     if (!cursor) {
         console.log("No messages found in range");
@@ -167,25 +159,26 @@ export async function getMessagesByChannelAndAfterTimestampIDB(channel_id: strin
     }
 
     const messages: DBMessageRecord[] = [];
-    for await (const c of cursor) {
-        messages.push(c.value);
+    while (cursor) {
+        messages.push(cursor.value);
+        cursor = await cursor.continue();
     }
 
-    return cacheRecords(messages);
+    return messages;
 }
 
 export async function addMessageIDB(message: LoggedMessageJSON, status: DBMessageStatus) {
+
     await db.put("messages", {
         channel_id: message.channel_id,
         message_id: message.id,
         status,
         message,
     });
-
-    cachedMessages.set(message.id, message);
 }
 
 export async function addMessagesBulkIDB(messages: LoggedMessageJSON[], status?: DBMessageStatus) {
+
     const tx = db.transaction("messages", "readwrite");
     const { store } = tx;
 
@@ -198,28 +191,23 @@ export async function addMessagesBulkIDB(messages: LoggedMessageJSON[], status?:
         })),
         tx.done
     ]);
-
-    messages.forEach(message => cachedMessages.set(message.id, message));
 }
 
-
 export async function deleteMessageIDB(message_id: string) {
-    await db.delete("messages", message_id);
 
-    cachedMessages.delete(message_id);
+    await db.delete("messages", message_id);
 }
 
 export async function deleteMessagesBulkIDB(message_ids: string[]) {
+
     const tx = db.transaction("messages", "readwrite");
     const { store } = tx;
 
     await Promise.all([...message_ids.map(id => store.delete(id)), tx.done]);
-    message_ids.forEach(id => cachedMessages.delete(id));
 }
 
 // deleting db is instant. fallback to chunked deletion if the delete fails.
 export async function clearMessagesIDB() {
-    cachedMessages.clear();
 
     const deleted = await new Promise<boolean>(resolve => {
         db.close();
@@ -230,8 +218,6 @@ export async function clearMessagesIDB() {
 
     await initIDB();
     if (!deleted) await clearMessagesChunkedIDB();
-
-    cachedMessages.clear();
 }
 
 // faster than db.clear on large dbs
@@ -249,6 +235,61 @@ async function clearMessagesChunkedIDB() {
         const range = IDBKeyRange.bound(keys[0], keys[keys.length - 1]);
         await Promise.all([store.delete(range), tx.done]);
     }
+}
 
-    cachedMessages.clear();
+export async function searchMessagesIDB(
+    status: DBMessageStatus,
+    newest: boolean,
+    query: string,
+    limit: number,
+    offset = 0
+) {
+
+    const tx = db.transaction("messages", "readonly");
+    const { store } = tx;
+    const index = store.index("by_status");
+
+    const direction = newest ? "prev" : "next";
+    let cursor = await index.openCursor(IDBKeyRange.only(status), direction);
+
+    const { queries, rest } = tokenizeQuery(query);
+
+    const matchedMessages: DBMessageRecord[] = [];
+    let skipped = 0;
+
+    while (cursor) {
+        const record = cursor.value;
+
+        let matches = true;
+        for (const q of queries) {
+            const matching = doesMatch(q.key, q.value, record.message);
+            if (q.negate ? matching : !matching) {
+                matches = false;
+                break;
+            }
+        }
+
+        if (matches) {
+            const contentLower = record.message.content.toLowerCase();
+            const matchesText = rest.every(r => contentLower.includes(r.toLowerCase()));
+
+            if (matchesText) {
+                if (skipped < offset) {
+                    skipped++;
+                } else {
+                    matchedMessages.push(record);
+                    if (matchedMessages.length >= limit) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        cursor = await cursor.continue();
+    }
+
+    return {
+        messages: matchedMessages,
+        hasMore: cursor !== null
+    };
 }

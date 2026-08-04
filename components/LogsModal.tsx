@@ -58,7 +58,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const [numDisplayedMessages, setNumDisplayedMessages] = useState(settings.store.messagesToDisplayAtOnceInLogs);
     const contentRef = useRef<HTMLDivElement | null>(null);
 
-    const { messages, total, statusTotal, pending, reset } = useMessages(queryEh, currentTab, sortNewest, numDisplayedMessages);
+    const { messages, statusTotal, pending, reset } = useMessages(queryEh, currentTab, sortNewest, numDisplayedMessages);
 
     return (
         <ModalRoot className={cl("root")} {...modalProps} size={ModalSize.LARGE}>
@@ -102,7 +102,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     <ModalContent
                         className={cl("content")}
                     >
-                        {messages != null && total === 0 && (
+                        {messages != null && messages.length === 0 && (
                             <EmptyLogs
                                 hasQuery={queryEh.length !== 0}
                                 reset={reset}

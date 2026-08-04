@@ -6,8 +6,8 @@
 
 import { useEffect, useState } from "@webpack/common";
 
-import { countMessagesByStatusIDB, countMessagesIDB, DBMessageRecord, DBMessageStatus, getDateStortedMessagesByStatusIDB } from "../db";
-import { doesMatch, tokenizeQuery } from "../utils/parseQuery";
+import { DBMessageRecord, DBMessageStatus, getDateStortedMessagesByStatusIDB, searchMessagesIDB } from "../db";
+import * as imageUtils from "../utils/saveImage";
 import { LogTabs } from "./LogsModal";
 
 function useDebouncedValue<T>(value: T, delay: number): T {
@@ -26,19 +26,13 @@ function useDebouncedValue<T>(value: T, delay: number): T {
     return debouncedValue;
 }
 
-// this is so shit
 export function useMessages(query: string, currentTab: LogTabs, sortNewest: boolean, numDisplayedMessages: number) {
     // only for initial load
     const [pending, setPending] = useState(true);
     const [messages, setMessages] = useState<DBMessageRecord[]>([]);
     const [statusTotal, setStatusTotal] = useState<number>(0);
-    const [total, setTotal] = useState<number>(0);
 
     const debouncedQuery = useDebouncedValue(query, 300);
-
-    useEffect(() => {
-        countMessagesIDB().then(x => setTotal(x));
-    }, [pending]);
 
     useEffect(() => {
         let isMounted = true;
@@ -46,39 +40,34 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
         const loadMessages = async () => {
             const status = getStatus(currentTab);
 
-            if (debouncedQuery === "") {
-                const [messages, statusTotal] = await Promise.all([
-                    getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages, status),
-                    countMessagesByStatusIDB(status),
-                ]);
+            imageUtils.revokeLogsBlobUrls();
 
+            if (debouncedQuery === "") {
+                const rawMessages = await getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages + 1, status, true);
+                const hasMore = rawMessages.length > numDisplayedMessages;
+                const slicedMessages = hasMore ? rawMessages.slice(0, numDisplayedMessages) : rawMessages;
+
+                const processedMessages = await imageUtils.loadAttachmentBlobUrls(slicedMessages, true);
 
                 if (isMounted) {
-                    setMessages(messages);
-                    setStatusTotal(statusTotal);
+                    setMessages(processedMessages);
+                    setStatusTotal(hasMore ? Number.MAX_SAFE_INTEGER : processedMessages.length);
                 }
 
                 setPending(false);
             } else {
-                const allMessages = await getDateStortedMessagesByStatusIDB(sortNewest, Number.MAX_SAFE_INTEGER, status);
-                const { queries, rest } = tokenizeQuery(debouncedQuery);
+                const { messages: rawMessages, hasMore } = await searchMessagesIDB(
+                    status,
+                    sortNewest,
+                    debouncedQuery,
+                    numDisplayedMessages
+                );
 
-                const filteredMessages = allMessages.filter(record => {
-                    for (const query of queries) {
-                        const matching = doesMatch(query.key, query.value, record.message);
-                        if (query.negate ? matching : !matching) {
-                            return false;
-                        }
-                    }
-
-                    return rest.every(r =>
-                        record.message.content.toLowerCase().includes(r.toLowerCase())
-                    );
-                });
+                const processedMessages = await imageUtils.loadAttachmentBlobUrls(rawMessages, true);
 
                 if (isMounted) {
-                    setMessages(filteredMessages);
-                    setStatusTotal(Number.MAX_SAFE_INTEGER);
+                    setMessages(processedMessages);
+                    setStatusTotal(hasMore ? Number.MAX_SAFE_INTEGER : processedMessages.length);
                 }
                 setPending(false);
             }
@@ -88,13 +77,15 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
 
         return () => {
             isMounted = false;
+            imageUtils.revokeLogsBlobUrls();
         };
 
     }, [debouncedQuery, sortNewest, numDisplayedMessages, currentTab, pending]);
 
 
-    return { messages, statusTotal, total, pending, reset: () => setPending(true) };
+    return { messages, statusTotal, pending, reset: () => setPending(true) };
 }
+
 
 
 function getStatus(currentTab: LogTabs) {

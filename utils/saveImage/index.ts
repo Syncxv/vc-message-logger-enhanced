@@ -20,7 +20,6 @@ import { MessageAttachment } from "@vencord/discord-types";
 
 import { Flogger, settings } from "../..";
 import { LoggedAttachment, LoggedMessage, LoggedMessageJSON } from "../../types";
-import { memoize } from "../memoize";
 import { deleteImage, downloadAttachment, getImage, } from "./ImageManager";
 
 export function getFileExtension(str: string) {
@@ -87,25 +86,75 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
 
             attachment.path = path;
         }
-
     } catch (error) {
         Flogger.error("Error caching message images:", error);
     }
 }
 
 export async function deleteMessageImages(message: LoggedMessage | LoggedMessageJSON) {
+
     for (let i = 0; i < message.attachments.length; i++) {
         const attachment = message.attachments[i];
         await deleteImage(attachment.id);
     }
 }
 
-export const getAttachmentBlobUrl = memoize(async (attachment: LoggedAttachment) => {
+export const getAttachmentBlobUrl = async (attachment: LoggedAttachment, isLogs = false) => {
+
+    const cache = isLogs ? logsBlobUrlCache : chatBlobUrlCache;
+    const activeSet = isLogs ? activeLogsBlobUrls : activeChatBlobUrls;
+
+    const cached = cache.get(attachment.id);
+    if (cached) return cached;
+
     const imageData = await getImage(attachment.id, attachment.fileExtension);
     if (!imageData) return null;
 
     const blob = new Blob([imageData]);
     const resUrl = URL.createObjectURL(blob);
+    cache.set(attachment.id, resUrl);
+    activeSet.add(resUrl);
 
     return resUrl;
-});
+};
+
+const chatBlobUrlCache = new Map<string, string>();
+const logsBlobUrlCache = new Map<string, string>();
+const activeChatBlobUrls = new Set<string>();
+const activeLogsBlobUrls = new Set<string>();
+
+export async function loadAttachmentBlobUrls(records: any[], isLogs = false) {
+
+    for (const r of records) {
+        const message = r.message || r;
+        if (!message || !message.attachments) continue;
+
+        for (const att of message.attachments) {
+            const blobUrl = await getAttachmentBlobUrl(att, isLogs);
+            if (blobUrl) {
+                att.url = blobUrl + "#";
+                att.proxy_url = blobUrl + "#";
+            }
+        }
+    }
+    return records;
+}
+
+export function revokeLogsBlobUrls() {
+
+    for (const url of activeLogsBlobUrls) {
+        URL.revokeObjectURL(url);
+    }
+    activeLogsBlobUrls.clear();
+    logsBlobUrlCache.clear();
+}
+
+export function revokeChatBlobUrls() {
+
+    for (const url of activeChatBlobUrls) {
+        URL.revokeObjectURL(url);
+    }
+    activeChatBlobUrls.clear();
+    chatBlobUrlCache.clear();
+}
+
