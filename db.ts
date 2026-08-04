@@ -128,6 +128,8 @@ export async function getDateStortedMessagesByStatusIDB(newest: boolean, limit: 
 
     if (continuationKey) {
         cursor = (await cursor?.continuePrimaryKey(status, continuationKey)) ?? null;
+        // continuePrimaryKey lands on the key we passed, so skip it
+        if (cursor?.primaryKey === continuationKey) cursor = await cursor.continue();
     }
 
     if (!cursor) {
@@ -258,6 +260,8 @@ export async function searchMessagesIDB(
 
     if (continuationKey) {
         cursor = (await cursor?.continuePrimaryKey(status, continuationKey)) ?? null;
+        // continuePrimaryKey lands on the key we passed, so skip it
+        if (cursor?.primaryKey === continuationKey) cursor = await cursor.continue();
     }
 
     const { queries, rest } = tokenizeQuery(query);
