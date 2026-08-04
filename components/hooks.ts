@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useEffect, useState } from "@webpack/common";
+import { useEffect, useRef, useState } from "@webpack/common";
 
 import { DBMessageRecord, DBMessageStatus, getDateStortedMessagesByStatusIDB, searchMessagesIDB } from "../db";
 import * as imageUtils from "../utils/saveImage";
@@ -26,78 +26,87 @@ function useDebouncedValue<T>(value: T, delay: number): T {
     return debouncedValue;
 }
 
-export function useMessages(query: string, currentTab: LogTabs, sortNewest: boolean, numDisplayedMessages: number) {
+export function useMessages(query: string, currentTab: LogTabs, sortNewest: boolean, pageSize: number) {
     // only for initial load
     const [pending, setPending] = useState(true);
     const [messages, setMessages] = useState<DBMessageRecord[]>([]);
-    const [statusTotal, setStatusTotal] = useState<number>(0);
+    const [hasMore, setHasMore] = useState(false);
     const [resetKey, setResetKey] = useState(0);
+    const [loadMoreKey, setLoadMoreKey] = useState(0);
+    // where we left off in the current session, so loadMore can continue from there
+    const pageRef = useRef<{ session: string; lastId: string | null }>({ session: "", lastId: null });
+    const loadingMoreRef = useRef(false);
 
     const debouncedQuery = useDebouncedValue(query, 300);
+    // new session whenever anything that changes the results changes
+    const session = `${currentTab}|${sortNewest}|${debouncedQuery}|${resetKey}`;
 
     useEffect(() => {
         imageUtils.revokeLogsBlobUrls();
         return () => imageUtils.revokeLogsBlobUrls();
     }, [debouncedQuery, currentTab, sortNewest, resetKey]);
 
+    const loadPage = async (isActive: () => boolean, continuationKey?: string, append = false) => {
+        const { messages: page, hasMore: pageHasMore } = await fetchPage(
+            getStatus(currentTab),
+            sortNewest,
+            debouncedQuery,
+            pageSize,
+            continuationKey
+        );
+
+        const processedMessages = await imageUtils.loadAttachmentBlobUrls(page, true);
+        if (!isActive()) return;
+
+        setMessages(append ? prev => [...prev, ...processedMessages] : processedMessages);
+        setHasMore(pageHasMore);
+        pageRef.current = { session, lastId: processedMessages[processedMessages.length - 1]?.message_id ?? null };
+        setPending(false);
+    };
+
     useEffect(() => {
         let isMounted = true;
+        pageRef.current = { session, lastId: null };
 
-        const loadMessages = async () => {
-            const status = getStatus(currentTab);
-
-            if (debouncedQuery === "") {
-                const rawMessages = await getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages + 1, status, true);
-                const hasMore = rawMessages.length > numDisplayedMessages;
-                const slicedMessages = hasMore ? rawMessages.slice(0, numDisplayedMessages) : rawMessages;
-
-                const processedMessages = await imageUtils.loadAttachmentBlobUrls(slicedMessages, true);
-
-                if (isMounted) {
-                    setMessages(processedMessages);
-                    setStatusTotal(hasMore ? Number.MAX_SAFE_INTEGER : processedMessages.length);
-                }
-
-                setPending(false);
-            } else {
-                const { messages: rawMessages, hasMore } = await searchMessagesIDB(
-                    status,
-                    sortNewest,
-                    debouncedQuery,
-                    numDisplayedMessages
-                );
-
-                const processedMessages = await imageUtils.loadAttachmentBlobUrls(rawMessages, true);
-
-                if (isMounted) {
-                    setMessages(processedMessages);
-                    setStatusTotal(hasMore ? Number.MAX_SAFE_INTEGER : processedMessages.length);
-                }
-                setPending(false);
-            }
-        };
-
-        loadMessages();
+        loadPage(() => isMounted);
 
         return () => {
             isMounted = false;
         };
 
-    }, [debouncedQuery, sortNewest, numDisplayedMessages, currentTab, resetKey]);
+    }, [session, pageSize]);
 
+    useEffect(() => {
+        if (loadMoreKey === 0) return;
+
+        let isMounted = true;
+        const { session: pageSession, lastId } = pageRef.current;
+
+        if (pageSession !== session || !lastId || loadingMoreRef.current) return;
+
+        loadingMoreRef.current = true;
+
+        loadPage(() => isMounted, lastId, true).finally(() => {
+            loadingMoreRef.current = false;
+        });
+
+        return () => {
+            isMounted = false;
+        };
+
+    }, [loadMoreKey, session, pageSize]);
 
     return {
         messages,
-        statusTotal,
+        hasMore,
         pending,
         reset: () => {
             setPending(true);
             setResetKey(k => k + 1);
-        }
+        },
+        loadMore: () => setLoadMoreKey(k => k + 1)
     };
 }
-
-
 
 function getStatus(currentTab: LogTabs) {
     switch (currentTab) {
@@ -108,4 +117,23 @@ function getStatus(currentTab: LogTabs) {
         default:
             return DBMessageStatus.GHOST_PINGED;
     }
+}
+
+async function fetchPage(
+    status: DBMessageStatus,
+    sortNewest: boolean,
+    query: string,
+    pageSize: number,
+    continuationKey?: string
+): Promise<{ messages: DBMessageRecord[]; hasMore: boolean }> {
+    if (query === "") {
+        const rawMessages = await getDateStortedMessagesByStatusIDB(sortNewest, pageSize + 1, status, continuationKey);
+        const hasMore = rawMessages.length > pageSize;
+        return {
+            messages: hasMore ? rawMessages.slice(0, pageSize) : rawMessages,
+            hasMore
+        };
+    }
+
+    return searchMessagesIDB(status, sortNewest, query, pageSize, continuationKey);
 }

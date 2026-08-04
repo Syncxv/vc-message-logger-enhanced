@@ -55,10 +55,10 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
     const [currentTab, setCurrentTab] = useState(LogTabs.DELETED);
     const [queryEh, setQuery] = useState(initalQuery ?? "");
     const [sortNewest, setSortNewest] = useState(settings.store.sortNewest);
-    const [numDisplayedMessages, setNumDisplayedMessages] = useState(settings.store.messagesToDisplayAtOnceInLogs);
     const contentRef = useRef<HTMLDivElement | null>(null);
+    const pageSize = settings.store.messagesToDisplayAtOnceInLogs;
 
-    const { messages, statusTotal, pending, reset } = useMessages(queryEh, currentTab, sortNewest, numDisplayedMessages);
+    const { messages, hasMore, pending, reset, loadMore } = useMessages(queryEh, currentTab, sortNewest, pageSize);
 
     return (
         <ModalRoot className={cl("root")} {...modalProps} size={ModalSize.LARGE}>
@@ -71,7 +71,6 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                     selectedItem={currentTab}
                     onItemSelect={e => {
                         setCurrentTab(e);
-                        setNumDisplayedMessages(settings.store.messagesToDisplayAtOnceInLogs);
                         contentRef.current?.firstElementChild?.scrollTo(0, 0);
                         // forceUpdate();
                     }}
@@ -112,11 +111,11 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                         {!pending && messages != null && (
                             <LogsContentMemo
                                 visibleMessages={messages}
-                                canLoadMore={messages.length < statusTotal && messages.length >= settings.store.messagesToDisplayAtOnceInLogs}
+                                canLoadMore={hasMore && messages.length >= pageSize}
                                 tab={currentTab}
                                 sortNewest={sortNewest}
                                 reset={reset}
-                                handleLoadMore={() => setNumDisplayedMessages(e => e + settings.store.messagesToDisplayAtOnceInLogs)}
+                                handleLoadMore={loadMore}
                             />
                         )}
                     </ModalContent>

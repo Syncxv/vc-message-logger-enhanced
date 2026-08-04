@@ -117,7 +117,7 @@ export async function* iterateAllMessagesIDB(batchSize = 100) {
     }
 }
 
-export async function getDateStortedMessagesByStatusIDB(newest: boolean, limit: number, status: DBMessageStatus, skipCache = false) {
+export async function getDateStortedMessagesByStatusIDB(newest: boolean, limit: number, status: DBMessageStatus, continuationKey?: string) {
 
     const tx = db.transaction("messages", "readonly");
     const { store } = tx;
@@ -125,6 +125,10 @@ export async function getDateStortedMessagesByStatusIDB(newest: boolean, limit: 
 
     const direction = newest ? "prev" : "next";
     let cursor = await index.openCursor(IDBKeyRange.only(status), direction);
+
+    if (continuationKey) {
+        cursor = (await cursor?.continuePrimaryKey(status, continuationKey)) ?? null;
+    }
 
     if (!cursor) {
         console.log("No messages found");
@@ -242,7 +246,7 @@ export async function searchMessagesIDB(
     newest: boolean,
     query: string,
     limit: number,
-    offset = 0
+    continuationKey?: string
 ) {
 
     const tx = db.transaction("messages", "readonly");
@@ -252,10 +256,14 @@ export async function searchMessagesIDB(
     const direction = newest ? "prev" : "next";
     let cursor = await index.openCursor(IDBKeyRange.only(status), direction);
 
+    if (continuationKey) {
+        cursor = (await cursor?.continuePrimaryKey(status, continuationKey)) ?? null;
+    }
+
     const { queries, rest } = tokenizeQuery(query);
 
     const matchedMessages: DBMessageRecord[] = [];
-    let skipped = 0;
+    const target = limit + 1;
 
     while (cursor) {
         const record = cursor.value;
@@ -274,22 +282,18 @@ export async function searchMessagesIDB(
             const matchesText = rest.every(r => contentLower.includes(r.toLowerCase()));
 
             if (matchesText) {
-                if (skipped < offset) {
-                    skipped++;
-                } else {
-                    matchedMessages.push(record);
-                    if (matchedMessages.length >= limit) {
-                        break;
-                    }
-                }
+                matchedMessages.push(record);
+                if (matchedMessages.length >= target) break;
             }
         }
 
         cursor = await cursor.continue();
     }
 
+    const hasMore = matchedMessages.length > limit;
+
     return {
-        messages: matchedMessages,
-        hasMore: cursor !== null
+        messages: hasMore ? matchedMessages.slice(0, limit) : matchedMessages,
+        hasMore
     };
 }
