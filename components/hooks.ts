@@ -31,6 +31,7 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
     const [pending, setPending] = useState(true);
     const [messages, setMessages] = useState<DBMessageRecord[]>([]);
     const [statusTotal, setStatusTotal] = useState<number>(0);
+    const [resetKey, setResetKey] = useState(0);
 
     const debouncedQuery = useDebouncedValue(query, 300);
 
@@ -80,10 +81,18 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
             imageUtils.revokeLogsBlobUrls();
         };
 
-    }, [debouncedQuery, sortNewest, numDisplayedMessages, currentTab, pending]);
+    }, [debouncedQuery, sortNewest, numDisplayedMessages, currentTab, resetKey]);
 
 
-    return { messages, statusTotal, pending, reset: () => setPending(true) };
+    return {
+        messages,
+        statusTotal,
+        pending,
+        reset: () => {
+            setPending(true);
+            setResetKey(k => k + 1);
+        }
+    };
 }
 
 
