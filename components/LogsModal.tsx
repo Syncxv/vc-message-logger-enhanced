@@ -17,11 +17,12 @@ import type { Channel, User } from "@vencord/discord-types";
 import { find, findByCodeLazy } from "@webpack";
 import { Alerts, ChannelStore, ContextMenuApi, FluxDispatcher, Menu, NavigationRouter, React, TabBar, TextInput, Tooltip, useMemo, useRef, useState } from "@webpack/common";
 
-import { clearMessagesIDB, DBMessageRecord, deleteMessageIDB, deleteMessagesBulkIDB } from "../db";
+import { DBMessageRecord, deleteMessageIDB, deleteMessagesBulkIDB } from "../db";
 import { settings } from "../index";
 import { LoggedMessage, LoggedMessageJSON } from "../types";
 import { messageJsonToMessageClass } from "../utils";
 import { importLogs } from "../utils/settingsUtils";
+import { ClearLogsButton } from "./ClearLogsButton";
 import { useMessages } from "./hooks";
 
 export interface MessagePreviewProps {
@@ -122,25 +123,7 @@ export function LogsModal({ modalProps, initalQuery }: Props) {
                 }
             </div>
             <ModalFooter className={cl("footer")}>
-                <Button
-                    variant="dangerPrimary"
-                    onClick={() => Alerts.show({
-                        title: "Clear Logs",
-                        body: "Are you sure you want to clear all the logs",
-                        confirmText: "Clear",
-                        // confirmColor: cl('danger-btn'), // changed to confirmVariant
-                        // @ts-ignore
-                        confirmVariant: "critical-primary",
-                        cancelText: "Cancel",
-                        onConfirm: async () => {
-                            await clearMessagesIDB();
-                            reset();
-                        }
-
-                    })}
-                >
-                    Clear All Logs
-                </Button>
+                <ClearLogsButton label="Clear All Logs" onCleared={reset} />
                 <Button
                     style={{ marginRight: "16px" }}
                     variant="dangerSecondary"
