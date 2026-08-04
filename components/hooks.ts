@@ -36,12 +36,15 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
     const debouncedQuery = useDebouncedValue(query, 300);
 
     useEffect(() => {
+        imageUtils.revokeLogsBlobUrls();
+        return () => imageUtils.revokeLogsBlobUrls();
+    }, [debouncedQuery, currentTab, sortNewest, resetKey]);
+
+    useEffect(() => {
         let isMounted = true;
 
         const loadMessages = async () => {
             const status = getStatus(currentTab);
-
-            imageUtils.revokeLogsBlobUrls();
 
             if (debouncedQuery === "") {
                 const rawMessages = await getDateStortedMessagesByStatusIDB(sortNewest, numDisplayedMessages + 1, status, true);
@@ -78,7 +81,6 @@ export function useMessages(query: string, currentTab: LogTabs, sortNewest: bool
 
         return () => {
             isMounted = false;
-            imageUtils.revokeLogsBlobUrls();
         };
 
     }, [debouncedQuery, sortNewest, numDisplayedMessages, currentTab, resetKey]);

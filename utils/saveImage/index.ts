@@ -54,6 +54,7 @@ export function isAttachmentGoodToCache(attachment: MessageAttachment, fileExten
 }
 
 export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJSON) {
+
     try {
         for (const attachment of message.attachments) {
             const fileExtension = getFileExtension(attachment.filename ?? attachment.url) ?? attachment.content_type?.split("/")?.[1] ?? ".png";
@@ -86,6 +87,7 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
 
             attachment.path = path;
         }
+
     } catch (error) {
         Flogger.error("Error caching message images:", error);
     }
@@ -99,14 +101,13 @@ export async function deleteMessageImages(message: LoggedMessage | LoggedMessage
     }
 }
 
-export const getAttachmentBlobUrl = async (attachment: LoggedAttachment, isLogs = false) => {
+const chatBlobUrlCache = new Map<string, string>();
+const logsBlobUrlCache = new Map<string, string>();
+const activeChatBlobUrls = new Set<string>();
+const activeLogsBlobUrls = new Set<string>();
+const inFlightBlobLoads = new Map<string, Promise<string | null>>();
 
-    const cache = isLogs ? logsBlobUrlCache : chatBlobUrlCache;
-    const activeSet = isLogs ? activeLogsBlobUrls : activeChatBlobUrls;
-
-    const cached = cache.get(attachment.id);
-    if (cached) return cached;
-
+async function loadBlob(attachment: LoggedAttachment, cache: Map<string, string>, activeSet: Set<string>) {
     const imageData = await getImage(attachment.id, attachment.fileExtension);
     if (!imageData) return null;
 
@@ -116,27 +117,49 @@ export const getAttachmentBlobUrl = async (attachment: LoggedAttachment, isLogs 
     activeSet.add(resUrl);
 
     return resUrl;
-};
+}
 
-const chatBlobUrlCache = new Map<string, string>();
-const logsBlobUrlCache = new Map<string, string>();
-const activeChatBlobUrls = new Set<string>();
-const activeLogsBlobUrls = new Set<string>();
+export const getAttachmentBlobUrl = async (attachment: LoggedAttachment, isLogs = false) => {
+
+    const cache = isLogs ? logsBlobUrlCache : chatBlobUrlCache;
+    const activeSet = isLogs ? activeLogsBlobUrls : activeChatBlobUrls;
+
+    const cached = cache.get(attachment.id);
+    if (cached) return cached;
+
+    const key = `${isLogs}:${attachment.id}`;
+    let pending = inFlightBlobLoads.get(key);
+    if (!pending) {
+        pending = loadBlob(attachment, cache, activeSet);
+        inFlightBlobLoads.set(key, pending);
+        pending.then(
+            () => inFlightBlobLoads.delete(key),
+            () => inFlightBlobLoads.delete(key)
+        );
+    }
+
+    return pending;
+};
 
 export async function loadAttachmentBlobUrls(records: any[], isLogs = false) {
 
-    for (const r of records) {
+    await Promise.all(records.map(async r => {
         const message = r.message || r;
-        if (!message || !message.attachments) continue;
+        if (!message || !message.attachments) return;
 
-        for (const att of message.attachments) {
-            const blobUrl = await getAttachmentBlobUrl(att, isLogs);
-            if (blobUrl) {
-                att.url = blobUrl + "#";
-                att.proxy_url = blobUrl + "#";
+        await Promise.all(message.attachments.map(async att => {
+            try {
+                const blobUrl = await getAttachmentBlobUrl(att, isLogs);
+                if (blobUrl) {
+                    att.url = blobUrl + "#";
+                    att.proxy_url = blobUrl + "#";
+                }
+            } catch (e) {
+                Flogger.warn("Failed to load blob url for attachment", att.id, e);
             }
-        }
-    }
+        }));
+    }));
+
     return records;
 }
 
