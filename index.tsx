@@ -162,7 +162,6 @@ async function messageUpdateHandler(payload: MessageUpdatePayload) {
     await addMessage(message, idb.DBMessageStatus.EDITED);
 }
 
-
 function messageCreateHandler(payload: MessageCreatePayload) {
     // we do this here because cache is limited and to save memory
     if (!settings.store.cacheMessagesFromServers && payload.guildId != null) {
@@ -178,6 +177,15 @@ function messageCreateHandler(payload: MessageCreatePayload) {
 
     cacheSentMessages.set(`${payload.message.channel_id},${payload.message.id}`, cleanUpCachedMessage(payload.message));
     // Flogger.log(`cached\nkey:${payload.message.channel_id},${payload.message.id}\nvalue:`, payload.message);
+}
+
+let blobSweepTimeout: NodeJS.Timeout | null = null;
+function scheduleBlobSweep() {
+    if (blobSweepTimeout != null) clearTimeout(blobSweepTimeout);
+    blobSweepTimeout = setTimeout(() => {
+        blobSweepTimeout = null;
+        imageUtils.sweepChatBlobUrls();
+    }, 5000);
 }
 
 async function processMessageFetch(
@@ -403,7 +411,10 @@ export default definePlugin({
         "MESSAGE_DELETE": messageDeleteHandler as any,
         "MESSAGE_DELETE_BULK": messageDeleteBulkHandler,
         "MESSAGE_UPDATE": messageUpdateHandler,
-        "MESSAGE_CREATE": messageCreateHandler
+        "MESSAGE_CREATE": messageCreateHandler,
+        // truncation happens on load-more
+        "LOAD_MESSAGES_SUCCESS": scheduleBlobSweep,
+        "CHANNEL_SELECT": scheduleBlobSweep
     },
 
     async start() {
@@ -450,6 +461,11 @@ export default definePlugin({
     stop() {
         removeContextMenuBindings();
 
+        if (blobSweepTimeout != null) {
+            clearTimeout(blobSweepTimeout);
+            blobSweepTimeout = null;
+        }
+        imageUtils.revokeChatBlobUrls();
         const { MessageLogger } = plugins as any;
         if (MessageLogger && this.originalRenderEdits) {
             MessageLogger.renderEdits = this.originalRenderEdits;

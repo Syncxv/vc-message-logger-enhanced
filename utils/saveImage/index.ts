@@ -17,6 +17,7 @@
 */
 
 import { MessageAttachment } from "@vencord/discord-types";
+import { MessageStore } from "@webpack/common";
 
 import { Flogger, settings } from "../..";
 import { LoggedAttachment, LoggedMessage, LoggedMessageJSON } from "../../types";
@@ -54,7 +55,6 @@ export function isAttachmentGoodToCache(attachment: MessageAttachment, fileExten
 }
 
 export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJSON) {
-
     try {
         for (const attachment of message.attachments) {
             const fileExtension = getFileExtension(attachment.filename ?? attachment.url) ?? attachment.content_type?.split("/")?.[1] ?? ".png";
@@ -94,7 +94,6 @@ export async function cacheMessageImages(message: LoggedMessage | LoggedMessageJ
 }
 
 export async function deleteMessageImages(message: LoggedMessage | LoggedMessageJSON) {
-
     for (let i = 0; i < message.attachments.length; i++) {
         const attachment = message.attachments[i];
         await deleteImage(attachment.id);
@@ -106,6 +105,9 @@ const logsBlobUrlCache = new Map<string, string>();
 const activeChatBlobUrls = new Set<string>();
 const activeLogsBlobUrls = new Set<string>();
 const inFlightBlobLoads = new Map<string, Promise<string | null>>();
+
+// attachment_id: message with mutated attachment urls
+const chatBlobUrlOwners = new Map<string, { channelId: string; messageId: string; }>();
 
 async function loadBlob(attachment: LoggedAttachment, cache: Map<string, string>, activeSet: Set<string>) {
     const imageData = await getImage(attachment.id, attachment.fileExtension);
@@ -120,7 +122,6 @@ async function loadBlob(attachment: LoggedAttachment, cache: Map<string, string>
 }
 
 export const getAttachmentBlobUrl = async (attachment: LoggedAttachment, isLogs = false) => {
-
     const cache = isLogs ? logsBlobUrlCache : chatBlobUrlCache;
     const activeSet = isLogs ? activeLogsBlobUrls : activeChatBlobUrls;
 
@@ -142,7 +143,6 @@ export const getAttachmentBlobUrl = async (attachment: LoggedAttachment, isLogs 
 };
 
 export async function loadAttachmentBlobUrls(records: any[], isLogs = false) {
-
     await Promise.all(records.map(async r => {
         const message = r.message || r;
         if (!message || !message.attachments) return;
@@ -153,6 +153,9 @@ export async function loadAttachmentBlobUrls(records: any[], isLogs = false) {
                 if (blobUrl) {
                     att.url = blobUrl + "#";
                     att.proxy_url = blobUrl + "#";
+
+                    if (!isLogs && message.channel_id && message.id)
+                        chatBlobUrlOwners.set(att.id, { channelId: message.channel_id, messageId: message.id });
                 }
             } catch (e) {
                 Flogger.warn("Failed to load blob url for attachment", att.id, e);
@@ -164,7 +167,6 @@ export async function loadAttachmentBlobUrls(records: any[], isLogs = false) {
 }
 
 export function revokeLogsBlobUrls() {
-
     for (const url of activeLogsBlobUrls) {
         URL.revokeObjectURL(url);
     }
@@ -173,11 +175,27 @@ export function revokeLogsBlobUrls() {
 }
 
 export function revokeChatBlobUrls() {
-
     for (const url of activeChatBlobUrls) {
         URL.revokeObjectURL(url);
     }
     activeChatBlobUrls.clear();
     chatBlobUrlCache.clear();
+    chatBlobUrlOwners.clear();
+}
+
+// has() also checks the side cache, getMessage() doesnt. truncated messages sit in
+// the side cache and come back on scroll-back still holding the url
+export function sweepChatBlobUrls() {
+    for (const [attachmentId, url] of chatBlobUrlCache) {
+        const owner = chatBlobUrlOwners.get(attachmentId);
+
+        if (!owner) continue;
+        if (MessageStore.getMessages(owner.channelId)?.has(owner.messageId) !== false) continue;
+
+        URL.revokeObjectURL(url);
+        activeChatBlobUrls.delete(url);
+        chatBlobUrlCache.delete(attachmentId);
+        chatBlobUrlOwners.delete(attachmentId);
+    }
 }
 

@@ -40,7 +40,6 @@ export interface MLIDB extends DBSchema {
 export let db: IDBPDatabase<MLIDB>;
 
 export async function initIDB() {
-
     db = await openDB<MLIDB>(DB_NAME, DB_VERSION, {
         upgrade(db) {
             const messageStore = db.createObjectStore("messages", { keyPath: "message_id" });
@@ -54,50 +53,41 @@ export async function initIDB() {
 initIDB();
 
 export async function hasMessageIDB(message_id: string) {
-
     return (await db.count("messages", message_id)) > 0;
 }
 
 export async function countMessagesIDB() {
-
-    return await db.count("messages");
+    return db.count("messages");
 }
 
 export async function countMessagesByStatusIDB(status: DBMessageStatus) {
-
-    return await db.countFromIndex("messages", "by_status", status);
+    return db.countFromIndex("messages", "by_status", status);
 }
 
 export async function getAllMessagesIDB() {
-
-    return await db.getAll("messages");
+    return db.getAll("messages");
 }
 
 export async function getMessagesForChannelIDB(channel_id: string) {
-
-    return await db.getAllFromIndex("messages", "by_channel_id", channel_id);
+    return db.getAllFromIndex("messages", "by_channel_id", channel_id);
 }
 
 export async function getMessageIDB(message_id: string) {
-
-    return await db.get("messages", message_id);
+    return db.get("messages", message_id);
 }
 
 export async function getMessagesByStatusIDB(status: DBMessageStatus) {
-
-    return await db.getAllFromIndex("messages", "by_status", status);
+    return db.getAllFromIndex("messages", "by_status", status);
 }
 
 export async function getOldestMessagesIDB(limit: number) {
-
-    return await db.getAllFromIndex("messages", "by_timestamp", undefined, limit);
+    return db.getAllFromIndex("messages", "by_timestamp", undefined, limit);
 }
 
 export async function* iterateAllMessagesIDB(batchSize = 100) {
     let lastId: string | undefined;
     while (true) {
         const batch: DBMessageRecord[] = [];
-
         const tx = db.transaction("messages");
         const range = lastId ? IDBKeyRange.lowerBound(lastId, true) : undefined;
         let cursor = await tx.store.openCursor(range);
@@ -118,7 +108,6 @@ export async function* iterateAllMessagesIDB(batchSize = 100) {
 }
 
 export async function getDateStortedMessagesByStatusIDB(newest: boolean, limit: number, status: DBMessageStatus, continuationKey?: string) {
-
     const tx = db.transaction("messages", "readonly");
     const { store } = tx;
     const index = store.index("by_status");
@@ -148,7 +137,6 @@ export async function getDateStortedMessagesByStatusIDB(newest: boolean, limit: 
 }
 
 export async function getMessagesByChannelAndAfterTimestampIDB(channel_id: string, start: string, end?: string) {
-
     const tx = db.transaction("messages", "readonly");
     const { store } = tx;
     const index = store.index("by_timestamp_and_message_id");
@@ -174,7 +162,6 @@ export async function getMessagesByChannelAndAfterTimestampIDB(channel_id: strin
 }
 
 export async function addMessageIDB(message: LoggedMessageJSON, status: DBMessageStatus) {
-
     await db.put("messages", {
         channel_id: message.channel_id,
         message_id: message.id,
@@ -184,7 +171,6 @@ export async function addMessageIDB(message: LoggedMessageJSON, status: DBMessag
 }
 
 export async function addMessagesBulkIDB(messages: LoggedMessageJSON[], status?: DBMessageStatus) {
-
     const tx = db.transaction("messages", "readwrite");
     const { store } = tx;
 
@@ -200,12 +186,10 @@ export async function addMessagesBulkIDB(messages: LoggedMessageJSON[], status?:
 }
 
 export async function deleteMessageIDB(message_id: string) {
-
     await db.delete("messages", message_id);
 }
 
 export async function deleteMessagesBulkIDB(message_ids: string[]) {
-
     const tx = db.transaction("messages", "readwrite");
     const { store } = tx;
 
@@ -214,7 +198,6 @@ export async function deleteMessagesBulkIDB(message_ids: string[]) {
 
 // deleting db is instant. fallback to chunked deletion if the delete fails.
 export async function clearMessagesIDB() {
-
     const deleted = await new Promise<boolean>(resolve => {
         db.close();
         const req = indexedDB.deleteDatabase(DB_NAME);
@@ -250,7 +233,6 @@ export async function searchMessagesIDB(
     limit: number,
     continuationKey?: string
 ) {
-
     const tx = db.transaction("messages", "readonly");
     const { store } = tx;
     const index = store.index("by_status");
