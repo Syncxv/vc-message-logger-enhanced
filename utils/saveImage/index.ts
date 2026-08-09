@@ -20,6 +20,7 @@ import { MessageAttachment } from "@vencord/discord-types";
 import { MessageStore } from "@webpack/common";
 
 import { Flogger, settings } from "../..";
+import type { DBMessageRecord } from "../../db";
 import { LoggedAttachment, LoggedMessage, LoggedMessageJSON } from "../../types";
 import { deleteImage, downloadAttachment, getImage, } from "./ImageManager";
 
@@ -142,10 +143,9 @@ export const getAttachmentBlobUrl = async (attachment: LoggedAttachment, isLogs 
     return pending;
 };
 
-export async function loadAttachmentBlobUrls(records: any[], isLogs = false) {
-    await Promise.all(records.map(async r => {
-        const message = r.message || r;
-        if (!message || !message.attachments) return;
+export async function loadAttachmentBlobUrls(records: DBMessageRecord[], isLogs = false) {
+    await Promise.all(records.map(async ({ message }) => {
+        if (!message?.attachments) return;
 
         await Promise.all(message.attachments.map(async att => {
             try {
