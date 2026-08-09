@@ -211,50 +211,68 @@ function scheduleBlobSweep() {
     }, 5000);
 }
 
+let warnedMissingFetchOptions = false;
+function warnMissingFetchOptions() {
+    if (warnedMissingFetchOptions) return;
+    warnedMissingFetchOptions = true;
+    Flogger.warn("no fetch options, the _tryFetchMessagesCached patch is likely broken. falling back to the unbounded idb query");
+}
+
 async function processMessageFetch(
     response: FetchMessagesResponse,
     options?: { channelId: string; before?: string; after?: string; around?: string; limit?: number; }
 ) {
     try {
-        if (!response.ok || !options) return;
+        if (!response.ok) return;
 
-        const { channelId, before: beforeId, after: afterId, around: aroundId } = options;
-        if (!channelId) return;
-
+        let channelId: string;
         let startTimestamp: string | null = null;
         let endTimestamp: string | undefined = undefined;
 
-        if (response.body.length > 0) {
-            let minTimestamp = response.body[0].timestamp;
-            let maxTimestamp = response.body[0].timestamp;
-            for (const msg of response.body) {
-                if (msg.timestamp < minTimestamp) minTimestamp = msg.timestamp;
-                if (msg.timestamp > maxTimestamp) maxTimestamp = msg.timestamp;
-            }
+        if (options?.channelId) {
+            const { before: beforeId, after: afterId, around: aroundId } = options;
+            channelId = options.channelId;
 
-            startTimestamp = minTimestamp;
+            if (response.body.length > 0) {
+                let minTimestamp = response.body[0].timestamp;
+                let maxTimestamp = response.body[0].timestamp;
+                for (const msg of response.body) {
+                    if (msg.timestamp < minTimestamp) minTimestamp = msg.timestamp;
+                    if (msg.timestamp > maxTimestamp) maxTimestamp = msg.timestamp;
+                }
 
-            if (beforeId) {
-                endTimestamp = discordIdToDate(beforeId).toISOString();
-            } else if (afterId) {
-                startTimestamp = discordIdToDate(afterId).toISOString();
-                // unbounded so the newest deleted message after the scroll point always matches
-                endTimestamp = undefined;
-            } else if (aroundId) {
-                endTimestamp = maxTimestamp;
+                startTimestamp = minTimestamp;
+
+                if (beforeId) {
+                    endTimestamp = discordIdToDate(beforeId).toISOString();
+                } else if (afterId) {
+                    startTimestamp = discordIdToDate(afterId).toISOString();
+                    // unbounded so the newest deleted message after the scroll point always matches
+                    endTimestamp = undefined;
+                } else if (aroundId) {
+                    endTimestamp = maxTimestamp;
+                }
+            } else {
+                // latest message deleted edgecase
+                if (afterId) {
+                    startTimestamp = discordIdToDate(afterId).toISOString();
+                } else {
+                    return;
+                }
             }
         } else {
-            // latest message deleted edgecase
-            if (afterId) {
-                startTimestamp = discordIdToDate(afterId).toISOString();
-            } else {
-                return;
-            }
+            warnMissingFetchOptions();
+
+            const oldest = response.body[response.body.length - 1];
+            if (!oldest) return;
+
+            channelId = oldest.channel_id;
+            startTimestamp = oldest.timestamp;
         }
 
-        // console.time("fetching messages from idb");
+        if (startTimestamp == null) return;
+
         const messages = await idb.getMessagesByChannelAndAfterTimestampIDB(channelId, startTimestamp, endTimestamp);
-        // console.timeEnd("fetching messages from idb");
 
         if (!messages.length) return;
 
