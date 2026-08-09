@@ -180,7 +180,7 @@ function LogsContent({ visibleMessages, canLoadMore, sortNewest, tab, reset, han
                 .map(({ message }, i) => (
                     <LMessage
                         key={message.id}
-                        log={{ message }}
+                        rawMessage={message}
                         reset={reset}
                         isGroupStart={isGroupStart(message, visibleMessages[i - 1]?.message, sortNewest)}
                     />
@@ -264,14 +264,12 @@ function EmptyLogs({ hasQuery, reset: forceUpdate }: { hasQuery: boolean; reset:
 }
 
 interface LMessageProps {
-    log: { message: LoggedMessageJSON; };
+    rawMessage: LoggedMessageJSON;
     isGroupStart: boolean,
     reset: () => void;
 }
-function LMessage({ log, isGroupStart, reset, }: LMessageProps) {
-    const message = useMemo(() => messageJsonToMessageClass(log), [log]);
-
-    // console.log(message);
+function LMessage({ rawMessage, isGroupStart, reset, }: LMessageProps) {
+    const message = useMemo(() => messageJsonToMessageClass(rawMessage), [rawMessage]);
 
     if (!message) return null;
 
@@ -333,13 +331,13 @@ function LMessage({ log, isGroupStart, reset, }: LMessageProps) {
                         />
 
                         {
-                            log.message.guildId != null
+                            rawMessage.guildId != null
                             && (
                                 <Menu.MenuItem
                                     key="copy-server-id"
                                     id="copy-server-id"
                                     label="Copy Server ID"
-                                    action={() => copyWithToast(log.message.guildId!)}
+                                    action={() => copyWithToast(rawMessage.guildId!)}
                                 />
                             )
                         }
@@ -350,7 +348,7 @@ function LMessage({ log, isGroupStart, reset, }: LMessageProps) {
                             label="Delete Log"
                             color="danger"
                             action={() =>
-                                deleteMessageIDB(log.message.id).then(() => reset())
+                                deleteMessageIDB(rawMessage.id).then(() => reset())
                             }
                         />
 

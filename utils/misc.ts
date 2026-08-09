@@ -24,7 +24,6 @@ import { DBMessageStatus } from "../db";
 import { LoggedMessageJSON } from "../types";
 import { DEFAULT_IMAGE_CACHE_DIR } from "./constants";
 import { DISCORD_EPOCH } from "./index";
-import { memoize } from "./memoize";
 
 const MessageClass: any = findLazy(m => m?.prototype?.isEdited);
 const AuthorClass = findLazy(m => m?.prototype?.getAvatarURL);
@@ -96,11 +95,10 @@ export const mapTimestamp = (m: any) => {
 };
 
 
-export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJSON; }) => {
-    // console.time("message populate");
-    if (!log?.message) return null;
+export function messageJsonToMessageClass(rawMessage: LoggedMessageJSON) {
+    if (!rawMessage) return null;
 
-    const message: any = new MessageClass(log.message);
+    const message: any = new MessageClass(rawMessage);
     message.timestamp = getTimestamp(message.timestamp);
 
     const editHistory = message.editHistory?.map(mapTimestamp);
@@ -124,9 +122,8 @@ export const messageJsonToMessageClass = memoize((log: { message: LoggedMessageJ
     if (message.messageSnapshots)
         message.messageSnapshots.map(m => mapTimestamp(m.message));
 
-    // console.timeEnd("message populate");
     return message;
-});
+}
 
 
 export function parseJSON(json?: string | null) {
