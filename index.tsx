@@ -43,6 +43,31 @@ export const cacheSentMessages = new LimitedMap<string, LoggedMessageJSON>();
 
 const cacheThing = findByPropsLazy("commit", "getOrCreate");
 
+const MessageClasses = findCssClassesLazy("edited", "communicationDisabled", "isSystemMessage");
+
+// mirrors MessageLogger's renderEdits markup. keep in sync
+function LoggedMessageEdits({ message }: { message: any; }) {
+    const { MessageLogger } = plugins as any;
+    if (!MessageLogger?.settings.store.inlineEdits) return null;
+
+    return (
+        <>
+            {message.editHistory?.map((edit: any, idx: number) => (
+                <div key={idx} className="messagelogger-edited">
+                    {parseEditContent(edit.content, message)}
+                    <Timestamp
+                        timestamp={edit.timestamp}
+                        isEdited={true}
+                        isInline={false}
+                    >
+                        <span className={MessageClasses.edited}>{" "}({getIntlMessage("MESSAGE_EDITED")})</span>
+                    </Timestamp>
+                </div>
+            ))}
+        </>
+    );
+}
+
 const handledMessageIds = new Set();
 async function messageDeleteHandler(payload: MessageDeletePayload & { isBulk: boolean; }) {
     if (payload.mlDeleted) return;
@@ -416,32 +441,19 @@ export default definePlugin({
     },
 
     async start() {
-        const self = this;
         const { MessageLogger } = plugins as any;
         if (MessageLogger) {
-            this.originalRenderEdits = MessageLogger.renderEdits;
-            const MessageClasses = findCssClassesLazy("edited", "communicationDisabled", "isSystemMessage");
+            const OriginalRenderEdits = this.originalRenderEdits = MessageLogger.renderEdits;
 
-            MessageLogger.renderEdits = ErrorBoundary.wrap(({ message }: { message: any; }) => {
-                if (message?.editHistory?.length > 0) {
-                    return MessageLogger.settings.store.inlineEdits && (
-                        <>
-                            {message.editHistory.map((edit: any, idx: number) => (
-                                <div key={idx} className="messagelogger-edited">
-                                    {parseEditContent(edit.content, message)}
-                                    <Timestamp
-                                        timestamp={edit.timestamp}
-                                        isEdited={true}
-                                        isInline={false}
-                                    >
-                                        <span className={MessageClasses.edited}>{" "}({getIntlMessage("MESSAGE_EDITED")})</span>
-                                    </Timestamp>
-                                </div>
-                            ))}
-                        </>
-                    );
-                }
-                return self.originalRenderEdits({ message });
+            MessageLogger.renderEdits = ErrorBoundary.wrap((props: { message: any; }) => {
+                const { message } = props;
+
+                // original ML resolves from MessageStore, so it only works if loaded by discord
+                // doenst work for LogsModal since we fetch directly from idb
+                if (MessageStore.getMessage(message?.channel_id, message?.id) === message)
+                    return <OriginalRenderEdits {...props} />;
+
+                return <LoggedMessageEdits message={message} />;
             }, { noop: true });
         }
 
@@ -467,6 +479,8 @@ export default definePlugin({
         const { MessageLogger } = plugins as any;
         if (MessageLogger && this.originalRenderEdits) {
             MessageLogger.renderEdits = this.originalRenderEdits;
+            // so a restart recaptures the real original, not our wrapper
+            this.originalRenderEdits = null;
         }
     }
 });
