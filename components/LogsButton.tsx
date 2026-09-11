@@ -20,7 +20,7 @@ import { findComponentByCodeLazy } from "@webpack";
 
 import { openLogModal } from "./LogsModal";
 
-const HeaderBarIcon = findComponentByCodeLazy(".HEADER_BAR_BADGE_TOP:", '"aria-haspopup":');
+const HeaderBarIcon = findComponentByCodeLazy(".HEADER_BAR_BADGE_BOTTOM,", 'position:"bottom"');
 
 
 export function OpenLogsIcon() {
