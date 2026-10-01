@@ -17,10 +17,24 @@
 */
 
 import { Flogger, settings } from ".";
-import { addMessageIDB, db, DBMessageStatus, deleteMessagesBulkIDB, getOldestMessagesIDB } from "./db";
+import { addMessageIDB, db, DBMessageStatus, deleteMessagesBulkIDB, getOldestMessageIdsIDB } from "./db";
+import { createMessageLimitEnforcer, getMessageLimitDeleteCount } from "./messageLimitEnforcer";
 import { LoggedMessage, LoggedMessageJSON } from "./types";
 import { cleanupMessage } from "./utils";
 import { cacheMessageImages } from "./utils/saveImage";
+
+const enforceMessageLimit = createMessageLimitEnforcer(async () => {
+    if (settings.store.messageLimit > 0) {
+        const currentMessageCount = await db.count("messages");
+        const messagesToDelete = getMessageLimitDeleteCount(currentMessageCount, settings.store.messageLimit);
+        if (messagesToDelete > 0) {
+            const oldestMessageIds = await getOldestMessageIdsIDB(messagesToDelete);
+
+            Flogger.info(`Deleting ${oldestMessageIds.length} oldest messages`);
+            await deleteMessagesBulkIDB(oldestMessageIds);
+        }
+    }
+});
 
 export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, status: DBMessageStatus) => {
     if (settings.store.saveImages && status === DBMessageStatus.DELETED)
@@ -28,17 +42,5 @@ export const addMessage = async (message: LoggedMessage | LoggedMessageJSON, sta
     const finalMessage = cleanupMessage(message);
 
     await addMessageIDB(finalMessage, status);
-
-    if (settings.store.messageLimit > 0) {
-        const currentMessageCount = await db.count("messages");
-        if (currentMessageCount > settings.store.messageLimit) {
-            const messagesToDelete = currentMessageCount - settings.store.messageLimit;
-            if (messagesToDelete <= 0 || messagesToDelete >= settings.store.messageLimit) return;
-
-            const oldestMessages = await getOldestMessagesIDB(messagesToDelete);
-
-            Flogger.info(`Deleting ${messagesToDelete} oldest messages`);
-            await deleteMessagesBulkIDB(oldestMessages.map(m => m.message_id));
-        }
-    }
+    await enforceMessageLimit();
 };
