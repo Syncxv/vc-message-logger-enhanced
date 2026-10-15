@@ -7,7 +7,7 @@
 import { addContextMenuPatch, NavContextMenuPatchCallback, removeContextMenuPatch } from "@api/ContextMenu";
 import { updateMessage } from "@api/MessageUpdater";
 import { findStoreLazy } from "@webpack";
-import { FluxDispatcher, Menu, MessageActions, React, Toasts, UserStore } from "@webpack/common";
+import { FluxDispatcher, Menu, MessageActions, React, showToast, UserStore } from "@webpack/common";
 
 import { openLogModal } from "../components/LogsModal";
 import { deleteMessageIDB } from "../db";
@@ -83,10 +83,9 @@ const removeMessageAction = async (props: any) => {
         }
     } catch (e) {
         console.error("Failed to remove message", e);
-        Toasts.show({
-            type: Toasts.Type.FAILURE,
-            message: "Failed to remove message. Check console for details.",
-            id: Toasts.genId()
+        showToast({
+            variant: "critical",
+            text: "Failed to remove message. Check console for details.",
         });
     }
 };
