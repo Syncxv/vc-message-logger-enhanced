@@ -22,7 +22,7 @@ import { Heading } from "@components/Heading";
 import { copyWithToast } from "@utils/discord";
 import { classes } from "@utils/misc";
 import { findCssClassesLazy } from "@webpack";
-import { Toasts } from "@webpack/common";
+import { showToast } from "@webpack/common";
 
 import { Native, settings } from "../..";
 import { DEFAULT_IMAGE_CACHE_DIR } from "../../utils/constants";
@@ -68,16 +68,14 @@ export function SelectFolderInput({ settingsKey, successMessage }: Props) {
             const res = await Native.chooseDir(settingsKey);
             settings.store[settingsKey] = res;
 
-            return Toasts.show({
-                id: Toasts.genId(),
-                type: Toasts.Type.SUCCESS,
-                message: successMessage
+            return showToast({
+                variant: "success",
+                text: successMessage
             });
         } catch (err) {
-            Toasts.show({
-                id: Toasts.genId(),
-                type: Toasts.Type.FAILURE,
-                message: "Failed to update directory"
+            showToast({
+                variant: "critical",
+                text: "Failed to update directory"
             });
         }
     }

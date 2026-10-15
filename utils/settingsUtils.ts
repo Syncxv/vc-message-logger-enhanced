@@ -17,7 +17,7 @@
 */
 
 import { chooseFile as chooseFileWeb } from "@utils/web";
-import { Toasts } from "@webpack/common";
+import { showToast } from "@webpack/common";
 
 import { Native } from "..";
 import { addMessagesBulkIDB, iterateAllMessagesIDB } from "../db";
@@ -48,26 +48,23 @@ export async function importLogs() {
         }
 
         if (count === 0) {
-            Toasts.show({
-                id: Toasts.genId(),
-                message: "No messages found in log file",
-                type: Toasts.Type.FAILURE
+            showToast({
+                text: "No messages found in log file",
+                variant: "critical"
             });
             return;
         }
 
-        Toasts.show({
-            id: Toasts.genId(),
-            message: `Successfully imported ${count} logs`,
-            type: Toasts.Type.SUCCESS
+        showToast({
+            text: `Successfully imported ${count} logs`,
+            variant: "success"
         });
     } catch (e) {
         console.error(e);
 
-        Toasts.show({
-            id: Toasts.genId(),
-            message: "Error importing logs. Check the console for more information",
-            type: Toasts.Type.FAILURE
+        showToast({
+            text: "Error importing logs. Check the console for more information",
+            variant: "critical"
         });
     }
 
@@ -95,10 +92,9 @@ export async function exportLogs() {
             await Native.writeNativeLogChunk(streamId, "\n  ]\n}");
             await Native.finishNativeLogExport(streamId);
 
-            Toasts.show({
-                id: Toasts.genId(),
-                message: "Successfully exported logs",
-                type: Toasts.Type.SUCCESS
+            showToast({
+                text: "Successfully exported logs",
+                variant: "success"
             });
             return;
         }
@@ -134,19 +130,17 @@ export async function exportLogs() {
             await writer.write(encoder.encode("\n  ]\n}"));
             await writer.close();
 
-            Toasts.show({
-                id: Toasts.genId(),
-                message: `Successfully exported ${count} logs`,
-                type: Toasts.Type.SUCCESS
+            showToast({
+                text: `Successfully exported ${count} logs`,
+                variant: "success"
             });
         }
     } catch (e) {
         console.error(e);
 
-        Toasts.show({
-            id: Toasts.genId(),
-            message: "Error exporting logs. Check the console for more information",
-            type: Toasts.Type.FAILURE
+        showToast({
+            text: "Error exporting logs. Check the console for more information",
+            variant: "critical"
         });
     }
 }

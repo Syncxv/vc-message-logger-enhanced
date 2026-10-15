@@ -17,7 +17,7 @@ import { Margins } from "@utils/margins";
 import { classes } from "@utils/misc";
 import { ModalContent, ModalProps, ModalRoot, ModalSize, openModal } from "@utils/modal";
 import { useAwaiter, useForceUpdater } from "@utils/react";
-import { React, Toasts, useState } from "@webpack/common";
+import { React, showToast, useState } from "@webpack/common";
 
 import { GitError } from "../types";
 import { changes, checkForUpdates, getRepoInfo, repoInfo as reInfo, update, updateError } from "../utils/updater";
@@ -77,7 +77,7 @@ export function UpdaterModal({ modalProps }: { modalProps: ModalProps; }) {
         forceUpdate();
 
         if (!isOutdated)
-            Toasts.show({ id: Toasts.genId(), type: Toasts.Type.MESSAGE, message: "No updates!" });
+            showToast({ text: "No updates!" });
     }
 
     return (
