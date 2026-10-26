@@ -104,8 +104,19 @@ export async function getMessagesByStatusIDB(status: DBMessageStatus) {
     return cacheRecords(await db.getAllFromIndex("messages", "by_status", status));
 }
 
-export async function getOldestMessagesIDB(limit: number) {
-    return cacheRecords(await db.getAllFromIndex("messages", "by_timestamp", undefined, limit));
+export async function getOldestMessageIdsIDB(limit: number) {
+    const tx = db.transaction("messages", "readonly");
+    const index = tx.store.index("by_timestamp");
+    const messageIds: string[] = [];
+    let cursor = await index.openKeyCursor();
+
+    while (cursor && messageIds.length < limit) {
+        messageIds.push(String(cursor.primaryKey));
+        cursor = await cursor.continue();
+    }
+
+    await tx.done;
+    return messageIds;
 }
 
 export async function* iterateAllMessagesIDB(batchSize = 100) {
