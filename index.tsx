@@ -291,7 +291,7 @@ export default definePlugin({
 
         // only check for expired attachments if the message is not deleted
         {
-            find: "\"/ephemeral-attachments/\"",
+            find: "searchParams.has(\"ex\")",
             replacement: {
                 match: /\i\.attachments\.some\(\i\)\|\|\i\.embeds\.some/,
                 replace: "!arguments[0].deleted && $&"
