@@ -30,15 +30,25 @@ export async function importLogs() {
         let batch: LoggedMessageJSON[] = [];
 
         for await (const item of iterateLogItems()) {
-            const message = item.message || item;
-            if (!message || !message.id || !message.channel_id || !message.timestamp) continue;
+            const items = Array.isArray(item) ? item : [item];
 
-            batch.push(message);
+            for (const entry of items) {
+                const message = entry?.message
+                    ? {
+                        ...entry.message,
+                        id: entry.message.id ?? entry.message_id,
+                        channel_id: entry.message.channel_id ?? entry.channel_id,
+                    }
+                    : entry;
+                if (!message || !message.id || !message.channel_id || !message.timestamp) continue;
 
-            if (batch.length >= batchSize) {
-                await addMessagesBulkIDB(batch);
-                count += batch.length;
-                batch = [];
+                batch.push(message);
+
+                if (batch.length >= batchSize) {
+                    await addMessagesBulkIDB(batch);
+                    count += batch.length;
+                    batch = [];
+                }
             }
         }
 
@@ -80,20 +90,22 @@ export async function exportLogs() {
             await Native.writeNativeLogChunk(streamId, '{\n  "messages": [\n');
 
             let first = true;
-            for await (const record of iterateAllMessagesIDB()) {
+            let count = 0;
+            for await (const records of iterateAllMessagesIDB()) {
                 const prefix = first ? "" : ",\n";
                 first = false;
 
-                const chunk = prefix + "    " + JSON.stringify(record);
+                const chunk = prefix + records.map(record => "    " + JSON.stringify(record)).join(",\n");
 
                 await Native.writeNativeLogChunk(streamId, chunk);
+                count += records.length;
             }
 
             await Native.writeNativeLogChunk(streamId, "\n  ]\n}");
             await Native.finishNativeLogExport(streamId);
 
             showToast({
-                text: "Successfully exported logs",
+                text: `Successfully exported ${count} logs`,
                 variant: "success"
             });
             return;
@@ -120,11 +132,13 @@ export async function exportLogs() {
             let first = true;
             let count = 0;
             for await (const records of iterateAllMessagesIDB()) {
-                const prefix = first ? "" : ",\n";
-                first = false;
-                const chunk = prefix + "    " + JSON.stringify(records);
-                await writer.write(encoder.encode(chunk));
-                count += records.length;
+                for (const record of records) {
+                    const prefix = first ? "" : ",\n";
+                    first = false;
+                    const chunk = prefix + "    " + JSON.stringify(record);
+                    await writer.write(encoder.encode(chunk));
+                    count++;
+                }
             }
 
             await writer.write(encoder.encode("\n  ]\n}"));
